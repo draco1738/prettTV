@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Rivi</string>
+    <string name="favourites">Favourites</string>
+    <string name="all_apps">All apps</string>
+    <string name="settings">Settings</string>
+    <string name="inputs">Inputs</string>
+    <string name="launch_failed">Could not open</string>
+    <string name="menu_add_fav">Add to favourites</string>
+    <string name="menu_remove_fav">Remove from favourites</string>
+    <string name="menu_move_left">Move left</string>
+    <string name="menu_move_right">Move right</string>
+    <string name="menu_hide">Hide from Rivi</string>
+    <string name="menu_app_info">App info</string>
+    <string name="menu_unhide_all">Show hidden apps</string>
+    <string name="menu_refresh">Refresh app list</string>
+    <string name="menu_android_settings">Android settings</string>
+    <string name="menu_about">About Rivi</string>
+    <string name="home_service_label">Rivi Home button</string>
+    <string name="home_service_summary">Make the Home button open Rivi</string>
+    <string name="home_service_desc">When on, pressing Home opens Rivi instead of the Google TV home screen. Nothing on the projector is disabled or removed. It only sees the Home key and when the Google TV home screen appears; it cannot read screen content. Turn it off here to get the Google TV home screen back.</string>
+    <string name="menu_stock_home">Open Google TV home</string>
+    <string name="menu_home_button">Home button setup</string>
+    <string name="home_button_on">Home button: opens Rivi</string>
+    <string name="home_button_off">Home button: opens Google TV. Turn on \"Rivi Home button\" under Accessibility.</string>
+</resources>

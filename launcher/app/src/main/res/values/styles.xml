@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.Rivi" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@drawable/window_bg</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowContentTransitions">false</item>
+        <item name="android:windowAllowEnterTransitionOverlap">false</item>
+        <item name="android:windowAllowReturnTransitionOverlap">false</item>
+        <item name="android:windowDisablePreview">false</item>
+        <item name="android:colorBackground">#FF080A0F</item>
+    </style>
+</resources>

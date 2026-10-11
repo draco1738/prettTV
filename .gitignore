@@ -1,0 +1,27 @@
+# build output
+launcher/build/
+launcher/app/build/
+launcher/testapp/build/
+launcher/.gradle/
+launcher/.kotlin/
+launcher/local.properties
+*.apk
+
+# signing material never belongs in the repository
+launcher/signing.properties
+*.p12
+*.jks
+*.keystore
+
+# measurements from your own device (raw dumps can contain network names, MAC addresses, adb keys)
+results/
+
+# reference checkouts of other launchers
+third_party/
+
+.DS_Store
+.idea/
+*.iml
+
+__pycache__/
+*.pyc
