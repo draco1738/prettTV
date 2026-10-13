@@ -8,7 +8,7 @@
 
 [![Release](https://img.shields.io/github/v/release/jommi9/rivi?style=flat-square&color=E8C77A&label=release)](https://github.com/jommi9/rivi/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/jommi9/rivi/build.yml?style=flat-square&label=build)](https://github.com/jommi9/rivi/actions)
-![APK size](https://img.shields.io/badge/APK-53%20KB-2ea44f?style=flat-square)
+![APK size](https://img.shields.io/badge/APK-66%20KB-2ea44f?style=flat-square)
 ![Android](https://img.shields.io/badge/Android%20TV-8.0%2B-3ddc84?style=flat-square&logo=android&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
@@ -60,12 +60,15 @@ CPU goes. Full numbers, method and caveats: [docs/RESULTS.md](docs/RESULTS.md).
 
 ## ✨ Features
 
-- **53 KB app.** One screen, native Android views, no libraries.
+- **66 KB app.** One screen, native Android views, no libraries.
 - **Zero work when idle.** No redraws, no background services, no polling.
 - **Home button without disabling anything.** One switch under Accessibility. Turn it off and
   the device is exactly as it was.
 - **Favourites row.** Starts with whichever of Netflix, Prime Video, YouTube, Apple TV, Disney+,
   Max and Spotify are installed. Add, remove and reorder with the remote.
+- **Quiet motion.** The focused tile settles with a slight overshoot over a soft shadow, the
+  label fades in, and menus slide in from the side. Nothing moves at rest. Tried out first in
+  the [motion study](tools/motion-study/README.md).
 - **All apps, most recent first.** Every TV app on the device, with the ones you opened last at
   the front.
 - **Settings and inputs one click away.** A gear tile for Android Settings (picture, keystone and
@@ -119,7 +122,7 @@ It cannot read what is on screen. Details: [docs/HOME_BUTTON.md](docs/HOME_BUTTO
 |---|---|
 | D-pad | Move |
 | OK | Open the app |
-| Hold OK | Tile menu: add to or remove from Favourites, move left or right, hide, app info |
+| Hold OK | A ring fills, then the tile menu slides in: add to or remove from Favourites, move left or right, hide, app info |
 | MENU | Launcher menu: Android settings, show hidden apps, open Google TV home, refresh |
 | BACK | Jump to the first favourite |
 
@@ -175,11 +178,12 @@ with real key events. `bench/benchmark.sh` reproduces the measurements, see
 
 | Path | What |
 |---|---|
-| `launcher/app` | The launcher: five small Kotlin files, one of them the optional Home-button service |
+| `launcher/app` | The launcher: eight small Kotlin files, one of them the optional Home-button service |
 | `launcher/testapp` | A do-nothing TV app used by the on-device tests |
 | `tests/` | `ui_test.sh` (on-device UI tests), `launch_streaming.sh` |
 | `bench/` | Benchmark suite and analysis |
 | `adb/` | Device profiling and shared helpers |
+| `tools/motion-study` | [Browser simulation](tools/motion-study/README.md) of the home screen for trying motion, themes and sounds before building them |
 | `docs/` | [Results](docs/RESULTS.md), [method](docs/METHODOLOGY.md), [architecture](docs/ARCHITECTURE.md), [Home button](docs/HOME_BUTTON.md), [roadmap](docs/ROADMAP.md) |
 
 </details>

@@ -48,6 +48,9 @@ class MainActivity : Activity() {
     private lateinit var favScroll: HorizontalScrollView
     private lateinit var grid: LinearLayout
     private lateinit var clock: TextView
+    private var motion = Motion.DEFAULT
+    private var shadow: ShadowView? = null      // only with Motion.shadow
+    private var menu: SideMenu? = null          // created the first time a menu is opened
 
     private var apps: List<AppEntry> = emptyList()
     private var inputs: AppEntry? = null
@@ -86,6 +89,8 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
         repo = AppRepository(this)
+        if (savedInstanceState == null) intent?.getStringExtra(EXTRA_MOTION)?.let { prefs.motion = it; intent.removeExtra(EXTRA_MOTION) }
+        motion = Motion.parse(prefs.motion)
         val dm = resources.displayMetrics
         scale = dm.widthPixels / 1920f
         buildChrome()
@@ -108,7 +113,14 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false
             setPadding(marginX - px(10), px(56), marginX - px(10), px(96))
         }
-        root.addView(page, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        // The shadow lives in its own view underneath the page, so it is behind every tile.
+        val stage = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
+        if (motion.shadow) shadow = ShadowView(this).also {
+            val (w, h) = it.sizeFor(favW, favH)
+            stage.addView(it, FrameLayout.LayoutParams(w, h, Gravity.TOP or Gravity.START))
+        }
+        stage.addView(page, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(stage, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 
         // Header: wordmark left, clock right
         val header = FrameLayout(this).apply { setPadding(px(10), 0, px(10), 0) }
@@ -129,6 +141,11 @@ class MainActivity : Activity() {
             clipChildren = false; clipToPadding = false
         }
         favRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false; clipToPadding = false; setPadding(0, px(8), 0, 0) }
+        shadow?.let { sh ->
+            // keep the shadow under its tile while the favourites row scrolls, and after any layout pass
+            favScroll.setOnScrollChangeListener { _, _, _, _, _ -> sh.place() }
+            root.viewTreeObserver.addOnGlobalLayoutListener { sh.place() }
+        }
         favScroll.addView(favRow, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         page.addView(favScroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = px(40) })
 
@@ -168,6 +185,7 @@ class MainActivity : Activity() {
 
     override fun onStop() {
         started = false
+        menu?.close(animate = false)
         super.onStop()
     }
 
@@ -179,8 +197,18 @@ class MainActivity : Activity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        // HOME pressed while we are already alive: just make sure a tile has focus.
+        val m = intent?.getStringExtra(EXTRA_MOTION)
+        if (m != null && Motion.parse(m) != motion) { prefs.motion = m; recreate(); return }
+        // HOME pressed while we are already alive: close any menu and make sure a tile has focus.
+        menu?.close()
         if (currentFocus !is TileView) restoreFocus()
+    }
+
+    // While the side menu is open it takes the remote's keys; the tile underneath keeps the focus.
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val m = menu
+        if (m != null && m.isOpen && m.handleKey(event)) return true
+        return super.dispatchKeyEvent(event)
     }
 
     @Deprecated("Deprecated in Java")
@@ -206,6 +234,7 @@ class MainActivity : Activity() {
         w.println("RIVI hidden=${prefs.hidden.sorted().joinToString(",")}")
         w.println("RIVI focus=${(currentFocus as? TileView)?.entryKey ?: "none"}")
         w.println("RIVI tiles=${tiles.size} withBitmap=${tiles.values.count { it.bitmap != null }}")
+        w.println("RIVI motion=${motion.names.joinToString(",").ifEmpty { "none" }} menu=${if (menu?.isOpen == true) "open" else "closed"}")
         w.println("RIVI homeService=${HomeKeyService.connected} homeKeys=${HomeKeyService.homeKeyPresses} redirects=${HomeKeyService.redirects} keysSeen=${HomeKeyService.keysSeen}")
     }
 
@@ -268,7 +297,7 @@ class MainActivity : Activity() {
 
         val r = favR
         for (e in favs) {
-            val t = TileView(this, favW, favH, labelH, r).apply { label = e.label; entryKey = e.key; bitmap = e.bitmap }
+            val t = TileView(this, favW, favH, labelH, r, motion).apply { label = e.label; entryKey = e.key; bitmap = e.bitmap }
             wire(t, e)
             favRow.addView(t, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = gap - 2 * t.pad })
         }
@@ -279,7 +308,7 @@ class MainActivity : Activity() {
                 row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false; clipToPadding = false; setPadding(0, 0, 0, 0) }
                 grid.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             }
-            val t = TileView(this, gridW, gridH, labelH, gridR).apply { label = e.label; entryKey = e.key; bitmap = e.bitmap }
+            val t = TileView(this, gridW, gridH, labelH, gridR, motion).apply { label = e.label; entryKey = e.key; bitmap = e.bitmap }
             wire(t, e)
             row!!.addView(t, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = gap - 2 * t.pad })
         }
@@ -295,6 +324,7 @@ class MainActivity : Activity() {
             if (first.id == View.NO_ID) first.id = View.generateViewId(); first.nextFocusLeftId = first.id
             if (last.id == View.NO_ID) last.id = View.generateViewId(); last.nextFocusRightId = last.id
         }
+        if (tiles.isEmpty()) shadow?.follow(null)
         restoreFocus(HomeModel.focusTarget(focusedKey, arranged))
     }
 
@@ -302,6 +332,7 @@ class MainActivity : Activity() {
         tiles[e.key] = t
         t.setOnClickListener { launch(e) }
         t.setOnLongClickListener { showTileMenu(e); true }
+        shadow?.let { sh -> t.onFocused = { sh.follow(it) } }
     }
 
     private fun restoreFocus(key: String? = prefs.lastFocus) {
@@ -313,7 +344,7 @@ class MainActivity : Activity() {
     private fun launch(e: AppEntry) {
         prefs.touchRecent(e.key)
         prefs.lastFocus = e.key
-        safeStart(e.intent, e.label)
+        safeStart(repo.launchIntent(e), e.label)
     }
 
     private fun safeStart(i: Intent, label: String) {
@@ -337,7 +368,7 @@ class MainActivity : Activity() {
         }
         items += getString(R.string.menu_hide) to { prefs.hidden = prefs.hidden + e.key; rebuild() }
         items += getString(R.string.menu_app_info) to { safeStart(repo.appInfoIntent(e.packageName), e.label) }
-        dialog(e.label, items)
+        dialog(e.label, items, e.bitmap)
     }
 
     private fun showMenu() {
@@ -357,6 +388,11 @@ class MainActivity : Activity() {
         dialog("Rivi", items)
     }
 
+    companion object {
+        /** `--es motion settle,fade` on the launch intent picks the refinements; see [Motion]. */
+        const val EXTRA_MOTION = "motion"
+    }
+
     /** The stock home screen, if one other than us is installed and enabled. */
     private fun stockHomeIntent(): Intent? {
         val q = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
@@ -365,7 +401,15 @@ class MainActivity : Activity() {
             .setClassName(ri.activityInfo.packageName, ri.activityInfo.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
-    private fun dialog(title: String, items: List<Pair<String, () -> Unit>>) {
+    private fun dialog(title: String, items: List<Pair<String, () -> Unit>>, picture: Bitmap? = null) {
+        if (motion.hold) {
+            val m = menu ?: SideMenu(this, ::px).also {
+                menu = it
+                addContentView(it, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            }
+            m.open(title, picture, items)
+            return
+        }
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle(title)
             .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }

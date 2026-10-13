@@ -1,8 +1,8 @@
 # Architecture
 
 ## Launcher (`launcher/`)
-One Activity and one optional service, five Kotlin files, no AndroidX, no third-party libraries.
-Release APK ≈ 53 KB. No internet permission.
+One Activity and one optional service, eight Kotlin files, no AndroidX, no third-party libraries.
+Release APK ≈ 66 KB. No internet permission.
 
 * `MainActivity.kt` builds the view tree in code (no XML inflation): a `ScrollView` → vertical
   `LinearLayout` with a header (wordmark + clock), the **Favourites** strip (`HorizontalScrollView`),
@@ -10,8 +10,20 @@ Release APK ≈ 53 KB. No internet permission.
   1920×1080 grid and scaled by `displayWidth / 1920`, so the layout is identical on any TV density.
 * `TileView.kt` is a single custom `View` per app: rounded artwork via `BitmapShader`, a focus ring
   drawn *outside* the artwork (always visible), and the label drawn only under the focused tile.
-  Focus = one `invalidate()` of that tile plus a 110 ms scale animation on the hardware layer.
-  Nothing else redraws. The only idle redraw is the clock, once per minute (`ACTION_TIME_TICK`).
+  Focus = a scale animation on the hardware layer (190 ms in with a slight overshoot, 130 ms out)
+  while the ring and label fade for 140 ms, which redraws only the two tiles involved. Holding OK
+  fills a ring on the tile until the menu opens. Nothing redraws at rest; the only idle redraw is
+  the clock, once per minute (`ACTION_TIME_TICK`).
+* `ShadowView.kt` is the soft shadow under the focused tile. It is one view behind the whole page,
+  so it never shades a neighbouring tile. The blur is drawn once per tile size into a small bitmap;
+  after that the view only changes translation and alpha, which are render properties (no redraw).
+* `SideMenu.kt` is the menu for a tile (hold OK) and for Rivi (MENU): a sheet that slides in from
+  the right. It does not take focus, so the tile underneath stays lit; the activity hands it the
+  remote's keys while it is open. It is `GONE` when closed.
+* `Motion.kt` says which of these four refinements are on (`settle`, `fade`, `shadow`, `hold`;
+  all by default). `adb shell am start -n fi.jommi.rivi/.MainActivity --es motion none` switches
+  them off, which gives the 0.12 behaviour. They were designed in `tools/motion-study`, a browser
+  simulation of this screen, and the timings there and here are the same numbers.
 * `Apps.kt`: `AppRepository` queries `LEANBACK_LAUNCHER` activities, renders each banner/icon to a
   bitmap of the exact tile size once, and caches it as PNG under `cacheDir/tiles/` keyed by
   component + versionCode + size. Later cold starts never open other packages' resources.

@@ -113,4 +113,13 @@ class HomeModelTest {
         assertEquals(false, HomeKeyService.isStockHomeScreen("com.netflix.ninja", "com.netflix.ninja.home.HomeActivity"))
         assertEquals(false, HomeKeyService.isStockHomeScreen(null, null))
     }
+
+    @Test fun motionSpecIsParsed() {
+        assertEquals(Motion.DEFAULT, Motion.parse(null))
+        assertEquals(Motion.DEFAULT, Motion.parse(" default "))
+        assertEquals(Motion.NONE, Motion.parse("none"))
+        assertEquals(Motion(settle = true, fade = false, shadow = false, hold = true), Motion.parse("Settle, hold,glow"))
+        assertEquals(listOf("settle", "fade", "shadow", "hold"), Motion.DEFAULT.names)
+        assertEquals(Motion.DEFAULT, Motion.parse(Motion.DEFAULT.names.joinToString(",")))
+    }
 }

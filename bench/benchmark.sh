@@ -6,6 +6,8 @@
 #   bench/benchmark.sh switch LABEL                     Netflix↔YouTube switching + process residency
 #   bench/benchmark.sh nav    LABEL HOME_PKG            D-pad navigation frame stats (jank, percentiles)
 #   bench/benchmark.sh system LABEL                     RAM pressure, PSI, thermal, storage, ANR/crash dropbox
+#   bench/benchmark.sh pressure LABEL                   the device as it is after days of use: swap, who holds it,
+#                                                       then per app first frame, time to settle and swap read back
 #   bench/benchmark.sh cycles LABEL HOME_PKG N          reliability: N × Home→app→Home cycles
 #   bench/benchmark.sh shot   NAME                      screenshot -> results/shots/NAME.png
 #
@@ -101,6 +103,34 @@ launch)
   done
   log "done -> python3 bench/analyze.py launch $OUT" ;;
 
+pressure)
+  # `launch` empties the stage first (force-stop, then a first frame). This mode measures what a person
+  # meets: whatever has piled up since the last restart, and how long an app keeps the device busy.
+  # Nothing is stopped except the app being timed. Run it before and after a restart to compare.
+  APPS=${APPS:-$(default_apps | paste -sd' ' -)}
+  "${A[@]}" push "$BENCH/settle.sh" /data/local/tmp/rivi_settle.sh </dev/null >/dev/null 2>&1
+  {
+    echo "uptime_h=$(sh_ "cut -d. -f1 /proc/uptime" | awk '{printf "%.1f", $1/3600}')"
+    sh_ "cat /proc/meminfo" | awk '/^MemAvailable|^SwapTotal|^SwapFree/{v[$1]=$2} END{printf "mem_available_mb=%d\nswap_used_mb=%d\nswap_used_pct=%d\n", v["MemAvailable:"]/1024, (v["SwapTotal:"]-v["SwapFree:"])/1024, v["SwapTotal:"] ? 100*(v["SwapTotal:"]-v["SwapFree:"])/v["SwapTotal:"] : 0}'
+    echo "low_memory_kills_recorded=$(sh_ "dumpsys activity exit-info" | grep -c 'LOW_MEMORY')"
+    echo "cached_app_processes=$(sh_ "dumpsys activity lru" | grep -cE ' cch')"
+    echo "settings_screens_alive=$(sh_ "dumpsys activity activities" | grep -c 'Hist .*settings/')"
+  } | tee "$OUT/pressure_state.txt" | sed 's/^/   /'
+  log "largest holders of swap (MB swapped / MB resident):"
+  sh_ 'for p in /proc/[0-9]*; do s=$(grep VmSwap $p/status 2>/dev/null | tr -dc 0-9); [ "${s:-0}" -gt 20000 ] && echo "$((s/1024)) $(($(grep VmRSS $p/status | tr -dc 0-9)/1024)) $(tr "\000" " " < $p/cmdline | cut -d" " -f1)"; done | sort -rn | head -10' | tee "$OUT/pressure_swap.txt" | sed 's/^/   /'
+  echo "stamp,label,app,trial,first_ms,settle_ms,swapin_mb,majflt" > "$OUT/pressure.csv.hdr"
+  for p in $APPS; do
+    comp=$(leanback_component "$p"); [ -z "$comp" ] && { log "skip $p (no leanback activity)"; continue; }
+    for t in $(seq 1 "$TRIALS"); do
+      sh_ "am force-stop $p" >/dev/null; sleep 2
+      set -- $(sh_ "sh /data/local/tmp/rivi_settle.sh $comp ${LIMIT:-25}")
+      rec "$p,$t,${1:-NA},${2:-NA},${3:-NA},${4:-NA}"; log "$p #$t first frame ${1:-NA} ms, settled after ${2:-NA} ms, ${3:-NA} MB read back from swap, ${4:-NA} major faults"
+      go_home; sleep 4
+    done
+  done
+  sh_ "rm -f /data/local/tmp/rivi_settle.sh" >/dev/null
+  log "done" ;;
+
 switch)
   APPS=${APPS:-$(default_apps | head -2 | paste -sd' ' -)}
   set -- $APPS; A1=$1; A2=${2:-$1}
@@ -158,7 +188,7 @@ homekey)
   PKG=${1:?home pkg}; FROM=${2:-settings}
   log "homekey: $TRIALS × Home from $FROM, expecting $PKG"
   for t in $(seq 1 "$TRIALS"); do
-    if [ "$FROM" = settings ]; then sh_ "am start -a android.settings.SETTINGS" >/dev/null 2>&1; else comp=$(leanback_component "$FROM"); sh_ "am start -n $comp -c android.intent.category.LEANBACK_LAUNCHER" >/dev/null 2>&1; fi
+    if [ "$FROM" = settings ]; then sh_ "am start -a android.settings.SETTINGS -f 0x10008000" >/dev/null 2>&1; else comp=$(leanback_component "$FROM"); sh_ "am start -n $comp -c android.intent.category.LEANBACK_LAUNCHER" >/dev/null 2>&1; fi
     sleep 4; sh_ "logcat -c; logcat -b events -c" >/dev/null 2>&1; sleep 0.3
     key KEYCODE_HOME; sleep 2.5
     sh_ "logcat -b main,system,events -d -v threadtime" > "$OUT/homekey_$t.txt"

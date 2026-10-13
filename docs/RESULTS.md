@@ -77,6 +77,44 @@ trials to call a difference.
 Switching between two running apps (Netflix ↔ YouTube) is unchanged: 207 / 112 ms with Rivi,
 231 / 117 ms with Google TV. Both stayed in memory through every round trip in both setups.
 
+### After three days without a restart
+
+Everything above was measured on a tidy device: background apps cleared, launcher restarted.
+The same projector after 74 hours of ordinary use (and of this project's test runs) felt slow
+again, and it was. `benchmark.sh pressure`, nothing cleared first:
+
+* Compressed swap 78–83% full (630–670 MB), 340–540 MB available, 389 low-memory kills on
+  record. Nearly every process had 30–100 MB swapped out, including the system UI, Bluetooth and
+  the remote-control service, so any action first had to read memory back.
+* Cold first frames were slower than three days earlier and uneven, the first try of each app
+  being the worst: Netflix 1115 ms (was 796), YouTube 1246 (965), Prime Video 1096 (809),
+  Apple TV 764 (715). Medians of 3, range 635–1889 ms.
+
+| app (one trial each) | first frame | settled after | read back from swap | major faults |
+|---|---|---|---|---|
+| Netflix | 1.8 s | over 25 s (keeps playing previews) | 8 MB | 3 900 |
+| YouTube | 2.2 s | 13.7 s | 50 MB | 16 600 |
+| Disney+ | 1.4 s | 15.0 s | 27 MB | 9 900 |
+| Viaplay | 3.7 s | 15.2 s | 42 MB | 14 000 |
+| MUBI | 2.3 s | over 25 s | 34 MB | 11 000 |
+| Kanopy | 5.5 s | 12.5 s | 12 MB | 5 100 |
+
+"First frame" is what the launch table measures; "settled" is when the device stopped being
+busy, which is closer to when the app can be used. There is no tidy-device run of this table yet
+to compare against; it needs a restart.
+
+Rivi itself was not slower in this state: returning Home took 165–330 ms (as before), and the
+navigation frame times above were taken in it. A launcher cannot free other apps' memory on
+Android 14, and the stock home screen stays cached at about 190 MB even while Rivi is in front.
+
+One cause was found and fixed. Android's Settings showed 100 MB read back from swap and frame
+times of 26 / 69 / 200 ms (p50 / p90 / p99) for twelve key presses, at 160 MB resident. It was
+Settings screens stacked on top of each other (five when first looked at, eight after more
+test runs): opening Settings with a plain intent and
+leaving with Home leaves the old screen alive and puts a new one on it. This project's own test
+suite did that four times per run, and Rivi's "Android settings" menu entry did it once per use.
+Both now open Settings in a cleared task, and the count stays at one.
+
 ## Navigation
 
 Paced test: 40 D-pad presses, one every 350 ms.
@@ -94,6 +132,21 @@ completes a median 9 ms after its vsync on Rivi (p90 10 ms, n=15) and 12 ms on j
 
 Remote-to-screen latency was not measured (no high-speed camera). Frame times are a proxy.
 
+### Motion in 0.13
+
+0.13 adds four refinements (settle with overshoot, ring and label fade, lift shadow, hold ring
+and side menu). Same APK with them off (`--es motion none`) and on, two runs each, interleaved:
+
+| | paced: frames / p50 / p90 / p99 (ms) | back-to-back: p50 / p90 / p99 (ms) | missed vsync |
+|---|---|---|---|
+| off | 320 / 16 / 16 / 17 (both runs) | 10 / 11 / 15–16 | 0 |
+| on | 370–530 / 14–15 / 16–17 / 17–28 | 11–12 / 13 / 16 | 0 |
+
+The longer settle and the shadow fade mean more frames per key press (9 to 13, was 8), each
+1–2 ms dearer when keys arrive back-to-back. No frame missed its vsync in any run. One of the two
+paced runs had a 28 ms 99th percentile; the other matched "off". At rest with the refinements on:
+2 frames and 20 ms of CPU in 30 s.
+
 ### What changed the numbers
 
 Sustained test, 40 presses back-to-back:
@@ -109,9 +162,9 @@ The background change is less certain than the first: over five runs the GPU sta
 
 ## Tests and reliability
 
-* JVM unit tests: 14 of 14.
-* On-device UI tests (`tests/ui_test.sh`): 54 of 54 with the Home-button service on, 51 of 51
-  with it off. They cover cold start, app discovery against the package manager, D-pad navigation
+* JVM unit tests: 15 of 15.
+* On-device UI tests (`tests/ui_test.sh`): 54 of 54 with the Home-button service on (0.12), 51 of 51
+  with it off (0.12 and 0.13). They cover cold start, app discovery against the package manager, D-pad navigation
   and edges, a newly installed app appearing, launching, focus restoration, favourites add /
   reorder / hide / persistence, an uninstalled favourite, an app reinstalled in the background,
   leave / return, recovery after the foreground app or the launcher is killed, and the Home
@@ -125,6 +178,8 @@ The background change is less certain than the first: over five runs the GPU sta
 
 ## Not measured or not tested
 
+* The hold ring with a real remote. It was checked with a scripted key hold and a screen recording.
+* 0.13 with the Home-button service on (the service code did not change).
 * Behaviour after a device reboot.
 * Any device other than the JMGO N1S; any remote other than its own.
 * Playback, DRM, casting, Bluetooth audio, keystone and autofocus with Rivi as home. Nothing

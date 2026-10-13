@@ -141,7 +141,7 @@ check "focus moved to a valid tile ($(field focus))" test "$(field focus)" != no
 key KEYCODE_DPAD_RIGHT; key KEYCODE_DPAD_LEFT
 check "remote still navigates" test "$(field focus)" != none
 # reinstall while another app is in front: the launcher must pick it up when it returns
-sh_ "am start -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 2
+sh_ "am start -a android.settings.SETTINGS -f 0x10008000" >/dev/null 2>&1; sleep 2
 "${A[@]}" install -r "$TESTAPK" </dev/null >/dev/null 2>&1; sleep 2
 front 3
 back_fav() { in_list "$TKEY" "$(field favourites)"; }
@@ -150,7 +150,7 @@ check "app reinstalled in the background returns to its favourite slot" wait_for
 t "8. Activity lifecycle"
 p0=$(pidj); r0=$(kv reloads)
 key KEYCODE_BACK 0.8; check "BACK never closes the home screen" top_is "$PKG"
-for i in 1 2 3; do sh_ "am start -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 1.5; front 1.5; done
+for i in 1 2 3; do sh_ "am start -a android.settings.SETTINGS -f 0x10008000" >/dev/null 2>&1; sleep 1.5; front 1.5; done
 check "3× leave/return keeps the same process" test "$(pidj)" = "$p0"
 check "returning does not rescan apps (reloads $r0 → $(kv reloads))" test "$(kv reloads)" = "$r0"
 check "all tiles still have artwork" all_bitmaps
@@ -172,7 +172,7 @@ if [ "$SERVICE_ON" = 1 ] && [ "$(kv homeService)" = true ]; then
   # adb-injected keys bypass the accessibility key filter, so this exercises the redirect path
   # (stock home starts, the service covers it). The direct key path needs the physical remote.
   k0=$(( $(kv homeKeys) + $(kv redirects) ))
-  sh_ "am start -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 2
+  sh_ "am start -a android.settings.SETTINGS -f 0x10008000" >/dev/null 2>&1; sleep 2
   key KEYCODE_HOME 2
   check "Home from Settings opens Rivi" top_is "$PKG"
   check "handled by the Rivi service (key or redirect)" test "$(( $(kv homeKeys) + $(kv redirects) ))" -gt "$k0"
@@ -182,7 +182,7 @@ if [ "$SERVICE_ON" = 1 ] && [ "$(kv homeService)" = true ]; then
   key KEYCODE_HOME 1.5; check "Home on the home screen stays there" top_is "$PKG"
   check "stock launcher still enabled" bash -c "! adb -s $TV shell pm list packages -d </dev/null | grep -q launcherx"
 elif current_home | grep -q "^$PKG/"; then
-  sh_ "am start -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 2; key KEYCODE_HOME 2
+  sh_ "am start -a android.settings.SETTINGS -f 0x10008000" >/dev/null 2>&1; sleep 2; key KEYCODE_HOME 2
   check "Home from Settings opens Rivi (Rivi is the system Home app)" top_is "$PKG"
 else
   echo "  SKIP  Rivi does not own the Home button yet (service off, stock launcher is Home)" | tee -a "$LOG"

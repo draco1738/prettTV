@@ -45,6 +45,10 @@ class Prefs(context: Context) {
     var lastFocus: String?
         get() = sp.getString("focus", null)
         set(v) = sp.edit().putString("focus", v).apply()
+    /** Refinements chosen with `--es motion …`; null means the built-in default. See [Motion]. */
+    var motion: String?
+        get() = sp.getString("motion", null)
+        set(v) = sp.edit().putString("motion", v).apply()
 
     /** Launch timestamps for "recent" ordering; no background tracking, only our own launches. */
     fun recentOrder(): Map<String, Long> = HomeModel.parseRecent(sp.getString("recent", null))
@@ -170,14 +174,27 @@ class AppRepository(private val context: Context) {
         return AppEntry("inputs", ri.activityInfo.packageName, context.getString(R.string.inputs), i, false, 0L)
     }
 
+    // Settings is opened with CLEAR_TASK. Without it, every visit that is left with Home instead of
+    // Back stays alive, and the next one is stacked on top: five stacked Settings screens were found
+    // on the test device, 160 MB and visibly slow. An app's own place is never cleared, only Settings.
+    private val freshTask = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+
     fun settingsIntent(): Intent? {
-        val i = Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val i = Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(freshTask)
         return if (pm.resolveActivity(i, 0) != null) i else null
     }
 
+    /** The package that answers ACTION_SETTINGS, so its tile can be opened the same way. */
+    val settingsPackage: String? by lazy {
+        pm.resolveActivity(Intent(android.provider.Settings.ACTION_SETTINGS), 0)?.activityInfo?.packageName
+    }
+
+    fun launchIntent(e: AppEntry): Intent =
+        if (e.packageName == settingsPackage) Intent(e.intent).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK) else e.intent
+
     fun appInfoIntent(pkg: String): Intent =
         Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-            .setData(android.net.Uri.parse("package:$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .setData(android.net.Uri.parse("package:$pkg")).addFlags(freshTask)
 
     companion object {
         /** HDMI plug glyph for the Inputs tile; drawn, so no artwork is shipped. */

@@ -51,6 +51,25 @@ its service) to the home activity's `wm_on_resume_called` in the events log. Key
 bypass accessibility key filters, so with the Home-button service on this measures the redirect
 path, not the direct path a physical remote takes.
 
+## Lived-in state (`benchmark.sh pressure LABEL`)
+The modes above start from a tidy device: the launcher is restarted, background apps are cleared,
+and an app's start is timed to its first frame. That is the best case. A TV that has been on for
+days is not in that state, and "first frame" is not when an app is usable. This mode measures
+what a person meets and stops nothing except the app being timed:
+
+1. State: uptime, available memory, how full the compressed swap is, how many low-memory kills
+   Android has recorded, how many cached app processes and Settings screens are alive, and which
+   processes hold the most swap.
+2. Per app: force-stop, start, then (`bench/settle.sh`, on the device) **first frame**
+   (`am start -W`), **time to settle** (until whole-device CPU has stayed under 30% for one second;
+   an app that autoplays video never settles and reports the 25 s limit), **MB read back from
+   swap** and **major page faults** in that window.
+
+Run it as the device is, restart the device, run it again. The difference is what uptime costs.
+To find out why one screen is slow, the same counters can be read per process around a burst of
+key presses (major faults and CPU time from `/proc/<pid>/stat`); that is how the stacked Settings
+screens in RESULTS.md were found.
+
 ## A/B (`bench/ab.sh N a=one.apk b=two.apk`)
 Installs each APK in turn, interleaved, runs the sustained navigation test N times per APK and
 prints medians. Used to keep or revert individual rendering changes.
@@ -65,7 +84,17 @@ prints medians. Used to keep or revert individual rendering changes.
 * Wireless debugging switches itself off whenever Wi-Fi drops. Keep "USB debugging" on as well,
   or adb disappears until someone re-enables it on the device.
 
+* Opening Settings with `am start -a android.settings.SETTINGS` and leaving with Home stacks
+  another Settings screen on the last one. The tests did this four times per run; eight
+  screens were alive at one point (160 MB). They now pass `-f 0x10008000` (new task, clear task).
+* The device shell (mksh) has 32-bit arithmetic: nanosecond timestamps overflow. `settle.sh`
+  counts in hundredths of a second from `/proc/uptime`.
+* `input keyevent --longpress` sends the key down and the long-press repeat at the same instant,
+  so it cannot show the hold ring filling, and the shell may not write to `/dev/input`. A monkey
+  script (`DispatchKey` down, `UserWait`, `DispatchKey` up) holds a key for a chosen time.
+
 ## Caveats
+* `idle`, `launch` and `nav` describe a freshly tidied device. Use `pressure` for the other case.
 * Thermal: the device reports no readable thermal zones to the shell user; CPU frequency is
   logged instead (`adb/profile.sh`).
 * Launch times depend on network (Netflix/YouTube fetch content on start); trials are interleaved
