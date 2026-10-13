@@ -14,8 +14,8 @@ android {
         applicationId = "fi.jommi.rivi"
         minSdk = 26
         targetSdk = 34
-        versionCode = 14
-        versionName = "0.14"
+        versionCode = 15
+        versionName = "0.15"
     }
 
     // Release signing is optional. Put a `signing.properties` file next to settings.gradle.kts

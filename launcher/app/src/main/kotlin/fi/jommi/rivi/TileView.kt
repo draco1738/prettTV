@@ -54,6 +54,7 @@ class TileView(context: Context, val imgW: Int, val imgH: Int, private val label
         isFocusable = true
         isFocusableInTouchMode = false
         isClickable = true
+        isSoundEffectsEnabled = motion.sound   // otherwise the system setting would decide whether tiles click
         ringPaint.strokeWidth = ringW
         textPaint.textSize = labelH * 0.48f
         setWillNotDraw(false)

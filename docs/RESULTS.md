@@ -200,6 +200,9 @@ The background change is less certain than the first: over five runs the GPU sta
 
 ## Not measured or not tested
 
+* Sound by ear. On the test device the audio output stayed in standby through six key presses on
+  Rivi, with and without `sound` (Android's Settings did wake it), so the opt-in click could not
+  be confirmed there.
 * The hold ring with a real remote. It was checked with a scripted key hold and a screen recording.
 * Behaviour after a device reboot beyond one restart (0.13: Rivi was on screen and the service on).
 * Any device other than the JMGO N1S; any remote other than its own.

@@ -31,8 +31,12 @@ switches a running Rivi over without rebuilding, and Rivi remembers the choice:
 adb shell am start -n fi.jommi.rivi/.MainActivity --es motion settle,fade
 ```
 
-`--es motion none` gives the 0.12 behaviour (including the stock dialog for menus) and
+`--es motion none` switches all four off (menus are then the stock dialog, as in 0.12) and
 `--es motion default` goes back to all four. The defaults are in `Motion.kt`.
+
+Rivi is silent since 0.15. Adding `sound` to the list (`--es motion settle,fade,shadow,hold,sound`)
+lets Android's built-in click play on moving and opening, if the device has one and its system
+sounds are on. The tuned sounds from the Sounds tab are not in the app.
 
 Two of the four themes are in the app since 0.14 (`Theme.kt`): Midnight, the default, and
 Cinema, which is true black with every unfocused tile at half brightness. With Cinema the lift

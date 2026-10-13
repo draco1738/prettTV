@@ -120,6 +120,8 @@ class HomeModelTest {
         assertEquals(Motion.NONE, Motion.parse("none"))
         assertEquals(Motion(settle = true, fade = false, shadow = false, hold = true), Motion.parse("Settle, hold,glow"))
         assertEquals(listOf("settle", "fade", "shadow", "hold"), Motion.DEFAULT.names)
+        assertEquals(false, Motion.DEFAULT.sound)   // silent unless asked for
+        assertEquals(true, Motion.parse("settle,sound").sound)
         assertEquals(Motion.DEFAULT, Motion.parse(Motion.DEFAULT.names.joinToString(",")))
     }
 

@@ -22,7 +22,8 @@ Release APK ≈ 66 KB. No internet permission.
   remote's keys while it is open. It is `GONE` when closed.
 * `Motion.kt` says which of these four refinements are on (`settle`, `fade`, `shadow`, `hold`;
   all by default). `adb shell am start -n fi.jommi.rivi/.MainActivity --es motion none` switches
-  them off, which gives the 0.12 behaviour. `Theme.kt` holds the colours: Midnight (default) and
+  them off, which gives the 0.12 behaviour. Tiles make no sound unless `sound` is added to that
+  list, which lets Android's own click through. `Theme.kt` holds the colours: Midnight (default) and
   Cinema (`--es theme cinema`), true black with unfocused artwork at half brightness through a
   shared table of colour filters. They were designed in `tools/motion-study`, a browser
   simulation of this screen, and the timings there and here are the same numbers.
