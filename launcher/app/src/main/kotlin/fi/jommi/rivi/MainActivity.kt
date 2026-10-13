@@ -173,7 +173,8 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        registerReceiver(tickReceiver, IntentFilter(Intent.ACTION_TIME_TICK))
+        // the minute tick, plus the clock or the time zone being changed in Settings
+        registerReceiver(tickReceiver, IntentFilter(Intent.ACTION_TIME_TICK).apply { addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED) })
         updateClock()
     }
 
@@ -222,7 +223,10 @@ class MainActivity : Activity() {
         return super.onKeyDown(keyCode, event)
     }
 
-    private fun updateClock() { clock.text = clockFormat.format(Date()) }
+    private fun updateClock() {
+        clockFormat.timeZone = java.util.TimeZone.getDefault()   // a formatter keeps the zone it was created in
+        clock.text = clockFormat.format(Date())
+    }
 
     /** `adb shell dumpsys activity fi.jommi.rivi` prints this; used by tests/ui_test.sh. Costs nothing at runtime. */
     override fun dump(prefix: String, fd: java.io.FileDescriptor?, w: java.io.PrintWriter, args: Array<out String>?) {

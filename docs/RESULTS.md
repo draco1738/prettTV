@@ -100,8 +100,23 @@ again, and it was. `benchmark.sh pressure`, nothing cleared first:
 | Kanopy | 5.5 s | 12.5 s | 12 MB | 5 100 |
 
 "First frame" is what the launch table measures; "settled" is when the device stopped being
-busy, which is closer to when the app can be used. There is no tidy-device run of this table yet
-to compare against; it needs a restart.
+busy, which is closer to when the app can be used.
+
+The same six apps one minute after a restart (swap 24% full, 675 MB available):
+
+| app (one trial each) | first frame | settled after | read back from swap |
+|---|---|---|---|
+| Netflix | 0.9 s (was 1.8) | over 25 s (same) | 6 MB (8) |
+| YouTube | 1.3 s (2.2) | 8.5 s (13.7) | 5 MB (50) |
+| Disney+ | 1.0 s (1.4) | 14.6 s (15.0) | 11 MB (27) |
+| Viaplay | 2.5 s (3.7) | 8.4 s (15.2) | 3 MB (42) |
+| MUBI | 1.9 s (2.3) | over 25 s (same) | 41 MB (34) |
+| Kanopy | 4.6 s (5.5) | 14.0 s (12.5) | 10 MB (12) |
+
+A restart took 0.4 to 1.2 s off every first frame and about 40% off the settle time of YouTube
+and Viaplay. Disney+, MUBI and Kanopy were as slow to become usable either way: that part is the
+apps and the hardware, not the state of the device. One trial each, so treat small differences
+as noise. After the restart Rivi came back as the home screen with its Home-button service on.
 
 Rivi itself was not slower in this state: returning Home took 165–330 ms (as before), and the
 navigation frame times above were taken in it. A launcher cannot free other apps' memory on
@@ -163,7 +178,7 @@ The background change is less certain than the first: over five runs the GPU sta
 ## Tests and reliability
 
 * JVM unit tests: 15 of 15.
-* On-device UI tests (`tests/ui_test.sh`): 54 of 54 with the Home-button service on (0.12), 51 of 51
+* On-device UI tests (`tests/ui_test.sh`): 54 of 54 with the Home-button service on, 51 of 51
   with it off (0.12 and 0.13). They cover cold start, app discovery against the package manager, D-pad navigation
   and edges, a newly installed app appearing, launching, focus restoration, favourites add /
   reorder / hide / persistence, an uninstalled favourite, an app reinstalled in the background,
@@ -179,8 +194,7 @@ The background change is less certain than the first: over five runs the GPU sta
 ## Not measured or not tested
 
 * The hold ring with a real remote. It was checked with a scripted key hold and a screen recording.
-* 0.13 with the Home-button service on (the service code did not change).
-* Behaviour after a device reboot.
+* Behaviour after a device reboot beyond one restart (0.13: Rivi was on screen and the service on).
 * Any device other than the JMGO N1S; any remote other than its own.
 * Playback, DRM, casting, Bluetooth audio, keystone and autofocus with Rivi as home. Nothing
   they depend on is changed.
