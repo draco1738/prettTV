@@ -2,7 +2,7 @@
 
 ## Launcher (`launcher/`)
 One Activity and one optional service, nine Kotlin files, no AndroidX, no third-party libraries.
-Release APK ≈ 66 KB. No internet permission.
+Release APK ≈ 68 KB. No internet permission.
 
 * `MainActivity.kt` builds the view tree in code (no XML inflation): a `ScrollView` → vertical
   `LinearLayout` with a header (wordmark + clock), the **Favourites** strip (`HorizontalScrollView`),

@@ -8,13 +8,17 @@
 
 [![Release](https://img.shields.io/github/v/release/jommi9/rivi?style=flat-square&color=E8C77A&label=release)](https://github.com/jommi9/rivi/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/jommi9/rivi/build.yml?style=flat-square&label=build)](https://github.com/jommi9/rivi/actions)
-![APK size](https://img.shields.io/badge/APK-66%20KB-2ea44f?style=flat-square)
+![APK size](https://img.shields.io/badge/APK-68%20KB-2ea44f?style=flat-square)
 ![Android](https://img.shields.io/badge/Android%20TV-8.0%2B-3ddc84?style=flat-square&logo=android&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 [Why](#-why) • [Features](#-features) • [Install](#-install) • [Controls](#-controls) • [Undo](#-undo) • [Build](#-build-from-source)
 
 <img src="docs/screenshot.png" width="860" alt="Rivi home screen: a favourites row above a grid of all apps">
+
+<img src="docs/screenshot-cinema.png" width="426" alt="The Cinema theme: true black, with every app except the focused one at half brightness"> <img src="docs/screenshot-menu.png" width="426" alt="The menu sliding in from the right over a dimmed home screen">
+
+<sub>Above: the default look. Below: the Cinema theme for dark rooms, and the menu.</sub>
 
 </div>
 
@@ -60,7 +64,7 @@ CPU goes. Full numbers, method and caveats: [docs/RESULTS.md](docs/RESULTS.md).
 
 ## ✨ Features
 
-- **66 KB app.** One screen, native Android views, no libraries.
+- **68 KB app.** One screen, native Android views, no libraries.
 - **Zero work when idle.** No redraws, no background services, no polling.
 - **Home button without disabling anything.** One switch under Accessibility. Turn it off and
   the device is exactly as it was.
