@@ -69,6 +69,8 @@ CPU goes. Full numbers, method and caveats: [docs/RESULTS.md](docs/RESULTS.md).
 - **Quiet motion.** The focused tile settles with a slight overshoot over a soft shadow, the
   label fades in, and menus slide in from the side. Nothing moves at rest. Tried out first in
   the [motion study](tools/motion-study/README.md).
+- **Cinema theme for projectors.** True black, with every app except the focused one at half
+  brightness: `adb shell am start -n fi.jommi.rivi/.MainActivity --es theme cinema`.
 - **All apps, most recent first.** Every TV app on the device, with the ones you opened last at
   the front.
 - **Settings and inputs one click away.** A gear tile for Android Settings (picture, keystone and
@@ -178,7 +180,7 @@ with real key events. `bench/benchmark.sh` reproduces the measurements, see
 
 | Path | What |
 |---|---|
-| `launcher/app` | The launcher: eight small Kotlin files, one of them the optional Home-button service |
+| `launcher/app` | The launcher: nine small Kotlin files, one of them the optional Home-button service |
 | `launcher/testapp` | A do-nothing TV app used by the on-device tests |
 | `tests/` | `ui_test.sh` (on-device UI tests), `launch_streaming.sh` |
 | `bench/` | Benchmark suite and analysis |

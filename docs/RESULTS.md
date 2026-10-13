@@ -162,6 +162,13 @@ The longer settle and the shadow fade mean more frames per key press (9 to 13, w
 paced runs had a 28 ms 99th percentile; the other matched "off". At rest with the refinements on:
 2 frames and 20 ms of CPU in 30 s.
 
+### Cinema theme in 0.14
+
+Cinema draws every unfocused tile through a brightness filter. Against Midnight, same APK, two
+runs each, interleaved: paced 15 / 17 / 17 ms against 14–15 / 16 / 17; back-to-back 13 / 13–14 / 17
+against 12 / 13 / 16; GPU stage 4 / 5 ms against 4 / 4 (p50 / p90). No missed vsync. At rest:
+1 frame and 10 ms of CPU in 30 s. On-device tests in Cinema: 54 of 54.
+
 ### What changed the numbers
 
 Sustained test, 40 presses back-to-back:
@@ -177,7 +184,7 @@ The background change is less certain than the first: over five runs the GPU sta
 
 ## Tests and reliability
 
-* JVM unit tests: 15 of 15.
+* JVM unit tests: 16 of 16.
 * On-device UI tests (`tests/ui_test.sh`): 54 of 54 with the Home-button service on, 51 of 51
   with it off (0.12 and 0.13). They cover cold start, app discovery against the package manager, D-pad navigation
   and edges, a newly installed app appearing, launching, focus restoration, favourites add /

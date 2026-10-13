@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.RectF
 import android.animation.ValueAnimator
@@ -19,7 +21,7 @@ import android.view.animation.PathInterpolator
  * of this view only. Scale animation is a hardware layer property (no relayout). With [Motion.fade]
  * the two tiles involved redraw for the 140 ms of the fade; nothing redraws at rest.
  */
-class TileView(context: Context, val imgW: Int, val imgH: Int, private val labelH: Int, val radius: Float, private val motion: Motion = Motion.NONE) : View(context) {
+class TileView(context: Context, val imgW: Int, val imgH: Int, private val labelH: Int, val radius: Float, private val motion: Motion = Motion.NONE, private val theme: Theme = Theme.MIDNIGHT) : View(context) {
 
     /** Space reserved around the artwork for the focus ring (drawn outside the artwork, with a gap). */
     val pad: Int = maxOf(6, (imgH * 0.045f).toInt())
@@ -31,9 +33,9 @@ class TileView(context: Context, val imgW: Int, val imgH: Int, private val label
         set(v) { field = v; invalidate() }
 
     private val imgPaint = Paint(Paint.FILTER_BITMAP_FLAG)
-    private val placeholderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF161B25.toInt() }
-    private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = Color.WHITE }
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFE9EDF4.toInt(); textAlign = Paint.Align.CENTER }
+    private val placeholderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.placeholder }
+    private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = theme.ring }
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.label; textAlign = Paint.Align.CENTER }
     private val rect = RectF()
     private val ringW: Float = maxOf(3f, imgH * 0.02f)
 
@@ -139,6 +141,8 @@ class TileView(context: Context, val imgW: Int, val imgH: Int, private val label
             ringPaint.alpha = (255 * ease(minOf(1f, f * FADE_MS / RING_FADE_MS))).toInt()
             c.drawRoundRect(rect, radius + o, radius + o, ringPaint)
         }
+        // themes that hold unfocused tiles back: the artwork brightens as the tile takes focus
+        if (theme.unfocused < 1f) imgPaint.colorFilter = brightness(theme.unfocused + (1f - theme.unfocused) * ease(f))
         val b = bitmap
         if (b != null) c.drawBitmap(b, p, p, imgPaint)
         else { rect.set(p, p, p + imgW, p + imgH); c.drawRoundRect(rect, radius, radius, placeholderPaint) }
@@ -175,5 +179,13 @@ class TileView(context: Context, val imgW: Int, val imgH: Int, private val label
         private val SETTLE_IN = PathInterpolator(0.2f, 1.45f, 0.35f, 1f)   // overshoots, then settles
         private val SETTLE_OUT = PathInterpolator(0.3f, 0.7f, 0.4f, 1f)
         private val LINEAR = LinearInterpolator()
+
+        // Brightness filters in 1/32 steps, made once and shared by every tile: no allocation while fading.
+        private val filters = arrayOfNulls<ColorMatrixColorFilter>(33)
+        private fun brightness(b: Float): ColorMatrixColorFilter? {
+            val i = (b * 32f + 0.5f).toInt().coerceIn(0, 32)
+            if (i == 32) return null
+            return filters[i] ?: ColorMatrixColorFilter(ColorMatrix().apply { val k = i / 32f; setScale(k, k, k, 1f) }).also { filters[i] = it }
+        }
     }
 }

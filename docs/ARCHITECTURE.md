@@ -1,7 +1,7 @@
 # Architecture
 
 ## Launcher (`launcher/`)
-One Activity and one optional service, eight Kotlin files, no AndroidX, no third-party libraries.
+One Activity and one optional service, nine Kotlin files, no AndroidX, no third-party libraries.
 Release APK ≈ 66 KB. No internet permission.
 
 * `MainActivity.kt` builds the view tree in code (no XML inflation): a `ScrollView` → vertical
@@ -22,7 +22,9 @@ Release APK ≈ 66 KB. No internet permission.
   remote's keys while it is open. It is `GONE` when closed.
 * `Motion.kt` says which of these four refinements are on (`settle`, `fade`, `shadow`, `hold`;
   all by default). `adb shell am start -n fi.jommi.rivi/.MainActivity --es motion none` switches
-  them off, which gives the 0.12 behaviour. They were designed in `tools/motion-study`, a browser
+  them off, which gives the 0.12 behaviour. `Theme.kt` holds the colours: Midnight (default) and
+  Cinema (`--es theme cinema`), true black with unfocused artwork at half brightness through a
+  shared table of colour filters. They were designed in `tools/motion-study`, a browser
   simulation of this screen, and the timings there and here are the same numbers.
 * `Apps.kt`: `AppRepository` queries `LEANBACK_LAUNCHER` activities, renders each banner/icon to a
   bitmap of the exact tile size once, and caches it as PNG under `cacheDir/tiles/` keyed by

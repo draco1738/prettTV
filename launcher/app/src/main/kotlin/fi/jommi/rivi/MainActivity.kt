@@ -49,6 +49,7 @@ class MainActivity : Activity() {
     private lateinit var grid: LinearLayout
     private lateinit var clock: TextView
     private var motion = Motion.DEFAULT
+    private var theme = Theme.MIDNIGHT
     private var shadow: ShadowView? = null      // only with Motion.shadow
     private var menu: SideMenu? = null          // created the first time a menu is opened
 
@@ -89,8 +90,14 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
         repo = AppRepository(this)
-        if (savedInstanceState == null) intent?.getStringExtra(EXTRA_MOTION)?.let { prefs.motion = it; intent.removeExtra(EXTRA_MOTION) }
+        if (savedInstanceState == null) {
+            intent?.getStringExtra(EXTRA_MOTION)?.let { prefs.motion = it; intent.removeExtra(EXTRA_MOTION) }
+            intent?.getStringExtra(EXTRA_THEME)?.let { prefs.theme = it; intent.removeExtra(EXTRA_THEME) }
+        }
         motion = Motion.parse(prefs.motion)
+        theme = Theme.parse(prefs.theme)
+        // the manifest theme paints Midnight; other themes replace the window background here
+        if (theme !== Theme.MIDNIGHT) window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(theme.background))
         val dm = resources.displayMetrics
         scale = dm.widthPixels / 1920f
         buildChrome()
@@ -115,7 +122,8 @@ class MainActivity : Activity() {
         }
         // The shadow lives in its own view underneath the page, so it is behind every tile.
         val stage = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
-        if (motion.shadow) shadow = ShadowView(this).also {
+        // (a black shadow on a black background would be work for nothing)
+        if (motion.shadow && theme.background != Color.BLACK) shadow = ShadowView(this).also {
             val (w, h) = it.sizeFor(favW, favH)
             stage.addView(it, FrameLayout.LayoutParams(w, h, Gravity.TOP or Gravity.START))
         }
@@ -125,11 +133,11 @@ class MainActivity : Activity() {
         // Header: wordmark left, clock right
         val header = FrameLayout(this).apply { setPadding(px(10), 0, px(10), 0) }
         header.addView(TextView(this).apply {
-            text = "Rivi"; setTextColor(0xFFB7BECC.toInt()); letterSpacing = 0.08f
+            text = "Rivi"; setTextColor(theme.wordmark); letterSpacing = 0.08f
             setTextSize(TypedValue.COMPLEX_UNIT_PX, px(26).toFloat()); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.START or Gravity.CENTER_VERTICAL))
         clock = TextView(this).apply {
-            setTextColor(0xFFB7BECC.toInt()); setTextSize(TypedValue.COMPLEX_UNIT_PX, px(30).toFloat())
+            setTextColor(theme.wordmark); setTextSize(TypedValue.COMPLEX_UNIT_PX, px(30).toFloat())
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         }
         header.addView(clock, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL))
@@ -155,7 +163,7 @@ class MainActivity : Activity() {
     }
 
     private fun sectionTitle(t: String) = TextView(this).apply {
-        text = t.uppercase(); setPadding(px(10), 0, 0, 0); setTextColor(0xFF7E8798.toInt()); letterSpacing = 0.14f
+        text = t.uppercase(); setPadding(px(10), 0, 0, 0); setTextColor(theme.section); letterSpacing = 0.14f
         setTextSize(TypedValue.COMPLEX_UNIT_PX, px(22).toFloat()); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     }
 
@@ -198,8 +206,11 @@ class MainActivity : Activity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        val m = intent?.getStringExtra(EXTRA_MOTION)
-        if (m != null && Motion.parse(m) != motion) { prefs.motion = m; recreate(); return }
+        val m = intent?.getStringExtra(EXTRA_MOTION); val th = intent?.getStringExtra(EXTRA_THEME)
+        val newMotion = m != null && Motion.parse(m) != motion; val newTheme = th != null && Theme.parse(th) !== theme
+        if (newMotion) prefs.motion = m
+        if (newTheme) prefs.theme = th
+        if (newMotion || newTheme) { recreate(); return }
         // HOME pressed while we are already alive: close any menu and make sure a tile has focus.
         menu?.close()
         if (currentFocus !is TileView) restoreFocus()
@@ -238,7 +249,7 @@ class MainActivity : Activity() {
         w.println("RIVI hidden=${prefs.hidden.sorted().joinToString(",")}")
         w.println("RIVI focus=${(currentFocus as? TileView)?.entryKey ?: "none"}")
         w.println("RIVI tiles=${tiles.size} withBitmap=${tiles.values.count { it.bitmap != null }}")
-        w.println("RIVI motion=${motion.names.joinToString(",").ifEmpty { "none" }} menu=${if (menu?.isOpen == true) "open" else "closed"}")
+        w.println("RIVI motion=${motion.names.joinToString(",").ifEmpty { "none" }} theme=${theme.name} menu=${if (menu?.isOpen == true) "open" else "closed"}")
         w.println("RIVI homeService=${HomeKeyService.connected} homeKeys=${HomeKeyService.homeKeyPresses} redirects=${HomeKeyService.redirects} keysSeen=${HomeKeyService.keysSeen}")
     }
 
@@ -301,7 +312,7 @@ class MainActivity : Activity() {
 
         val r = favR
         for (e in favs) {
-            val t = TileView(this, favW, favH, labelH, r, motion).apply { label = e.label; entryKey = e.key; bitmap = e.bitmap }
+            val t = TileView(this, favW, favH, labelH, r, motion, theme).apply { label = e.label; entryKey = e.key; bitmap = e.bitmap }
             wire(t, e)
             favRow.addView(t, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = gap - 2 * t.pad })
         }
@@ -312,7 +323,7 @@ class MainActivity : Activity() {
                 row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false; clipToPadding = false; setPadding(0, 0, 0, 0) }
                 grid.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             }
-            val t = TileView(this, gridW, gridH, labelH, gridR, motion).apply { label = e.label; entryKey = e.key; bitmap = e.bitmap }
+            val t = TileView(this, gridW, gridH, labelH, gridR, motion, theme).apply { label = e.label; entryKey = e.key; bitmap = e.bitmap }
             wire(t, e)
             row!!.addView(t, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = gap - 2 * t.pad })
         }
@@ -395,6 +406,8 @@ class MainActivity : Activity() {
     companion object {
         /** `--es motion settle,fade` on the launch intent picks the refinements; see [Motion]. */
         const val EXTRA_MOTION = "motion"
+        /** `--es theme cinema` picks the colours; see [Theme]. */
+        const val EXTRA_THEME = "theme"
     }
 
     /** The stock home screen, if one other than us is installed and enabled. */
@@ -407,7 +420,7 @@ class MainActivity : Activity() {
 
     private fun dialog(title: String, items: List<Pair<String, () -> Unit>>, picture: Bitmap? = null) {
         if (motion.hold) {
-            val m = menu ?: SideMenu(this, ::px).also {
+            val m = menu ?: SideMenu(this, theme, ::px).also {
                 menu = it
                 addContentView(it, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             }

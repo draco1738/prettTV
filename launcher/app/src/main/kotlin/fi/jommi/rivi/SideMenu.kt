@@ -23,18 +23,18 @@ import android.widget.TextView
  * remote's keys to [handleKey] while the sheet is open. Hidden (GONE) when closed, so it costs
  * nothing at rest.
  */
-class SideMenu(context: Context, private val px: (Int) -> Int) : FrameLayout(context) {
+class SideMenu(context: Context, private val theme: Theme, private val px: (Int) -> Int) : FrameLayout(context) {
 
     private val scrim = View(context).apply { setBackgroundColor(0x66000000) }
-    private val sheet = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(SHEET); setPadding(0, px(120), 0, 0) }
+    private val sheet = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(theme.sheet); setPadding(0, px(120), 0, 0) }
     private val slide = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
     private val art = ImageView(context)
     private val title = TextView(context).apply {
-        setTextColor(INK); setTextSize(TypedValue.COMPLEX_UNIT_PX, px(38).toFloat())
+        setTextColor(theme.sheetInk); setTextSize(TypedValue.COMPLEX_UNIT_PX, px(38).toFloat())
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); maxLines = 2
     }
     private val list = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-    private val highlight = GradientDrawable().apply { setColor(SHEET_HI); cornerRadius = px(14).toFloat() }
+    private val highlight = GradientDrawable().apply { setColor(theme.sheetHighlight); cornerRadius = px(14).toFloat() }
 
     private var actions: List<() -> Unit> = emptyList()
     private var index = 0
@@ -64,7 +64,7 @@ class SideMenu(context: Context, private val px: (Int) -> Int) : FrameLayout(con
         art.setImageBitmap(picture); art.visibility = if (picture != null) View.VISIBLE else View.GONE
         list.removeAllViews()
         for ((label, _) in items) list.addView(TextView(context).apply {
-            text = label; setTextColor(INK); setTextSize(TypedValue.COMPLEX_UNIT_PX, px(33).toFloat()); maxLines = 1
+            text = label; setTextColor(theme.sheetInk); setTextSize(TypedValue.COMPLEX_UNIT_PX, px(33).toFloat()); maxLines = 1
             setPadding(px(28), px(26), px(28), px(26))
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = px(20); rightMargin = px(20) })
         actions = items.map { it.second }
@@ -119,9 +119,6 @@ class SideMenu(context: Context, private val px: (Int) -> Int) : FrameLayout(con
         const val WIDTH = 620
         const val SLIDE_MS = 200L
         const val DIM_MS = 180L
-        const val SHEET = 0xFF1C212B.toInt()
-        const val SHEET_HI = 0xFF343B49.toInt()
-        const val INK = 0xFFE9EDF4.toInt()
         private val SLIDE = PathInterpolator(0.2f, 0.8f, 0.2f, 1f)
     }
 }

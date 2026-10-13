@@ -34,7 +34,15 @@ adb shell am start -n fi.jommi.rivi/.MainActivity --es motion settle,fade
 `--es motion none` gives the 0.12 behaviour (including the stock dialog for menus) and
 `--es motion default` goes back to all four. The defaults are in `Motion.kt`.
 
-Everything else on the page is a proposal: themes, ambient glow, spotlight, tilt, press and
+Two of the four themes are in the app since 0.14 (`Theme.kt`): Midnight, the default, and
+Cinema, which is true black with every unfocused tile at half brightness. With Cinema the lift
+shadow is skipped, because a black shadow on black shows nothing.
+
+```bash
+adb shell am start -n fi.jommi.rivi/.MainActivity --es theme cinema
+```
+
+Everything else on the page is a proposal: the other themes, ambient glow, tilt, press and
 launch, sounds and the rest. Each was checked to be possible with the Android APIs Rivi already
 uses, with no libraries. None of them has been measured on a device.
 

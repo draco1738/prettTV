@@ -290,10 +290,10 @@
 
   <h3>Use it in the app</h3>
   <div class="card">
-    <p><b>Rivi 0.13 has four of these built in</b> (marked above): settle, ring and label fade, lift shadow, hold ring with the side menu. All four are on by default. This command switches a running Rivi to the mix ticked on this page, without rebuilding. Rivi remembers it.</p>
+    <p><b>Rivi has four of these built in</b> (marked above): settle, ring and label fade, lift shadow, hold ring with the side menu. All four are on by default. It also has two of the themes, Midnight (default) and Cinema. This command switches a running Rivi to the theme and mix picked on this page, without rebuilding. Rivi remembers it.</p>
     <textarea id="adbcmd" readonly spellcheck="false" style="min-height:0;height:56px;resize:none"></textarea>
     <div class="bar" style="margin:8px 0 0"><button id="adbcopy">Copy</button><span class="hint" id="adbnote"></span></div>
-    <p style="margin-top:8px">The timings and curves in <code>TileView.kt</code>, <code>ShadowView.kt</code> and <code>SideMenu.kt</code> are the numbers used here. To change one, change it in both places, then measure with <code>bench/benchmark.sh nav</code>.</p>
+    <p style="margin-top:8px">The timings and curves in <code>TileView.kt</code>, <code>ShadowView.kt</code> and <code>SideMenu.kt</code>, and the colours in <code>Theme.kt</code>, are the numbers used here. To change one, change it in both places, then measure with <code>bench/benchmark.sh nav</code>.</p>
   </div>
 
   <p class="foot"><b>What "checked" means.</b> For every theme and refinement the Android code it needs was written (colour filters, per-paint alpha, rotation, overshoot, the platform click sound, a solid-colour fading edge, a pre-drawn blur sprite) and compiled against Rivi's build settings with no libraries. That proves each one can be built. It does not prove it stays smooth on a TV: a laptop browser draws far faster. Anything that goes into the app still has to pass the frame benchmark on a device (<code>bench/benchmark.sh nav</code>).</p>
@@ -381,7 +381,7 @@ DATA.favs.concat(DATA.grid).forEach(t => { t.img2 = t.img2 || t.img; });
 const THEMES = [
   { id:'midnight', name:'Midnight', sw:['#0B0E14','#ffffff'], text:'The look of the app. Blue-black, white ring.' },
   { id:'mono',     name:'Black and white', sw:['#000000','#9a9a9a'], text:'Artwork in greyscale on true black. Add "Colour on focus" and only the focused app is in colour.' },
-  { id:'cinema',   name:'Cinema', sw:['#000000','#4f5560'], text:'True black, unfocused tiles at half brightness. Least stray light from a projector.' },
+  { id:'cinema',   name:'Cinema', sw:['#000000','#4f5560'], text:'True black, unfocused tiles at half brightness. Least stray light from a projector. In the app since 0.14.' },
   { id:'paper',    name:'Paper', sw:['#EFECE6','#15171c'], text:'Light background, dark ring and text. Bright in a dark room, so better for daytime.' },
 ];
 const GROUPS = [
@@ -410,6 +410,7 @@ const GROUPS = [
 const ALL = GROUPS.flatMap(g => g.items);
 // Built into the app (launcher/app/src/main/kotlin/fi/jommi/rivi/Motion.kt). The rest are proposals.
 const IN_APP = ['settle', 'fade', 'shadow', 'hold'];
+const IN_APP_THEMES = ['midnight', 'cinema'];   // Theme.kt
 // Three combinations that work well together. Quiet is the app's default.
 const COMBOS = [
   { id:'quiet',     name:'Quiet',     theme:'midnight', opts:['settle','fade','shadow','hold'],
@@ -666,8 +667,8 @@ function apply() {
   document.querySelectorAll('[data-preset]').forEach(b => { const p = PRESETS[b.dataset.preset], cmp = [...state].filter(x => x !== 'sound'); b.classList.toggle('on', p.length === cmp.length && p.every(x => state.has(x))); });
   B.refresh();
   const on = IN_APP.filter(id => state.has(id)), extra = ALL.filter(o => state.has(o.id) && !IN_APP.includes(o.id)).map(o => o.name.toLowerCase());
-  document.getElementById('adbcmd').value = 'adb shell am start -n fi.jommi.rivi/.MainActivity --es motion ' + (on.join(',') || 'none');
-  document.getElementById('adbnote').textContent = [extra.length ? 'Not in the app yet: ' + extra.join(', ') + '.' : '', theme !== 'midnight' ? 'The app has one theme so far (Midnight).' : ''].join(' ');
+  document.getElementById('adbcmd').value = 'adb shell am start -n fi.jommi.rivi/.MainActivity --es motion ' + (on.join(',') || 'none') + (IN_APP_THEMES.includes(theme) ? ' --es theme ' + theme : '');
+  document.getElementById('adbnote').textContent = [extra.length ? 'Not in the app yet: ' + extra.join(', ') + '.' : '', IN_APP_THEMES.includes(theme) ? '' : 'This theme is not in the app yet (it has Midnight and Cinema).'].join(' ');
 }
 groupsEl.addEventListener('change', e => { const id = e.target.dataset.o; if (!id) return; e.target.checked ? state.add(id) : state.delete(id); apply(); });
 document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { const snd = state.has('sound'); state.clear(); PRESETS[b.dataset.preset].forEach(x => state.add(x)); if (snd) state.add('sound'); apply(); }));

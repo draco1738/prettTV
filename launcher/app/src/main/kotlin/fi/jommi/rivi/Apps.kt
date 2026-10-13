@@ -45,6 +45,10 @@ class Prefs(context: Context) {
     var lastFocus: String?
         get() = sp.getString("focus", null)
         set(v) = sp.edit().putString("focus", v).apply()
+    /** Theme chosen with `--es theme …`; null means the default. See [Theme]. */
+    var theme: String?
+        get() = sp.getString("theme", null)
+        set(v) = sp.edit().putString("theme", v).apply()
     /** Refinements chosen with `--es motion …`; null means the built-in default. See [Motion]. */
     var motion: String?
         get() = sp.getString("motion", null)

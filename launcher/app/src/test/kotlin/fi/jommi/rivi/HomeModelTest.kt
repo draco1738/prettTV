@@ -122,4 +122,12 @@ class HomeModelTest {
         assertEquals(listOf("settle", "fade", "shadow", "hold"), Motion.DEFAULT.names)
         assertEquals(Motion.DEFAULT, Motion.parse(Motion.DEFAULT.names.joinToString(",")))
     }
+
+    @Test fun themeNameIsParsed() {
+        assertEquals(Theme.MIDNIGHT, Theme.parse(null))
+        assertEquals(Theme.MIDNIGHT, Theme.parse("no such theme"))
+        assertEquals(Theme.CINEMA, Theme.parse(" Cinema "))
+        assertEquals(true, Theme.CINEMA.unfocused < 1f)   // cinema holds unfocused tiles back
+        assertEquals(1f, Theme.MIDNIGHT.unfocused)
+    }
 }
