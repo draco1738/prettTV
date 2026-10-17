@@ -61,12 +61,16 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             val watching = (query("watch_next_program", available) + published.filter { it.watchingSource }).sortedByDescending { it.engagedAt }
             val previews = published.filterNot { it.watchingSource }
             val catalogRows = ArrayList<Program>()
-            var trending=emptyList<Program>(); var releases=emptyList<Program>()
+            var trending=emptyList<Program>(); var releases=emptyList<Program>(); var catalogBrowse=emptyList<Program>()
             fun publish() {
                 val combined=ContentPolicy.combine(watching, previews, catalogRows.toList(), excluded)
                 val bias=watching.filter { it.packageName!=STREMIO }.map { it.packageName }.distinct()+priority
-                val result = combined.copy(watching=playback.merge(combined.watching),suggestions=ContentPolicy.prioritize(combined.suggestions,bias),
-                    trending=ContentPolicy.clean(trending,excluded),newReleases=ContentPolicy.clean(releases,excluded),
+                val suggestions=ContentPolicy.prioritize(combined.suggestions,bias)
+                val cleanTrending=ContentPolicy.clean(trending,excluded)
+                val cleanReleases=ContentPolicy.clean(releases,excluded)
+                val result = combined.copy(watching=playback.merge(combined.watching),suggestions=suggestions,
+                    trending=cleanTrending,newReleases=cleanReleases,
+                    discover=ContentPolicy.discover(previews+catalogRows+catalogBrowse,combined.watching+suggestions+cleanTrending+cleanReleases,excluded,bias),
                     liveSports=ContentPolicy.clean(published.filter { it.liveSports },excluded),
                     games=if(useCatalog)SportsPolicy.upcoming(games,System.currentTimeMillis()) else emptyList())
                 ui.post { if (active && g == generation) deliver(result) }
@@ -88,6 +92,8 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 }
                 // Preserve the provider's Popular ordering, alternating series and films.
                 trending=(0 until 30).flatMap { i -> popular.mapNotNull { it.getOrNull(i) } }
+                // Reuse the remaining fetched catalog entries; no extra requests for Discover.
+                catalogBrowse=(0 until 100).flatMap { i -> popular.mapNotNull { it.getOrNull(i) } }
                 releases=ContentPolicy.recentReleases(recent,System.currentTimeMillis())
                 publish()
             }

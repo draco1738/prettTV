@@ -2,6 +2,6 @@ prettTV — native Android TV launcher
 
 All three layouts are implemented. C Balanced is the owner's selected TV Home. All layouts use automatically hidden left navigation; the current README images are actual TV screenshots.
 
-The repository is public at https://github.com/draco1738/prettTV. Release v0.1.2 includes the default RBTV bundle; anonymous download and SHA-256 were verified. Current tracked files and the launcher APK were checked for retired branding. Historical Git commits remain intact. Preserve Rivi's MIT attribution and history. Do not publish signing keys, account data, ADB identities, private preference backups, SDK/Gradle caches, or proprietary decompiled source.
+The repository is public at https://github.com/draco1738/prettTV. Release v0.1.3 includes the default RBTV bundle; anonymous download and SHA-256 were verified. Current tracked files and the launcher APK were checked for retired branding. Historical Git commits remain intact. Preserve Rivi's MIT attribution and history. Do not publish signing keys, account data, ADB identities, private preference backups, SDK/Gradle caches, or proprietary decompiled source.
 
 See README.md, THIRD_PARTY_NOTICES.md and docs/validation.md for behavior, sources and validation limits.

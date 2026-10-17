@@ -6,6 +6,19 @@ import java.util.Locale
 
 class ContentPolicyTest {
     private fun show(title:String="Severance",pkg:String="apple",catalog:Boolean=false)=Program("$pkg:$title",title,"","",pkg,pkg,catalog=catalog)
+    @Test fun discoverAvoidsOtherRowsAndPrefersAppCardsOverDuplicateCatalogTitles() {
+        val app=show("Fresh Pick","apple")
+        val catalog=show(" fresh   pick ","com.stremio.one",true)
+        val rows=ContentPolicy.discover(listOf(catalog,show("Already Here","other"),app,show("Hidden","hidden")),
+            listOf(show(" already  here ","apple")),setOf("hidden"))
+        assertEquals(listOf(app),rows)
+    }
+    @Test fun discoverFiltersBeforeApplyingItsLongRowLimit() {
+        val candidates=(0..150).map { show("Title $it") }
+        val row=ContentPolicy.discover(candidates,candidates.take(80))
+        assertEquals(60,row.size); assertEquals("Title 80",row.first().title)
+        assertTrue(ContentPolicy.discover(candidates,candidates).isEmpty())
+    }
     @Test fun hiddenAppsDoNotLeakThroughAnyRecommendationSource() {
         val result=ContentPolicy.combine(listOf(show(pkg="hidden")),listOf(show("Andor","hidden")),listOf(show("Other","hidden",true)),setOf("hidden"))
         assertTrue(result.watching.isEmpty()); assertTrue(result.suggestions.isEmpty())

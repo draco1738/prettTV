@@ -211,7 +211,7 @@ The app shelf follows after a card-gap. It shows six dark app tiles at a time, w
 
 Content shelves show four complete cards and a visible portion of the next. Their width is the integer result of `(inner - 4 × 20 - 46) / 4`; cards are 218 reference pixels tall. Section headers occupy 44 pixels, shelf wrappers allow 6 pixels above and below focus-scaled cards, and section gaps separate shelves.
 
-Current row order is Continue watching · Shows, Continue watching · Movies, Live sports, Suggestions, Trending, New releases, then Library · All apps and the footer. Personal rows and the hero use local playback evidence across providers. Published timestamps seed a frozen baseline; refreshing a provider timestamp alone no longer promotes a title. Optional supported media sessions or the manual I watched this most recently action update local recency. App metadata can be missing or ambiguous, so the hero is not guaranteed to represent all real viewing. The two compact cards remain discovery. Discovery rows can hold up to 60 titles; source labels preserve their distinction from personal history. These behaviors reflect the latest owner request and source, superseding earlier timestamp-only wording in the surface contract.
+Current row order is Continue watching · Shows, Continue watching · Movies, Live sports, Suggestions, Discover, Trending, New releases, then Library · All apps and the footer. Personal rows and the hero use local playback evidence across providers. Published timestamps seed a frozen baseline; refreshing a provider timestamp alone no longer promotes a title. Optional supported media sessions or the manual I watched this most recently action update local recency. App metadata can be missing or ambiguous, so the hero is not guaranteed to represent all real viewing. The two compact cards remain discovery. Discovery rows can hold up to 60 titles; source labels preserve their distinction from personal history. These behaviors reflect the latest owner request and source, superseding earlier timestamp-only wording in the surface contract.
 
 **A Cinema:** the shared full-width content frame and hidden overlay rail, a full-width 470-pixel hero, and 116-pixel app tiles.
 
@@ -295,3 +295,5 @@ Hold OK also offers I watched this most recently to correct local recency. Playb
 - **Don't** turn finite app shelves into looping rows or repeat apps to imply more content.
 - **Don't** add idle animation, decorative drop shadows, or bright global accent surfaces to this quiet system.
 - **Don't** extend the confirmed hide/restore and Home checks into claims about untested playback tracking or RBTV matching.
+
+Discover row (0.1.3): directly below Suggestions and above Trending in A/B/C, using the existing 218 px content cards, horizontal scrolling and spacing. Up to 60 additional app/catalog titles, excluding titles in the other shelves; Stremio remains later and badged. It reuses fetched catalogs and existing artwork limits.

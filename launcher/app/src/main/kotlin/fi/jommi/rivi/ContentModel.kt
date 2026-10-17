@@ -21,13 +21,18 @@ data class Program(
 data class HomeContent(val watching: List<Program> = emptyList(), val suggestions: List<Program> = emptyList(),
     val trending: List<Program> = emptyList(), val newReleases: List<Program> = emptyList(),
     val hiddenHeroTitles:Set<String> = emptySet(),val hiddenWatchingTitles:Set<String> = emptySet(),val liveSports:List<Program> = emptyList(),
-    val games:List<SportsEvent> = emptyList()) {
+    val games:List<SportsEvent> = emptyList(),val discover:List<Program> = emptyList()) {
     val visibleWatching: List<Program> get() = watching.filter { it.titleKey !in hiddenWatchingTitles }
     val feature: Program? get() = watching.filter { it.titleKey !in hiddenHeroTitles }.maxByOrNull { it.engagedAt }
         ?: suggestions.firstOrNull { it.titleKey !in hiddenHeroTitles }
 }
 
 object ContentPolicy {
+    fun discover(candidates:List<Program>,elsewhere:List<Program>,hidden:Set<String> = emptySet(),preferred:List<String> = emptyList()):List<Program> {
+        val used=elsewhere.map { it.titleKey }.toSet()
+        return prioritize(candidates,preferred).filter { it.title.isNotBlank() && it.packageName !in hidden && it.titleKey !in used }
+            .distinctBy { it.titleKey }.take(60)
+    }
     fun chronological(rows:List<Program>):List<Program> = rows.sortedByDescending { it.engagedAt.coerceAtLeast(0) }
     fun prioritize(rows:List<Program>,preferred:List<String> = emptyList()):List<Program> = rows.sortedWith(
         compareBy<Program> { it.packageName=="com.stremio.one" }

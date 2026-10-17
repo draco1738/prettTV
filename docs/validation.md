@@ -1,3 +1,9 @@
+# prettTV 0.1.3 Discover row — 2026-10-17
+
+Added Discover immediately below Suggestions and above Trending through the shared row builder used by A/B/C. The row reuses the current cards, D-pad behavior, horizontal scrolling and artwork limits. It selects up to 60 additional titles from already-fetched provider/catalog data, excluding normalized titles in watching, Suggestions, Trending and New releases. Preferred app sources precede Stremio; duplicate titles retain the preferred source. No additional network endpoint or request was added.
+
+54 JVM tests pass, including cross-source duplicate/exclusion behavior and applying the row limit after exclusions. The signed update installed in place. The TV supplied 60 Discover entries; UI hierarchy checks verified Suggestions → Discover → Trending in all three layouts. Moving six cards right in Discover reached an additional title and scrolled the row. C and the Home position were restored afterward. The new screenshot is docs/screenshots/discover-row.png. Dark app icons, viewing-history behavior and special-access settings were unchanged.
+
 # prettTV 0.1.2 dark-tile correction — 2026-10-17
 
 The reported rollback was checked against the installed package: v0.1.1 and C Balanced were still selected. The certificate reinstall had removed cached artwork; unmapped Disney+ and HBO then rendered their installed bright/gradient banners. Version 0.1.2 uses an attributed Disney+ foreground vector on the common dark ground and an unmodified bundled white HBO logo. Cache generation icons4 invalidates the former tiles. Neither mapped app now depends on installed artwork.
