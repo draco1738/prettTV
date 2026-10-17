@@ -8,7 +8,7 @@ The revised comparison makes the change easier to judge: the current and propose
 
 [Open the full-size comparison](comparison.png)
 
-The proposal uses **252 × 94** app cards instead of **286 × 94**: about **12% narrower**, with the existing height and corner shape. Dark logos retain their color accents. The app row keeps its beginning and end.
+The proposal uses **236 × 94** app cards instead of **286 × 94**: about **17.5% narrower**, with the existing height and corner shape. Dark logos retain their color accents. The app row keeps its beginning and end.
 
 | Treatment | Appearance and motion |
 | --- | --- |
