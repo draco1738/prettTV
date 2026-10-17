@@ -12,7 +12,7 @@ NAVIGATION: The left sidebar is HIDDEN BY DEFAULT in every layout. Left from the
 
 FORM: C Balanced remains selected; A Cinema and B Quiet remain alternatives. The original choice used seed 2a08e375. The latest explicit owner instruction supersedes the previously visible sidebar and reserves the full width for content when navigation is closed.
 
-FINISH: Installed v0.1.1 built with 52 tests passing. The Prime Video hide/Library/restore sequence is confirmed on the TV (34 → 33 → 34), as is cold Home after force-stop into dev.zane.pretttv C with The Night Agent hero. Search/history independence is source-verified only. Final actual A/B/C/sidebar captures are recorded, the prior font-scale 1.3 review passed, and one bounded visual confirmation is in progress after the Disney+ sizing correction. Optional playback and RBTV helpers remain off; no end-to-end helper result is claimed. Every shipping raster retains its provenance.
+FINISH: Installed v0.1.1 built with 52 tests passing. The Prime Video hide/Library/restore sequence is confirmed on the TV (34 → 33 → 34), as is cold Home after force-stop into dev.zane.pretttv C with The Night Agent hero. Search/history independence is source-verified only. Final actual A/B/C/sidebar captures are recorded, the prior font-scale 1.3 review passed, and the final bounded visual confirmation passed after the Disney+ sizing correction. Optional playback and RBTV helpers remain off; no end-to-end helper result is claimed. Every shipping raster retains its provenance.
 
 ## Runtime constraints
 
