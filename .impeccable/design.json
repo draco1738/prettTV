@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-17T02:36:54.7371536-04:00",
+  "title": "Design System: Luma TV",
+  "extensions": {
+    "colorMeta": {
+      "ivory": {
+        "role": "primary",
+        "displayName": "Ivory"
+      },
+      "sage-black": {
+        "role": "neutral",
+        "displayName": "Sage-black"
+      },
+      "card-ground": {
+        "role": "neutral",
+        "displayName": "Card ground"
+      },
+      "button-focus": {
+        "role": "primary",
+        "displayName": "Pale sage focus"
+      },
+      "stremio-marker": {
+        "role": "secondary",
+        "displayName": "Stremio violet"
+      },
+      "card-edge": {
+        "role": "neutral",
+        "displayName": "Quiet sage edge"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Hero title",
+        "purpose": "Native Canvas feature title."
+      },
+      "title": {
+        "displayName": "Card title",
+        "purpose": "SHOW, COMPACT, and SPORT titles."
+      },
+      "section": {
+        "displayName": "Shelf heading",
+        "purpose": "TextView row labels."
+      },
+      "body": {
+        "displayName": "Card body",
+        "purpose": "Metadata and two-line compact summaries."
+      },
+      "label": {
+        "displayName": "Control label",
+        "purpose": "Top navigation, utility buttons, Discover heading, and clock."
+      },
+      "action": {
+        "displayName": "Hero action",
+        "purpose": "Medium native face inside the painted hero action."
+      },
+      "support": {
+        "displayName": "Shelf support",
+        "purpose": "Right-aligned counts and source labels."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "remote-focus",
+        "value": "ViewPropertyAnimator: 140 ms, DecelerateInterpolator(), scale 1.025 for SHOW/APP/SPORT and 1.0 for HERO/COMPACT",
+        "purpose": "Finite remote focus feedback; ValueAnimator.areAnimatorsEnabled() false applies the state immediately."
+      }
+    ],
+    "breakpoints": [],
+    "native": {
+      "platform": "Android TV",
+      "implementation": "Kotlin Android Views and Canvas; Theme.DeviceDefault.NoActionBar for native dialogs",
+      "units": "DESIGN.md px values are 1920-wide design-reference pixels. Geometry scales by widthPixels / 1920f. Text additionally multiplies by resources.configuration.fontScale. They are not CSS pixels or Android dp.",
+      "fontAliases": "Typeface.create(sans-serif or sans-serif-medium, Typeface.NORMAL); no numeric font weight or browser font stack is inferred.",
+      "previewPolicy": "Native-only documentation. No HTML/CSS stand-ins, synthetic tonal ramps, browser previews, or inferred mobile breakpoints are supplied. The component entries describe the actual native primitives; the sidecar does not provide a runnable web rendering.",
+      "sources": [
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/MainActivity.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/LumaCard.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/NavIcon.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/Apps.kt",
+        "docs/surface-brief.txt",
+        "docs/native-design-evidence.md",
+        "docs/validation.md"
+      ],
+      "screenshots": {
+        "selected": "docs/screenshots/C-balanced.png",
+        "alternatives": [
+          "docs/screenshots/A-cinema.png",
+          "docs/screenshots/B-quiet.png"
+        ],
+        "provenance": "Actual 1920x1080 captures from the connected TCL Android TV, as recorded in docs/validation.md; generated comps are superseded."
+      },
+      "gradients": [
+        {
+          "name": "show-metadata-scrim",
+          "api": "android.graphics.LinearGradient",
+          "coordinates": "(0, 0) to (0, cardHeight)",
+          "colorsArgb": [
+            "0x000A100C",
+            "0x000A100C",
+            "0xE60A100C",
+            "0xF20A100C"
+          ],
+          "positions": [
+            0,
+            0.32,
+            0.58,
+            1
+          ],
+          "purpose": "Dark backing throughout the title and ordinary-size metadata band."
+        },
+        {
+          "name": "hero-bottom-scrim",
+          "api": "android.graphics.LinearGradient",
+          "coordinates": "(0, cardHeight * 0.35) to (0, cardHeight)",
+          "colorsArgb": [
+            "0x000A100C",
+            "0xD60A100C"
+          ],
+          "purpose": "Legibility behind the lower-left feature text and action."
+        },
+        {
+          "name": "hero-left-scrim",
+          "api": "android.graphics.LinearGradient",
+          "coordinates": "(0, 0) to (cardWidth * 0.85, 0)",
+          "colorsArgb": [
+            "0xB30A100C",
+            "0x0D0A100C"
+          ],
+          "purpose": "Additional left-side contrast over real feature imagery."
+        },
+        {
+          "name": "shared-panel",
+          "api": "GradientDrawable.Orientation.TL_BR",
+          "colorRefs": [
+            "colors.panel-start",
+            "colors.panel-end"
+          ],
+          "purpose": "Subtle native tonal depth within the shared Discover panel."
+        }
+      ],
+      "overlays": [
+        {
+          "name": "app-lift",
+          "argb": "0x06FFFFFF",
+          "purpose": "Small lift over dark app artwork."
+        },
+        {
+          "name": "compact-focus",
+          "argb": "0x0DFFFFFF",
+          "purpose": "Focus fill inside compact discovery rows."
+        },
+        {
+          "name": "hero-action-rest",
+          "argb": "0x35101712",
+          "purpose": "Resting painted action fill."
+        },
+        {
+          "name": "hero-action-focus",
+          "argb": "0x70101712",
+          "purpose": "Focused painted action fill."
+        }
+      ],
+      "focus": {
+        "cardShapeInset": "3 reference pixels",
+        "cardRestOutline": "1 reference pixel, colors.card-edge",
+        "cardFocusedOutline": "2.4 reference pixels, colors.ivory; non-HERO modes",
+        "compactRestOutline": "None; the shared Discover panel supplies containment.",
+        "heroActionOutline": "1.3 reference pixels with colors.hero-action-edge at rest; 2.5 with colors.ivory on focus.",
+        "topNavFocusedOutline": "MainActivity.round(): px(2) native stroke with colors.ivory.",
+        "navIcons": "Authored Canvas paths; unit = min(width, height) / 64. Rounded focus ground uses 28 * unit, stroke 2.2 * unit, with colors.ivory and colors.icon-focus-ink."
+      },
+      "reviewScope": "Independent ship verdict covers the scored metadata-contrast and native-evidence fixes and inspected regression scope. It is not whole-surface certification. Static-comp gates remain pending."
+    }
+  },
+  "components": [
+    {
+      "name": "Hero and painted action",
+      "kind": "card",
+      "refersTo": "hero-balanced",
+      "description": "LumaCard.Mode.HERO: real feature artwork, lower-left title and provider action, optional published progress; one focusable native View. Hero focus strengthens the action without scaling the feature."
+    },
+    {
+      "name": "Show card",
+      "kind": "card",
+      "refersTo": "show-card",
+      "description": "LumaCard.Mode.SHOW: imagery, dark metadata scrim, medium title, muted detail, optional progress. Ivory focus outline and finite scale."
+    },
+    {
+      "name": "Shared compact discovery",
+      "kind": "custom",
+      "description": "Two LumaCard.Mode.COMPACT rows share one Discover panel. Image uses 52% of the row, text follows, summary is two lines. Focus reveals a border without scale."
+    },
+    {
+      "name": "App tile",
+      "kind": "card",
+      "refersTo": "app-card-balanced",
+      "description": "LumaCard.Mode.APP: installed-app banner or logo on a dark ground, guarded local artwork transformations, label fallback, visible finite-row focus."
+    },
+    {
+      "name": "Sports card",
+      "kind": "card",
+      "refersTo": "sport-card",
+      "description": "LumaCard.Mode.SPORT: actual broadcast logo or network name, status, title, and event detail. The section identifies ESPN schedules and Opens RBTV+; activation opens the app with channel guidance."
+    },
+    {
+      "name": "Top navigation",
+      "kind": "nav",
+      "refersTo": "nav-selected",
+      "description": "Selected Home is an ivory pill. Unselected focused destinations use nav-focused and an ivory border. Search and Settings are authored Canvas icons with inverted focus."
+    },
+    {
+      "name": "Utility button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Focusable native TextView with tonal resting fill; button-focused inverts to pale sage. Used by the alternate rails, utility actions, and footer credits."
+    },
+    {
+      "name": "Empty shelf action",
+      "kind": "button",
+      "refersTo": "empty-row",
+      "description": "Full-width two-line TextView showing the real empty, permission, or discovery state; native focus changes the ground and border and OK performs the stated next action."
+    },
+    {
+      "name": "Search and dialog controls",
+      "kind": "input",
+      "description": "Android EditText inside AlertDialog, with native dialog buttons and menu lists. No custom HTML/CSS component or unobserved typography metrics are specified."
+    }
+  ],
+  "narrative": {
+    "northStar": "A quiet television home",
+    "overview": "The owner's direction is dark sage and black, lightweight and attractive, with subtle contrast and colored app logos. The interface feels restrained and cinematic: the dark ground recedes, real artwork supplies the color, and a small number of ivory focus treatments make the next remote action clear from a couch.\n\nThis is the built native Android TV system: Kotlin Android Views, Canvas cards, native dialogs, and the device's system sans-serif aliases. C Balanced is the selected home; A Cinema and B Quiet remain available. The provisional Luma identity appears in the footer's About/Credits entry, with no top wordmark or rail monogram.",
+    "keyCharacteristics": [
+      "Sage-black ground, gentle tonal separation, and fine visible card edges.",
+      "Actual provider artwork and installed-app marks supply the color.",
+      "A clear remote focus state, finite rows, and quiet finite motion.",
+      "Native text scaling, readable metadata, and full accessible labels behind visual truncation."
+    ],
+    "rules": [
+      {
+        "name": "The Color-Pop Rule",
+        "body": "Keep the surrounding interface subdued so real app marks and still imagery carry the color.",
+        "section": "colors"
+      },
+      {
+        "name": "The Quiet Focus Rule",
+        "body": "Resting surfaces stay still. Focus changes finish in 140 ms with DecelerateInterpolator; SHOW, APP, and SPORT cards scale to 1.025, while HERO and COMPACT remain at 1.0. When Android disables animators, the state changes immediately.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve the sage-black ground, fine visible card edges, and color-pop app marks.",
+      "Do keep remote focus clear through the implemented fill, outline, and finite scale treatments.",
+      "Do retain system font scaling, full accessible labels, and honest visual truncation.",
+      "Do use actual provider imagery, published progress, and labeled data sources.",
+      "Do keep personal history chronological and distinguish discovery and app-opening sports cards.",
+      "Do keep Luma branding and credits at the footer and retain A and B as alternatives to selected C."
+    ],
+    "donts": [
+      "Don't add a top Luma wordmark or rail monogram.",
+      "Don't replace native system sans with the obsolete automated Salsa guess, or flatten fictional comps into the running home.",
+      "Don't invent watch progress, episode state, provider availability, or a verified sports stream link.",
+      "Don't turn finite app shelves into looping rows or repeat apps to imply more content.",
+      "Don't add idle animation, decorative drop shadows, or bright global accent surfaces to this quiet system.",
+      "Don't describe the scoped finish verdict as complete functional certification or a passed pixel-fidelity gate."
+    ]
+  }
+}
