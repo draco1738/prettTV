@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <application android:label="prettTV stability sandbox" tools:replace="android:label">
+        <!-- This isolated fault-test copy must never become a Home candidate or app-row tile. -->
+        <activity android:name=".MainActivity">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+        <provider android:name="fi.jommi.rivi.FaultArtworkProvider"
+            android:authorities="${applicationId}.art" android:exported="false" />
+    </application>
+</manifest>

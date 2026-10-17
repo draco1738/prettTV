@@ -105,7 +105,8 @@ class AppRepository(private val context: Context) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
             val vc = try { pm.getPackageInfo(ai.packageName, 0).let { if (android.os.Build.VERSION.SDK_INT >= 28) it.longVersionCode else it.versionCode.toLong() } } catch (e: Exception) { 0L }
             val hasBanner = ai.banner != 0 || ai.applicationInfo.banner != 0
-            out.add(AppEntry(cn.flattenToShortString(), ai.packageName, ri.loadLabel(pm).toString(), intent, hasBanner, vc))
+            val label=try { ri.loadLabel(pm).toString() } catch(_:Exception) { ai.packageName }
+            out.add(AppEntry(cn.flattenToShortString(), ai.packageName, label, intent, hasBanner, vc))
         }
         return out
     }
@@ -114,8 +115,13 @@ class AppRepository(private val context: Context) {
     fun loadTile(e: AppEntry, w: Int, h: Int, r: Float): Bitmap? {
         val f = File(cacheDir, cacheName(e, w, h, r))
         if (f.exists()) {
-            val opts = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
-            BitmapFactory.decodeFile(f.path, opts)?.let { if (it.width == w && it.height == h) { e.logoBounds=logoBounds(it,e.packageName); return it } else it.recycle() }
+            val bounds=BitmapFactory.Options().apply { inJustDecodeBounds=true }
+            if(f.length() in 1..1_000_000)BitmapFactory.decodeFile(f.path,bounds)
+            if(bounds.outWidth==w && bounds.outHeight==h) {
+                val opts = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
+                BitmapFactory.decodeFile(f.path, opts)?.let { e.logoBounds=logoBounds(it,e.packageName); return it }
+            }
+            f.delete()
         }
         val packed=AppIconPack.render(context,e.packageName,w,h)
         val raw = packed ?: render(e, w, h) ?: return null

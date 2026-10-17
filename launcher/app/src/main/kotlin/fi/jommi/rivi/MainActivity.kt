@@ -33,7 +33,9 @@ class MainActivity : Activity() {
     private var inputs: AppEntry? = null
     private var visible = false
     private var dirty = true
-    private var generation = 0
+    @Volatile private var generation = 0
+    private var appLoadError=false
+    private var appDiscoveryComplete=false
     private var scale = 1f
     private var ready = false
     private var homeRequested=false
@@ -53,6 +55,7 @@ class MainActivity : Activity() {
     private val cardArt=ArrayList<CardArt>()
     private val ui = Handler(Looper.getMainLooper())
     private val retryArtwork = Runnable { loadVisibleArt() }
+    private val retryApps = Runnable { if(visible && dirty)reload() }
     private val loader = HandlerThread("pretttv-apps").apply { start() }
     private val background = Handler(loader.looper)
     private val packageReceiver = object : BroadcastReceiver() {
@@ -104,7 +107,7 @@ class MainActivity : Activity() {
     }
     override fun onStop() {
         visible=false; contentRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
-        ui.removeCallbacks(retryArtwork); cardArt.forEach { it.request.cancel() }
+        ui.removeCallbacks(retryArtwork); ui.removeCallbacks(retryApps); cardArt.forEach { it.request.cancel() }
         (currentFocus?.tag as? String)?.let { settings.edit().putString("focus",it).apply() }
         super.onStop()
     }
@@ -438,7 +441,7 @@ class MainActivity : Activity() {
         page.addView(section("Your apps","${entries.size} apps"))
         val strip=row(); val width=(inner-5*18)/6
         if(entries.isEmpty()) {
-            val choose=button(if(apps.isEmpty())"Loading your apps…" else "Choose apps for this row","empty-app-row") { reviewApps() }
+            val choose=button(if(apps.isEmpty()) { if(appLoadError)"Apps unavailable · Retry" else if(appDiscoveryComplete)"No apps found · Retry" else "Loading your apps…" } else "Choose apps for this row","empty-app-row") { if(apps.isEmpty())reload() else reviewApps() }
             appAnchor=choose; if(firstCard==null)firstCard=choose
             choose.nextFocusLeftId=focusables["rail-apps"]!!.id
             firstCard?.nextFocusDownId=choose.id
@@ -476,18 +479,26 @@ class MainActivity : Activity() {
     }
     private fun reload() {
         dirty=false; val g=++generation
+        ui.removeCallbacks(retryApps); background.removeCallbacksAndMessages(null)
         val previous=apps.associateBy { it.key }
         background.post {
-            val found=repo.discover(); val input=repo.inputsEntry()
+            val found=AppRefreshWork.attempt({repo.discover()}) { e ->
+                android.util.Log.w("PrettTvApps","Discovery failed: ${e.javaClass.simpleName}")
+                ui.post { if(g==generation) {
+                    dirty=true; appLoadError=true
+                    if(apps.isEmpty() && visible)render()
+                    if(visible)ui.postDelayed(retryApps,30_000)
+                } }
+            } ?: return@post
+            if(g!=generation)return@post
+            val input=AppRefreshWork.attempt({repo.inputsEntry()}) { }
             found.forEach { it.bitmap=previous[it.key]?.bitmap; it.logoBounds=previous[it.key]?.logoBounds }
-            ui.post { if(g==generation) { apps=found; inputs=input; render(); if(visible)startContent() } }
-            for(e in found) {
-                if(g!=generation)break
-                val image=repo.loadTile(e,320,180,0f)
+            ui.post { if(g==generation) { appLoadError=false; appDiscoveryComplete=true; apps=found; inputs=input; render(); if(visible)startContent() } }
+            AppRefreshWork.each(found,{g==generation},{e -> repo.loadTile(e,320,180,0f)}, { e,image ->
                 e.bitmap=image
                 ui.post { if(g==generation)appCards[e.key]?.forEach { it.logoBounds=e.logoBounds; it.art=image } }
-            }
-            if(g==generation)repo.pruneCache(found.map { repo.cacheName(it,320,180,0f) }.toSet())
+            }, { _,e -> android.util.Log.w("PrettTvApps","Icon failed: ${e.javaClass.simpleName}") })
+            if(g==generation)AppRefreshWork.attempt({repo.pruneCache(found.map { repo.cacheName(it,320,180,0f) }.toSet())}) { }
         }
     }
     private fun startContent() {
@@ -666,7 +677,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("About this show").setMessage(detail).setPositiveButton("Open ${p.app}") { _,_ -> openProgram(p) }.setNeutralButton("Source") { _,_ -> if(p.sourceUrl.isNotBlank())safeStart(Intent(Intent.ACTION_VIEW,Uri.parse(p.sourceUrl)),"TVmaze") }.setNegativeButton("Close",null).show()
     }
     private fun credits() {
-        dialog("prettTV 0.1.7",listOf(
+        dialog("prettTV 0.1.8",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },
@@ -696,6 +707,7 @@ class MainActivity : Activity() {
         out.println("prettTV layout=${layout.name} apps=${apps.size} watching=${content.watching.size} suggestions=${content.suggestions.size} discover=${content.discover.size} trending=${content.trending.size} new=${content.newReleases.size} games=${content.games.size} discovery=$discovery")
         out.println("prettTV focus=${currentFocus?.tag} visible=$visible artwork=${appCards.values.flatten().count { it.art!=null }}")
         out.println("prettTV contentArtwork=${cardArt.count { it.card.art!=null }}")
+        out.println("prettTV appRefreshError=$appLoadError pending=$dirty")
         if(args?.contains("--viewport-diagnostics")==true)out.println("VIEWPORT y=${root.scrollY} rows="+horizontalRows.mapValues { it.value.scrollX })
         if(args?.contains("--feed-diagnostics")==true)out.println(contentRepo.diagnostics())
         if(args?.contains("--content-diagnostics")==true)for(p in content.watching)

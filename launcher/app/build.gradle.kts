@@ -15,8 +15,9 @@ android {
         applicationId = "dev.zane.pretttv"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "0.1.7"
+        versionCode = 9
+        versionName = "0.1.8"
+        testInstrumentationRunner = "fi.jommi.rivi.StabilityInstrumentation"
     }
 
     // Release signing is optional. Put a `signing.properties` file next to settings.gradle.kts
@@ -43,6 +44,11 @@ android {
     }
 
     buildTypes {
+        create("stability") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".stability"
+            versionNameSuffix = "-test"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -50,6 +56,7 @@ android {
             signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
         }
     }
+    testBuildType = "stability"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

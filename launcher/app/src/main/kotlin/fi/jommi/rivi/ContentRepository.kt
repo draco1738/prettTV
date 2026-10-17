@@ -29,14 +29,16 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private var observing = false
     private var games=emptyList<SportsEvent>()
     private var lastCatalog=CatalogSnapshot()
+    private var lastShared=SharedFeedSnapshot()
     private val sports=SportsCatalog(dir,::get)
     private val playback=PlaybackHistory(context)
     @Volatile private var feedSummary="Feeds have not loaded yet"
     @Volatile private var completedRefreshes=0
     @Volatile private var refreshError="none"
+    @Volatile private var sharedFeedErrors="none"
     @Volatile var recommendationServices=emptySet<String>(); private set
     @Volatile var availableServices=emptySet<String>(); private set
-    fun diagnostics():String="REFRESH completed=$completedRefreshes error=$refreshError\n$feedSummary"
+    fun diagnostics():String="REFRESH completed=$completedRefreshes error=$refreshError sharedFailures=$sharedFeedErrors\n$feedSummary"
     private val observer = object : ContentObserver(ui) { override fun onChange(selfChange: Boolean) { refresh() } }
     private val refreshTask = Runnable { load() }
 
@@ -67,9 +69,15 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         worker.post {
             fun current() = active && g == generation
             try {
-            val channels=sharedChannels()
-            val published = query("preview_program", available, channels)
-            val watching = (query("watch_next_program", available) + published.filter { it.watchingSource }).sortedByDescending { it.engagedAt }
+            val freshChannels=sharedChannels()
+            val freshPublished=query("preview_program",available,freshChannels ?: lastShared.channels)
+            val freshWatching=query("watch_next_program",available)
+            if(!current())return@post
+            lastShared=lastShared.updated(freshPublished,freshWatching,freshChannels).eligible(available)
+            sharedFeedErrors=listOfNotNull(if(freshChannels==null)"channels" else null,if(freshPublished==null)"previews" else null,
+                if(freshWatching==null)"watching" else null).joinToString(",").ifBlank { "none" }
+            val published=lastShared.published
+            val watching = (lastShared.watching + published.filter { it.watchingSource }).sortedByDescending { it.engagedAt }
             val previews = published.filterNot { it.watchingSource }
             val services=(selectedServices ?: RecommendationPolicy.inferredServices(watching)).intersect(available)
             recommendationServices=services
@@ -139,22 +147,24 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         }
     }
 
-    private fun sharedChannels():Map<Long,String> {
+    private fun sharedChannels():Map<Long,String>? {
         val channels=HashMap<Long,String>()
         try {
-            context.contentResolver.query(Uri.parse("content://android.media.tv/channel"),arrayOf("_id","display_name"),null,null,null)?.use { c ->
-                while(c.moveToNext()) {
+            val cursor=context.contentResolver.query(Uri.parse("content://android.media.tv/channel"),arrayOf("_id","display_name"),null,null,null) ?: return null
+            cursor.use { c ->
+                while(c.moveToNext() && channels.size<5000) {
                     channels[c.getLong(0)]=c.getString(1).orEmpty()
                 }
             }
-        } catch(_:Exception) { }
+        } catch(_:Exception) { return null }
         return channels
     }
 
-    private fun query(table: String, available: Set<String>,channels:Map<Long,String> = emptyMap()): List<Program> {
+    private fun query(table: String, available: Set<String>,channels:Map<Long,String> = emptyMap()): List<Program>? {
         val out = ArrayList<Program>()
         try {
-            context.contentResolver.query(Uri.parse("content://android.media.tv/$table"), null, null, null, null)?.use { c ->
+            val cursor=context.contentResolver.query(Uri.parse("content://android.media.tv/$table"), null, null, null, null) ?: return null
+            cursor.use { c ->
                 fun str(key: String): String { val i=c.getColumnIndex(key); return if (i>=0 && !c.isNull(i)) c.getString(i).orEmpty() else "" }
                 fun number(key: String): Long { val i=c.getColumnIndex(key); return if (i>=0 && !c.isNull(i)) c.getLong(i) else 0 }
                 var scanned=0
@@ -182,7 +192,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                     out.add(Program("$table:${str("_id")}",title,detail,str("thumbnail_uri").ifBlank { str("poster_art_uri") },pkg,app,str("intent_uri"),position,duration,summary=str("short_description"),watchingSource=table=="watch_next_program" || continuing || position>0,engagedAt=number("last_engagement_time_utc_millis"),mediaType=kind,liveSports=sports,sourceName=channel,genres=str("genre").ifBlank { str("canonical_genre") },providerWeight=number("weight")))
                 }
             }
-        } catch (_: Exception) { }
+        } catch (_: Exception) { return null }
         return out.sortedByDescending { it.resume }
     }
 
