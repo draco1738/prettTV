@@ -46,12 +46,13 @@ class MainActivity : Activity() {
     private var showAnchor: View? = null
     private val focusables = LinkedHashMap<String, View>()
     private val horizontalRows=LinkedHashMap<String,HorizontalScrollView>()
-    private data class Viewport(val focus:String?=null,val y:Int=0,val rows:Map<String,Int> = emptyMap())
+    private data class Viewport(val focus:String?=null,val y:Int=0,val rows:Map<String,Int> = emptyMap(),val contentFocus:String?=null)
     private var pendingViewport:Viewport?=null
     private val appCards = HashMap<String, MutableList<PrettTvCard>>()
-    private data class CardArt(val card:PrettTvCard,val url:String,val w:Int,val h:Int,var requested:Boolean=false)
+    private data class CardArt(val card:PrettTvCard,val url:String,val w:Int,val h:Int,val request:ArtworkRequest=ArtworkRequest())
     private val cardArt=ArrayList<CardArt>()
     private val ui = Handler(Looper.getMainLooper())
+    private val retryArtwork = Runnable { loadVisibleArt() }
     private val loader = HandlerThread("pretttv-apps").apply { start() }
     private val background = Handler(loader.looper)
     private val packageReceiver = object : BroadcastReceiver() {
@@ -97,13 +98,15 @@ class MainActivity : Activity() {
         registerReceiver(tickReceiver,IntentFilter(Intent.ACTION_TIME_TICK).apply { addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED) })
         updateClock()
         if(dirty || apps.isEmpty())reload() else startContent()
+        ui.post(retryArtwork)
     }
     override fun onStop() {
         visible=false; contentRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
+        ui.removeCallbacks(retryArtwork); cardArt.forEach { it.request.cancel() }
         (currentFocus?.tag as? String)?.let { settings.edit().putString("focus",it).apply() }
         super.onStop()
     }
-    override fun onDestroy() { generation++; unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); artwork.close(); super.onDestroy() }
+    override fun onDestroy() { generation++; ui.removeCallbacksAndMessages(null); unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); artwork.close(); super.onDestroy() }
     override fun onConfigurationChanged(newConfig:Configuration) { super.onConfigurationChanged(newConfig); scale=resources.displayMetrics.widthPixels/1920f; render() }
     override fun onNewIntent(i:Intent?) { super.onNewIntent(i); applyIntent(i); render(reset=true) }
     override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray) {
@@ -152,14 +155,14 @@ class MainActivity : Activity() {
 
     private fun viewport(focus:String?=null)=Viewport(
         focus ?: (currentFocus?.tag as? String) ?: (lastContentFocus?.tag as? String) ?: settings.getString("focus",null),
-        if(ready)root.scrollY else 0,horizontalRows.mapValues { it.value.scrollX })
+        if(ready)root.scrollY else 0,horizontalRows.mapValues { it.value.scrollX },lastContentFocus?.tag as? String)
 
     private fun render(reset:Boolean=false,restore:Viewport?=null) {
-        if(isFinishing)return
+        if(isFinishing || isDestroyed)return
         if(reset)homeRequested=true
         val saved=if(homeRequested)Viewport() else restore ?: pendingViewport ?: viewport()
         pendingViewport=saved
-        artwork.cancel(); cardArt.clear(); focusables.clear(); horizontalRows.clear(); appCards.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
+        artwork.cancel(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); appCards.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
         root=ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER; clipChildren=false; clipToPadding=false }
         page=column().apply { setPadding(px(56),px(30),px(56),px(40)) }
         val stage=FrameLayout(this).apply { setBackgroundColor(bgColor); clipChildren=false; clipToPadding=false }
@@ -191,7 +194,12 @@ class MainActivity : Activity() {
                 renderedRoot.viewTreeObserver.removeOnPreDrawListener(this)
                 if(root!==renderedRoot)return true
                 saved.rows.forEach { (key,x) -> horizontalRows[key]?.scrollTo(x,0) }
-                (focusables[saved.focus] ?: firstCard ?: focusables.values.firstOrNull())?.requestFocus()
+                if(saved.focus?.startsWith("rail-")==true) {
+                    sidebar?.visibility=View.VISIBLE; root.alpha=.45f
+                    lastContentFocus=focusables[saved.contentFocus] ?: firstCard
+                }
+                val target=focusables[saved.focus] ?: firstCard ?: focusables.values.firstOrNull()
+                if(target?.requestFocus()!=true)firstCard?.requestFocus()
                 root.scrollTo(0,saved.y)
                 pendingViewport=null; homeRequested=false
                 loadVisibleArt()
@@ -291,6 +299,7 @@ class MainActivity : Activity() {
                 clipChildren=true; clipToPadding=true; setPadding(0,px(6),0,px(6)); addView(strip,ViewGroup.LayoutParams(-2,px(218)))
             }
             page.addView(scroll,LinearLayout.LayoutParams(-1,px(230)))
+            horizontalRows["sports-games"]=scroll
             gap(12)
         }
         if(content.liveSports.isNotEmpty()) {
@@ -315,6 +324,7 @@ class MainActivity : Activity() {
             addView(strip,ViewGroup.LayoutParams(-2,px(152)))
         }
         page.addView(scroll,LinearLayout.LayoutParams(-1,px(162)))
+        horizontalRows["sports-apps"]=scroll
     }
     private fun sportsDestination():AppEntry? = orderedApps().filter { it.packageName in sportsPackages }
         .let { entries -> entries.firstOrNull { it.packageName=="com.rblive.app" } ?: entries.firstOrNull() }
@@ -393,16 +403,18 @@ class MainActivity : Activity() {
         constrainRow(strip)
     }
     private fun loadVisibleArt() {
+        if(!visible || isDestroyed)return
         val rect=Rect()
         for(item in cardArt) {
             if(item.card.getGlobalVisibleRect(rect) && rect.width()>px(20) && rect.height()>px(20)) {
-                if(!item.requested) {
-                    item.requested=true
+                if(item.card.art==null && item.request.begin(SystemClock.uptimeMillis())) {
                     artwork.load(item.url,item.w,item.h) { bitmap ->
-                        if(item.card.getGlobalVisibleRect(Rect()))item.card.art=bitmap else item.requested=false
+                        item.request.complete(bitmap!=null,SystemClock.uptimeMillis())
+                        if(visible && item.card.getGlobalVisibleRect(Rect()))item.card.art=bitmap
+                        if(bitmap==null && visible) { ui.removeCallbacks(retryArtwork); ui.postDelayed(retryArtwork,30_000) }
                     }
                 }
-            } else if(item.requested) { item.card.art=null; item.requested=false }
+            } else { item.card.art=null }
         }
     }
     private fun orderedApps():List<AppEntry> {
@@ -652,7 +664,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("About this show").setMessage(detail).setPositiveButton("Open ${p.app}") { _,_ -> openProgram(p) }.setNeutralButton("Source") { _,_ -> if(p.sourceUrl.isNotBlank())safeStart(Intent(Intent.ACTION_VIEW,Uri.parse(p.sourceUrl)),"TVmaze") }.setNegativeButton("Close",null).show()
     }
     private fun credits() {
-        dialog("prettTV 0.1.6",listOf(
+        dialog("prettTV 0.1.7",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },
@@ -681,6 +693,7 @@ class MainActivity : Activity() {
         super.dump(prefix,fd,out,args)
         out.println("prettTV layout=${layout.name} apps=${apps.size} watching=${content.watching.size} suggestions=${content.suggestions.size} discover=${content.discover.size} trending=${content.trending.size} new=${content.newReleases.size} games=${content.games.size} discovery=$discovery")
         out.println("prettTV focus=${currentFocus?.tag} visible=$visible artwork=${appCards.values.flatten().count { it.art!=null }}")
+        out.println("prettTV contentArtwork=${cardArt.count { it.card.art!=null }}")
         if(args?.contains("--viewport-diagnostics")==true)out.println("VIEWPORT y=${root.scrollY} rows="+horizontalRows.mapValues { it.value.scrollX })
         if(args?.contains("--feed-diagnostics")==true)out.println(contentRepo.diagnostics())
         if(args?.contains("--content-diagnostics")==true)for(p in content.watching)

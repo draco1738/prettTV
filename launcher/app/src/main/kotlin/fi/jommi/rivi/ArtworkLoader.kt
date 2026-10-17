@@ -10,7 +10,7 @@ import android.util.LruCache
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.MessageDigest
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -18,37 +18,42 @@ import java.util.concurrent.TimeUnit
 /** Two decoders, bounded compressed files and a 12 MiB memory cache. Never decode on the UI thread. */
 class ArtworkLoader(private val context: Context) {
     private val ui = Handler(Looper.getMainLooper())
-    private val pool = ThreadPoolExecutor(2, 2, 30, TimeUnit.SECONDS, LinkedBlockingQueue<Runnable>(64), ThreadPoolExecutor.DiscardPolicy())
-    private val dir = File(context.cacheDir, "art").apply { mkdirs() }
+    private val pool = ThreadPoolExecutor(2, 2, 30, TimeUnit.SECONDS, LinkedBlockingQueue<Runnable>(64), ThreadPoolExecutor.AbortPolicy())
+    private val disk = ArtworkDiskCache(File(context.cacheDir, "art"))
     private val memory = object : LruCache<String, Bitmap>(12 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
     }
     @Volatile private var generation = 0
     fun cancel() { generation++; pool.queue.clear() }
-    fun close() { cancel(); pool.shutdownNow(); memory.evictAll() }
+    fun close() { cancel(); pool.shutdownNow(); ui.removeCallbacksAndMessages(null); memory.evictAll() }
 
-    fun load(url: String, width: Int, height: Int, deliver: (Bitmap) -> Unit) {
-        if (url.isBlank()) return
+    fun load(url: String, width: Int, height: Int, deliver: (Bitmap?) -> Unit) {
+        if (url.isBlank() || width <= 0 || height <= 0) { deliver(null); return }
         val key = "$url:${width}x$height"
         memory.get(key)?.let { deliver(it); return }
         val g = generation
-        pool.execute {
+        try { pool.execute {
             if (g != generation) return@execute
+            var result: Bitmap? = null
             try {
                 val bytes = read(url) ?: return@execute
+                if (g != generation) return@execute
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-                if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@execute
+                if (bounds.outWidth <= 0 || bounds.outHeight <= 0) { disk.discard(url); return@execute }
                 var sample = 1
                 while (bounds.outWidth / sample > width * 2 || bounds.outHeight / sample > height * 2) sample *= 2
                 // Also cap exceptionally tall posters; decoded working set stays under 8 MiB per worker.
                 while (bounds.outWidth.toLong() / sample * (bounds.outHeight / sample) > 2_000_000) sample *= 2
                 val options = BitmapFactory.Options().apply { inSampleSize = sample; inPreferredConfig = Bitmap.Config.RGB_565 }
-                val image = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@execute
+                val image = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                if (image == null) { disk.discard(url); return@execute }
+                if (g != generation) return@execute
                 memory.put(key, image)
-                ui.post { if (g == generation) deliver(image) }
+                result = image
             } catch (_: Exception) { /* The readable placeholder is the offline/error state. */ }
-        }
+            finally { val image = result; ui.post { if (g == generation) deliver(image) } }
+        } } catch (_: RejectedExecutionException) { if (g == generation) deliver(null) }
     }
 
     private fun read(url: String): ByteArray? {
@@ -56,16 +61,9 @@ class ArtworkLoader(private val context: Context) {
         if (uri.scheme == "content" || uri.scheme == "android.resource")
             return context.contentResolver.openInputStream(uri)?.use { it.readBytesCapped(6_000_000) }
         if (uri.scheme != "https") return null
-        val hash = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
-        val file = File(dir, hash)
-        if (file.exists() && file.length() <= 6_000_000) return file.readBytes()
+        disk.read(url)?.let { return it }
         val bytes=download(url) ?: return null
-        synchronized(dir) {
-            file.writeBytes(bytes)
-            val files = dir.listFiles()?.sortedBy { it.lastModified() }.orEmpty()
-            var total = files.sumOf { it.length() }
-            for (old in files) { if (total <= 24_000_000) break; val n = old.length(); if (old.delete()) total -= n }
-        }
+        disk.write(url, bytes)
         return bytes
     }
 

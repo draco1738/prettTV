@@ -17,7 +17,7 @@ for arg in "$@"; do
 done
 source adb/common.sh
 APK=launcher/app/build/outputs/apk/release/app-release.apk
-if [ -f prettTV-0.1.6.apk ]; then APK=prettTV-0.1.6.apk; NO_BUILD=true; fi
+if [ -f prettTV-0.1.7.apk ]; then APK=prettTV-0.1.7.apk; NO_BUILD=true; fi
 if [ "$NO_BUILD" = false ]; then
   # The Android Gradle Plugin needs JDK 17. Use JAVA_HOME if set, otherwise look for one.
   if [ -z "${JAVA_HOME:-}" ]; then
@@ -44,7 +44,7 @@ if [ "$LAUNCHER_ONLY" = false ]; then
       if [ ! -f "$COMPANION" ]; then
         command -v curl >/dev/null || die "Use the complete release bundle, install curl, or set RBTV_APK to its APK."
         curl --fail --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 180 \
-          https://github.com/draco1738/prettTV/releases/download/v0.1.6/RBTV-3.0.320.apk -o "$COMPANION.download" || die "RBTV+ download failed."
+          https://github.com/draco1738/prettTV/releases/download/v0.1.7/RBTV-3.0.320.apk -o "$COMPANION.download" || die "RBTV+ download failed."
         mv -- "$COMPANION.download" "$COMPANION"
       fi
     fi

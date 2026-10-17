@@ -28,17 +28,20 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private var serviceOverride:Set<String>?=null
     private var observing = false
     private var games=emptyList<SportsEvent>()
+    private var lastCatalog=CatalogSnapshot()
     private val sports=SportsCatalog(dir,::get)
     private val playback=PlaybackHistory(context)
     @Volatile private var feedSummary="Feeds have not loaded yet"
+    @Volatile private var completedRefreshes=0
+    @Volatile private var refreshError="none"
     @Volatile var recommendationServices=emptySet<String>(); private set
     @Volatile var availableServices=emptySet<String>(); private set
-    fun diagnostics():String=feedSummary
+    fun diagnostics():String="REFRESH completed=$completedRefreshes error=$refreshError\n$feedSummary"
     private val observer = object : ContentObserver(ui) { override fun onChange(selfChange: Boolean) { refresh() } }
     private val refreshTask = Runnable { load() }
 
     fun start(packages: Set<String>, hiddenPackages: Set<String>, catalogEnabled: Boolean,preferredPackages:List<String> = emptyList(),services:Set<String>?=null) {
-        installed = packages; hidden = hiddenPackages; discovery = catalogEnabled; active = true
+        installed = packages.toSet(); hidden = hiddenPackages.toSet(); discovery = catalogEnabled; active = true
         preferred=preferredPackages
         serviceOverride=services?.toSet()
         if (!observing) {
@@ -55,13 +58,15 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         if (observing) { try { context.contentResolver.unregisterContentObserver(observer) } catch (_: Exception) { }; observing = false }
     }
     fun close() { stop(); thread.quitSafely() }
-    fun refresh() { if (active) { ui.removeCallbacks(refreshTask); ui.postDelayed(refreshTask, 220) } }
+    fun refresh() { if (active) { generation++; ui.removeCallbacks(refreshTask); ui.postDelayed(refreshTask, 220) } }
 
     private fun load() {
         val g = ++generation; val available = installed; val excluded = hidden; val useCatalog = discovery
         val priority=preferred; val selectedServices=serviceOverride
         worker.removeCallbacksAndMessages(null)
         worker.post {
+            fun current() = active && g == generation
+            try {
             val channels=sharedChannels()
             val published = query("preview_program", available, channels)
             val watching = (query("watch_next_program", available) + published.filter { it.watchingSource }).sortedByDescending { it.engagedAt }
@@ -73,9 +78,12 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 "FEED $pkg count=${rows.size} channels="+rows.groupingBy { it.sourceName.ifBlank { "Unlabeled" } }.eachCount().entries.joinToString { "${it.key}:${it.value}" }+
                     " genres="+rows.map { it.genres }.filter { it.isNotBlank() }.distinct().take(8).joinToString(";")
             }
-            val catalogRows = ArrayList<Program>()
-            var releases=emptyList<Program>(); var catalogBrowse=emptyList<Program>()
+            var snapshot=lastCatalog.eligible(useCatalog,available,excluded)
             fun publish() {
+                if (!current()) return
+                val catalogRows=if(previews.size<4)snapshot.seeds else emptyList()
+                val catalogBrowse=snapshot.browse()
+                val releases=snapshot.recent(System.currentTimeMillis())
                 val cleanWatching=ContentPolicy.clean(watching,excluded)
                 val cleanReleases=ContentPolicy.clean(releases,excluded)
                 val rows=RecommendationPolicy.build(previews,catalogRows+catalogBrowse,catalogBrowse,cleanWatching,cleanReleases,services,priority,excluded)
@@ -95,27 +103,39 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             if (useCatalog && previews.size < 4) for (seed in SEEDS) {
                 if (!active || g != generation) break
                 if (seed.pkg !in available || seed.pkg in excluded) continue
-                try { catalog(seed)?.let { catalogRows.add(it); publish() } } catch (_: Exception) { }
+                try { catalog(seed)?.let { card ->
+                    if(current()) {
+                        snapshot=snapshot.copy(seeds=(snapshot.seeds.filterNot { it.id==card.id }+card))
+                        lastCatalog=snapshot
+                        publish()
+                    }
+                } } catch (_: Exception) { }
             }
             if(useCatalog && STREMIO in available && STREMIO !in excluded && active && g==generation) {
-                val popular=ArrayList<List<Program>>(); val recent=ArrayList<Program>()
                 val year=java.time.LocalDate.now().year
                 for(type in listOf("series","movie")) {
                     if(!active || g!=generation)break
-                    popular.add(cinemeta(type,"top",""))
-                    recent.addAll(cinemeta(type,"year","genre=$year"))
+                    val popular=cinemeta(type,"top","")
+                    if(!current())break
+                    val recent=cinemeta(type,"year","genre=$year")
+                    if(!current())break
+                    snapshot=snapshot.updated(type,popular,recent)
                 }
                 // Preserve the provider's Popular ordering, alternating series and films.
                 // Reuse all fetched entries for app-title popularity matching and discovery.
-                catalogBrowse=(0 until 100).flatMap { i -> popular.mapNotNull { it.getOrNull(i) } }
-                releases=ContentPolicy.recentReleases(recent,System.currentTimeMillis())
-                publish()
+                if(current()) { lastCatalog=snapshot; publish() }
             }
             if(useCatalog && active && g==generation) {
-                games=sports.load { active && g==generation }
-                publish()
+                val freshGames=sports.load { current() }
+                if(current()) { games=freshGames; publish() }
             }
-            ui.post { if(active && g==generation) { ui.removeCallbacks(refreshTask); ui.postDelayed(refreshTask,120_000) } }
+            if(current()) { completedRefreshes++; refreshError="none" }
+            } catch(e:Exception) {
+                if(current())refreshError=e.javaClass.simpleName
+                android.util.Log.w("PrettTvCatalog","Refresh failed: ${e.javaClass.simpleName}")
+            } finally {
+                ui.post { if(current()) { ui.removeCallbacks(refreshTask); ui.postDelayed(refreshTask,120_000) } }
+            }
         }
     }
 
@@ -189,7 +209,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         return Program("tvmaze:${seed.id}",j.optString("name"),"$genre · ${seed.app}",art,seed.pkg,seed.app,catalog=true,sourceUrl=j.optString("url"),summary=summary,sourceName="TVmaze",mediaType="series",genres=genre)
     }
 
-    private fun cinemeta(type:String,catalog:String,extra:String):List<Program> {
+    private fun cinemeta(type:String,catalog:String,extra:String):List<Program>? {
         val file=File(dir,"cinemeta-$type-$catalog-$extra.json")
         var data=try { if(file.exists())JSONObject(file.readText()) else null } catch(_:Exception) { null }
         if(data==null || System.currentTimeMillis()-file.lastModified()>21_600_000L) {
@@ -199,7 +219,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 file.writeText(fresh.toString()); data=fresh
             } catch(e:Exception) { android.util.Log.w("PrettTvCatalog","$type/$catalog: ${e.javaClass.simpleName}: ${e.message}") }
         }
-        val rows=data?.optJSONArray("metas") ?: return emptyList()
+        val rows=data?.optJSONArray("metas") ?: return null
         val result=ArrayList<Program>()
         for(i in 0 until minOf(rows.length(),100)) {
             val j=rows.optJSONObject(i) ?: continue

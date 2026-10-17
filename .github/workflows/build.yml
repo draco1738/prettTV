@@ -12,9 +12,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - name: Unit tests and release build (debug-signed, no secrets needed)
+      - name: Unit tests, Android lint and release build (debug-signed, no secrets needed)
         working-directory: launcher
-        run: ./gradlew --no-daemon :app:testReleaseUnitTest :app:assembleRelease
+        run: ./gradlew --no-daemon :app:testReleaseUnitTest :app:lintRelease :app:assembleRelease
       - uses: actions/upload-artifact@v4
         with:
           name: pretttv-debug-signed-ci-build

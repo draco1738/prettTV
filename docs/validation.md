@@ -1,3 +1,19 @@
+# prettTV 0.1.7 stability fixes — 2026-10-17
+
+Catalog refreshes reuse the last successful results instead of briefly removing catalog cards before loading them again. Failed catalog requests retain previous results; a valid empty response clears them. Disabled, hidden and uninstalled sources remain filtered, and retained new releases still age out. Cancelled refreshes cannot deliver obsolete results; unexpected refresh exceptions are recorded by class name and leave the next refresh scheduled.
+
+Artwork requests cancelled when Home stops are retryable on return. Failed or rejected requests complete explicitly and retry after a 30-second backoff. Compressed image cache writes use temporary files and atomic replacement, with reads/writes serialized across loader instances; decoder-rejected entries are discarded. Cache-write failures do not prevent delivery of downloaded artwork. Worker counts, memory/disk limits and HTTPS-only remote downloads remain bounded. Sidebar focus and its underlying content destination survive screen rebuilds; sports rows now participate in horizontal-position restoration.
+
+81 JVM tests pass, including 11 new regressions covering catalog retention/filtering/expiry, artwork lifecycle/backoff and concurrent cache replacement/recovery. The signed release builds successfully. Android lint reports zero errors and 38 existing warnings; CI now runs lint explicitly alongside unit tests and the release build. The APK retains the established release certificate and installed in place on the TCL as versionCode 8. App preferences and playback history matched the pre-update export; only the saved focus key changed.
+
+Remote-navigation verification hid Prime Video from Your apps, moved focus to its next neighbor YouTube, and retained Prime in Library. Restoring it from Library retained focus on Prime there. The temporary hide was undone. The initial touchscreen-driven probe is not used as evidence of D-pad focus behavior.
+
+A 135-second on-device sample crossed an automatic refresh (completed count 2 → 3). All four discovery/catalog rows retained 60 cards; the selected New releases identity, vertical offset 2186 and horizontal offset 1692 were unchanged in every sample. C subsequently returned to Home with artwork populated. Additional navigation occurred during the Settings-return probe, so that probe does not establish an isolated stop/resume artwork test; cancellation and retry are covered by the regression tests. No prettTV crash was found in the retained crash buffer. These are bounded checks, not a sustained frame-rate or long-duration reliability claim.
+
+## Debugging a future regression
+
+With an authorized ADB connection, `adb shell dumpsys activity dev.zane.pretttv --feed-diagnostics --viewport-diagnostics` reports layout, card counts, focused identity, row offsets, loaded artwork count and completed refresh count. `REFRESH error` identifies unexpected refresh exceptions; provider/network fallbacks can still occur without an unexpected exception. Capture a before/after pair around the failing interaction. For an app crash, inspect `adb logcat -b crash -d` for the prettTV process. Unit-test and lint reports are under `launcher/app/build/reports/` after the README build command.
+
 # prettTV 0.1.6 Pluto recommendation priority — 2026-10-17
 
 Pluto TV now has a separate fallback tier in Suggestions and Discover, after other app/catalog sources and before Stremio. The tier applies before deduplication, allocation and the 60-title limits, and is not overridden by launch recency or a selected-service entry. Trending, app availability and personal viewing-history rules are unchanged.
