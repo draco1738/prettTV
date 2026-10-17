@@ -1,3 +1,13 @@
+# prettTV 0.1.4 service-first discovery — 2026-10-17
+
+65 JVM tests pass. Eleven new policy tests cover large early free feeds, allocating multiple providers to both Suggestions and Discover, explicit service priority, conservative viewing-activity inference, app intent preservation, unknown/ambiguous popularity matches, cross-row exclusions, 60-title bounds and empty input. The signed v0.1.4 update installed in place on the TCL; C Balanced, the local hero and dark icons were retained.
+
+On-device diagnostics report 60 Suggestions, 60 Discover and 60 Trending entries. Suggestions and Discover start with Disney+ and Prime Video, with Apple TV also present before general/free feeds. Trending starts with Apple TV and Crunchyroll's explicit popular channel; YouTube's published Trending and Cinemeta fill later slots. The observed Netflix and HBO apps publish watching records but no preview recommendation cards. Their account catalogs were not scraped or fabricated. Genre fields were empty in the observed preview feeds, so provider balancing supplies variety without inventing genre classifications.
+
+The native service selector displays the inferred choices and supports a local explicit override or a return to viewing-activity inference. Its UI was captured on the TV. A signed-in state is not claimed: shared progress is only a default signal. During remote checks, unexpected navigation was observed; inputs were paused to avoid overlapping with the owner. This pass does not claim an isolated save/restart interaction test. The new row capture at docs/screenshots/discover-row.png shows non-anime films and series, provider labels, focus treatment and the Suggestions → Discover → Trending order in C. All layouts use the same row builder and policy; this pass did not repeat the earlier A/B/C layout checks.
+
+The shared-provider scan remains bounded at 5,000 scanned records, 2,000 accepted cards and 300 per app, with 60 visible entries per row. Public channel labels and weights are read; opaque provider-internal identifiers are no longer decoded. Existing cached catalogs are reused. Optional Android special-access settings and viewing-history ordering were not changed.
+
 # prettTV 0.1.3 Discover row — 2026-10-17
 
 Added Discover immediately below Suggestions and above Trending through the shared row builder used by A/B/C. The row reuses the current cards, D-pad behavior, horizontal scrolling and artwork limits. It selects up to 60 additional titles from already-fetched provider/catalog data, excluding normalized titles in watching, Suggestions, Trending and New releases. Preferred app sources precede Stremio; duplicate titles retain the preferred source. No additional network endpoint or request was added.

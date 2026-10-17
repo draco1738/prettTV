@@ -12,6 +12,7 @@ data class Program(
     val watchingSource: Boolean = false, val sourceName: String = "",
     val released: Long = 0, val detailUri: String = "",
     val engagedAt: Long = 0, val mediaType: String = "unknown",val liveSports:Boolean=false,
+    val genres:String="",val providerWeight:Long=0,
 ) {
     val titleKey: String get() = title.trim().replace(Regex("\\s+")," ").lowercase(Locale.ROOT)
     val progress: Float get() = if (duration > 0) (position.toDouble() / duration).coerceIn(0.0, 1.0).toFloat() else 0f

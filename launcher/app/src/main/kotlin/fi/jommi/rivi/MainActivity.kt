@@ -247,11 +247,11 @@ class MainActivity : Activity() {
         gap(24)
         buildLiveSports()
         gap(24)
-        buildShowRow("Suggestions",content.suggestions,218,"discover",4,"Your apps · TVmaze")
+        buildShowRow("Suggestions",content.suggestions,218,"discover",4,"Your services first")
         gap(24)
-        buildShowRow("Discover",content.discover,218,"explore",4,"More to explore")
+        buildShowRow("Discover",content.discover,218,"explore",4,"More from your services")
         gap(24)
-        buildShowRow("Trending",content.trending,218,"trending",4,"Cinemeta · popular now")
+        buildShowRow("Trending",content.trending,218,"trending",4,"Popular picks · Your services first")
         gap(24)
         buildShowRow("New releases",content.newReleases,218,"new",4,"Cinemeta · past 120 days")
     }
@@ -462,7 +462,8 @@ class MainActivity : Activity() {
     }
     private fun startContent() {
         val recent=prefs.recentOrder().entries.sortedByDescending { it.value }.mapNotNull { entry -> apps.firstOrNull { it.key==entry.key }?.packageName }.distinct()
-        contentRepo.start(apps.map { it.packageName }.toSet(),emptySet(),discovery,recent)
+        val services=if(settings.contains("preferredServices"))settings.getStringSet("preferredServices",emptySet()).orEmpty().toSet() else null
+        contentRepo.start(apps.map { it.packageName }.toSet(),emptySet(),discovery,recent,services)
     }
     private fun launch(e:AppEntry) { prefs.touchRecent(e.key); prefs.lastFocus=e.key; safeStart(repo.launchIntent(e),e.label) }
     private fun safeStart(i:Intent,label:String):Boolean = try { startActivity(i); true } catch(_:Exception) { Toast.makeText(this,"Could not open $label",Toast.LENGTH_SHORT).show(); false }
@@ -504,6 +505,7 @@ class MainActivity : Activity() {
         val items=ArrayList<Pair<String,()->Unit>>()
         items+="Choose apps one by one" to { reviewApps() }
         items+="Live sports apps" to { chooseSportsApps() }
+        items+="Recommendation services" to { chooseRecommendationServices() }
         items+="Layout: ${layout.label}" to {
             dialog("Choose your home",HomeLayout.entries.map { choice -> choice.label to { layout=choice; settings.edit().putString("layout",choice.name).apply(); settings.edit().remove("focus").apply(); render(); root.smoothScrollTo(0,0); firstCard?.requestFocus() } })
         }
@@ -535,6 +537,17 @@ class MainActivity : Activity() {
             .setPositiveButton("Include") { _,_ -> choose(true) }
             .setNegativeButton("Hide") { _,_ -> choose(false) }
             .setNeutralButton("Done for now",null).show()
+    }
+    private fun chooseRecommendationServices() {
+        val choices=apps.filter { it.packageName in contentRepo.availableServices || it.packageName in RecommendationPolicy.knownServices }
+            .distinctBy { it.packageName }.sortedBy { it.label.lowercase(java.util.Locale.ROOT) }
+        val selected=(if(settings.contains("preferredServices"))settings.getStringSet("preferredServices",emptySet()).orEmpty() else contentRepo.recommendationServices).toMutableSet()
+        AlertDialog.Builder(this).setTitle("Prioritize your signed-in services")
+            .setMultiChoiceItems(choices.map { it.label }.toTypedArray(),choices.map { it.packageName in selected }.toBooleanArray()) { _,i,on ->
+                if(on)selected.add(choices[i].packageName) else selected.remove(choices[i].packageName)
+            }.setPositiveButton("Save") { _,_ -> settings.edit().putStringSet("preferredServices",selected).apply(); startContent() }
+            .setNeutralButton("Use viewing activity") { _,_ -> settings.edit().remove("preferredServices").apply(); startContent() }
+            .setNegativeButton("Cancel",null).show()
     }
     private fun chooseSportsApps() {
         val choices=apps.sortedBy { it.label.lowercase(java.util.Locale.ROOT) }
@@ -608,7 +621,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("About this show").setMessage(detail).setPositiveButton("Open ${p.app}") { _,_ -> openProgram(p) }.setNeutralButton("Source") { _,_ -> if(p.sourceUrl.isNotBlank())safeStart(Intent(Intent.ACTION_VIEW,Uri.parse(p.sourceUrl)),"TVmaze") }.setNegativeButton("Close",null).show()
     }
     private fun credits() {
-        dialog("prettTV 0.1.3",listOf(
+        dialog("prettTV 0.1.4",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },
@@ -616,7 +629,7 @@ class MainActivity : Activity() {
             "Cinemeta · popular and recent titles" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/Stremio/stremio-official-addons")),"Cinemeta") },
             "ESPN · sports schedules and broadcasts" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.espn.com/")),"ESPN") },
             "Project source · github.com/draco1738/prettTV" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/draco1738/prettTV")),"Project source") },
-            "Privacy" to { AlertDialog.Builder(this).setTitle("Your home, your choice").setMessage("prettTV has no analytics, ad identifiers or registration. App arrangement, viewing records and launch recency stay on this TV. Optional helpers use active media-session metadata (Notification access) or navigate RBTV during a game request (Accessibility access). No notification text is read or retained. Helpers can be turned off in Android settings.\n\nWith discovery on, prettTV requests public catalogs and artwork from TVmaze, Stremio Cinemeta, ESPN scoreboards and their image services. Those servers receive your IP address and requested catalog/show/league IDs. Published TV rows can also link to provider artwork. Switch discovery off to stop public catalog requests.\n\nCurrently watching uses progress that apps publish to Android TV. prettTV cannot inspect their login status or credentials. Continue watching and the hero use locally confirmed viewing first, with shared timestamps as an initial baseline. Timestamp refreshes alone do not prove playback. Supported media sessions can update local recency; otherwise hold OK on a title to correct it. Discovery prefers other apps ahead of Stremio; a purple S identifies Stremio. prettTV does not remove ads inside other apps.").setPositiveButton("Close",null).show() }
+            "Privacy" to { AlertDialog.Builder(this).setTitle("Your home, your choice").setMessage("prettTV has no analytics, ad identifiers or registration. App arrangement, viewing records and launch recency stay on this TV. Optional helpers use active media-session metadata (Notification access) or navigate RBTV during a game request (Accessibility access). No notification text is read or retained. Helpers can be turned off in Android settings.\n\nWith discovery on, prettTV requests public catalogs and artwork from TVmaze, Stremio Cinemeta, ESPN scoreboards and their image services. Those servers receive your IP address and requested catalog/show/league IDs. Published TV rows can also link to provider artwork. Switch discovery off to stop public catalog requests.\n\nCurrently watching uses progress that apps publish to Android TV. prettTV cannot inspect their login status or credentials. Continue watching and the hero use locally confirmed viewing first, with shared timestamps as an initial baseline. Timestamp refreshes alone do not prove playback. Supported media sessions can update local recency; otherwise hold OK on a title to correct it. Recommendations use shared viewing activity to prioritize services, without assuming an app launch proves a login. Choose your signed-in apps in Recommendation services to override this inference. Providers are balanced before row limits; general/free feeds follow your services and Stremio stays last with a purple S badge. prettTV does not remove ads inside other apps.").setPositiveButton("Close",null).show() }
         ))
     }
     private fun readLicense(title:String,file:String) {
@@ -637,6 +650,7 @@ class MainActivity : Activity() {
         super.dump(prefix,fd,out,args)
         out.println("prettTV layout=${layout.name} apps=${apps.size} watching=${content.watching.size} suggestions=${content.suggestions.size} discover=${content.discover.size} trending=${content.trending.size} new=${content.newReleases.size} games=${content.games.size} discovery=$discovery")
         out.println("prettTV focus=${currentFocus?.tag} visible=$visible artwork=${appCards.values.flatten().count { it.art!=null }}")
+        if(args?.contains("--feed-diagnostics")==true)out.println(contentRepo.diagnostics())
         if(args?.contains("--content-diagnostics")==true)for(p in content.watching)
             out.println("WATCH ${p.packageName} | ${p.title} | ${p.id} | engagement=${p.engagedAt} | position=${p.position} | duration=${p.duration}")
     }

@@ -25,16 +25,22 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private var hidden = emptySet<String>()
     private var discovery = true
     private var preferred = emptyList<String>()
+    private var serviceOverride:Set<String>?=null
     private var observing = false
     private var games=emptyList<SportsEvent>()
     private val sports=SportsCatalog(dir,::get)
     private val playback=PlaybackHistory(context)
+    @Volatile private var feedSummary="Feeds have not loaded yet"
+    @Volatile var recommendationServices=emptySet<String>(); private set
+    @Volatile var availableServices=emptySet<String>(); private set
+    fun diagnostics():String=feedSummary
     private val observer = object : ContentObserver(ui) { override fun onChange(selfChange: Boolean) { refresh() } }
     private val refreshTask = Runnable { load() }
 
-    fun start(packages: Set<String>, hiddenPackages: Set<String>, catalogEnabled: Boolean,preferredPackages:List<String> = emptyList()) {
+    fun start(packages: Set<String>, hiddenPackages: Set<String>, catalogEnabled: Boolean,preferredPackages:List<String> = emptyList(),services:Set<String>?=null) {
         installed = packages; hidden = hiddenPackages; discovery = catalogEnabled; active = true
         preferred=preferredPackages
+        serviceOverride=services?.toSet()
         if (!observing) {
             for (name in listOf("watch_next_program", "preview_program", "channel")) {
                 try { context.contentResolver.registerContentObserver(Uri.parse("content://android.media.tv/$name"), true, observer) } catch (_: Exception) { }
@@ -53,26 +59,35 @@ class ContentRepository(private val context: Context, private val deliver: (Home
 
     private fun load() {
         val g = ++generation; val available = installed; val excluded = hidden; val useCatalog = discovery
-        val priority=preferred
+        val priority=preferred; val selectedServices=serviceOverride
         worker.removeCallbacksAndMessages(null)
         worker.post {
-            val continueChannels=continueChannels()
-            val published = query("preview_program", available, continueChannels)
+            val channels=sharedChannels()
+            val published = query("preview_program", available, channels)
             val watching = (query("watch_next_program", available) + published.filter { it.watchingSource }).sortedByDescending { it.engagedAt }
             val previews = published.filterNot { it.watchingSource }
+            val services=(selectedServices ?: RecommendationPolicy.inferredServices(watching)).intersect(available)
+            recommendationServices=services
+            availableServices=(watching+previews).map { it.packageName }.toSet()+RecommendationPolicy.knownServices.intersect(available)
+            val sources=previews.groupBy { it.packageName }.entries.joinToString("\n") { (pkg,rows) ->
+                "FEED $pkg count=${rows.size} channels="+rows.groupingBy { it.sourceName.ifBlank { "Unlabeled" } }.eachCount().entries.joinToString { "${it.key}:${it.value}" }+
+                    " genres="+rows.map { it.genres }.filter { it.isNotBlank() }.distinct().take(8).joinToString(";")
+            }
             val catalogRows = ArrayList<Program>()
-            var trending=emptyList<Program>(); var releases=emptyList<Program>(); var catalogBrowse=emptyList<Program>()
+            var releases=emptyList<Program>(); var catalogBrowse=emptyList<Program>()
             fun publish() {
-                val combined=ContentPolicy.combine(watching, previews, catalogRows.toList(), excluded)
-                val bias=watching.filter { it.packageName!=STREMIO }.map { it.packageName }.distinct()+priority
-                val suggestions=ContentPolicy.prioritize(combined.suggestions,bias)
-                val cleanTrending=ContentPolicy.clean(trending,excluded)
+                val cleanWatching=ContentPolicy.clean(watching,excluded)
                 val cleanReleases=ContentPolicy.clean(releases,excluded)
-                val result = combined.copy(watching=playback.merge(combined.watching),suggestions=suggestions,
-                    trending=cleanTrending,newReleases=cleanReleases,
-                    discover=ContentPolicy.discover(previews+catalogRows+catalogBrowse,combined.watching+suggestions+cleanTrending+cleanReleases,excluded,bias),
+                val rows=RecommendationPolicy.build(previews,catalogRows+catalogBrowse,catalogBrowse,cleanWatching,cleanReleases,services,priority,excluded)
+                val result = HomeContent(watching=playback.merge(cleanWatching),suggestions=rows.suggestions,
+                    trending=rows.trending,newReleases=cleanReleases,discover=rows.discover,
                     liveSports=ContentPolicy.clean(published.filter { it.liveSports },excluded),
                     games=if(useCatalog)SportsPolicy.upcoming(games,System.currentTimeMillis()) else emptyList())
+                feedSummary="SERVICES ${if(selectedServices==null)"viewing-activity" else "manual"}: "+services.joinToString()+"\n"+sources+"\n"+
+                    listOf("Suggestions" to rows.suggestions,"Discover" to rows.discover,"Trending" to rows.trending).joinToString("\n") { (name,items) ->
+                        "ROW $name count=${items.size} providers="+items.groupingBy { it.packageName }.eachCount()+
+                            " first="+items.take(8).joinToString { "${it.packageName}:${it.mediaType}" }
+                    }
                 ui.post { if (active && g == generation) deliver(result) }
             }
             publish()
@@ -91,8 +106,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                     recent.addAll(cinemeta(type,"year","genre=$year"))
                 }
                 // Preserve the provider's Popular ordering, alternating series and films.
-                trending=(0 until 30).flatMap { i -> popular.mapNotNull { it.getOrNull(i) } }
-                // Reuse the remaining fetched catalog entries; no extra requests for Discover.
+                // Reuse all fetched entries for app-title popularity matching and discovery.
                 catalogBrowse=(0 until 100).flatMap { i -> popular.mapNotNull { it.getOrNull(i) } }
                 releases=ContentPolicy.recentReleases(recent,System.currentTimeMillis())
                 publish()
@@ -105,28 +119,31 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         }
     }
 
-    private fun continueChannels():Set<Long> {
-        val ids=HashSet<Long>()
+    private fun sharedChannels():Map<Long,String> {
+        val channels=HashMap<Long,String>()
         try {
-            context.contentResolver.query(Uri.parse("content://android.media.tv/channel"),arrayOf("_id","display_name","internal_provider_id"),null,null,null)?.use { c ->
+            context.contentResolver.query(Uri.parse("content://android.media.tv/channel"),arrayOf("_id","display_name"),null,null,null)?.use { c ->
                 while(c.moveToNext()) {
-                    val name=(c.getString(1).orEmpty()+" "+c.getString(2).orEmpty()).lowercase(java.util.Locale.ROOT)
-                    if(name.contains("continue") || name.contains("watching") || name.contains("resume"))ids.add(c.getLong(0))
+                    channels[c.getLong(0)]=c.getString(1).orEmpty()
                 }
             }
         } catch(_:Exception) { }
-        return ids
+        return channels
     }
 
-    private fun query(table: String, available: Set<String>,continueChannels:Set<Long> = emptySet()): List<Program> {
+    private fun query(table: String, available: Set<String>,channels:Map<Long,String> = emptyMap()): List<Program> {
         val out = ArrayList<Program>()
         try {
             context.contentResolver.query(Uri.parse("content://android.media.tv/$table"), null, null, null, null)?.use { c ->
                 fun str(key: String): String { val i=c.getColumnIndex(key); return if (i>=0 && !c.isNull(i)) c.getString(i).orEmpty() else "" }
                 fun number(key: String): Long { val i=c.getColumnIndex(key); return if (i>=0 && !c.isNull(i)) c.getLong(i) else 0 }
-                while (c.moveToNext() && out.size < 500) {
+                var scanned=0
+                val counts=HashMap<String,Int>()
+                while (c.moveToNext() && scanned++ < 5000 && out.size < 2000) {
                     val pkg=str("package_name"); val title=str("title")
                     if (pkg !in available || title.isBlank()) continue
+                    if((counts[pkg] ?: 0)>=300)continue
+                    counts[pkg]=(counts[pkg] ?: 0)+1
                     if (table == "watch_next_program" && number("watch_next_type") == 3L) continue
                     val app = try { context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(pkg,0)).toString() } catch (_: Exception) { pkg }
                     val position=number("last_playback_position_millis"); val duration=number("duration_millis")
@@ -140,7 +157,9 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                     }
                     val sports=number("live")==1L && (str("canonical_genre")+" "+str("genre")).contains("SPORT",ignoreCase=true) &&
                         (number("end_time_utc_millis")==0L || number("end_time_utc_millis")>System.currentTimeMillis())
-                    out.add(Program("$table:${str("_id")}",title,detail,str("thumbnail_uri").ifBlank { str("poster_art_uri") },pkg,app,str("intent_uri"),position,duration,summary=str("short_description"),watchingSource=table=="watch_next_program" || number("channel_id") in continueChannels || position>0,engagedAt=number("last_engagement_time_utc_millis"),mediaType=kind,liveSports=sports))
+                    val channel=channels[number("channel_id")].orEmpty()
+                    val continuing=Regex("continue|watching|resume",RegexOption.IGNORE_CASE).containsMatchIn(channel)
+                    out.add(Program("$table:${str("_id")}",title,detail,str("thumbnail_uri").ifBlank { str("poster_art_uri") },pkg,app,str("intent_uri"),position,duration,summary=str("short_description"),watchingSource=table=="watch_next_program" || continuing || position>0,engagedAt=number("last_engagement_time_utc_millis"),mediaType=kind,liveSports=sports,sourceName=channel,genres=str("genre").ifBlank { str("canonical_genre") },providerWeight=number("weight")))
                 }
             }
         } catch (_: Exception) { }
@@ -167,7 +186,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         val genres=j.optJSONArray("genres")
         val genre=if (genres != null && genres.length()>0) genres.optString(0) else "Series"
         val summary=android.text.Html.fromHtml(j.optString("summary"),android.text.Html.FROM_HTML_MODE_LEGACY).toString().trim()
-        return Program("tvmaze:${seed.id}",j.optString("name"),"$genre · ${seed.app}",art,seed.pkg,seed.app,catalog=true,sourceUrl=j.optString("url"),summary=summary,sourceName="TVmaze")
+        return Program("tvmaze:${seed.id}",j.optString("name"),"$genre · ${seed.app}",art,seed.pkg,seed.app,catalog=true,sourceUrl=j.optString("url"),summary=summary,sourceName="TVmaze",mediaType="series",genres=genre)
     }
 
     private fun cinemeta(type:String,catalog:String,extra:String):List<Program> {
@@ -192,7 +211,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             val source="https://v3-cinemeta.strem.io/meta/$type/$id.json"
             result.add(Program("cinemeta:$type:$id",title,if(catalog=="year")"$date · ${if(type=="movie")"Film" else "Series"}" else "$genre · Stremio",
                 j.optString("background").ifBlank { j.optString("poster") },STREMIO,"Stremio",catalog=true,sourceUrl=source,
-                summary=j.optString("description"),sourceName="Cinemeta",released=released,detailUri="stremio:///detail/$type/$id",mediaType=type))
+                summary=j.optString("description"),sourceName="Cinemeta",released=released,detailUri="stremio:///detail/$type/$id",mediaType=type,genres=genre))
         }
         return result
     }

@@ -297,3 +297,5 @@ Hold OK also offers I watched this most recently to correct local recency. Playb
 - **Don't** extend the confirmed hide/restore and Home checks into claims about untested playback tracking or RBTV matching.
 
 Discover row (0.1.3): directly below Suggestions and above Trending in A/B/C, using the existing 218 px content cards, horizontal scrolling and spacing. Up to 60 additional app/catalog titles, excluding titles in the other shelves; Stremio remains later and badged. It reuses fetched catalogs and existing artwork limits.
+
+Service-first feeds (0.1.4): preserve the same shelf geometry and visual language. Balance app providers before limiting each row; reserve cards from each service for both Suggestions and Discover. Prioritize services inferred from real shared progress or chosen in Settings → Recommendation services. Free/general feeds follow, with Stremio last. Use the native checkbox dialog and an explicit Use viewing activity reset; do not label inferred choices as verified logins. Trending combines provider-labeled popular channels and conservative same-title/same-type catalog matches without replacing the app's identity or launch intent.
