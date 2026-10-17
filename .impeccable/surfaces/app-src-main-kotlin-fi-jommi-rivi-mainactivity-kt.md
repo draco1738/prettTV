@@ -2,7 +2,7 @@
 version: 1
 slug: "app-src-main-kotlin-fi-jommi-rivi-mainactivity-kt"
 primary_target: "launcher/app/src/main/kotlin/fi/jommi/rivi/MainActivity.kt"
-related_targets: []
+related_targets: ["launcher/app/src/main/kotlin/fi/jommi/rivi/PrettTvCard.kt"]
 ---
 ## Direction contract
 
@@ -12,17 +12,19 @@ OWN-WORLD: Sage-black ground, ivory type, subtle card outlines, real landscape s
 
 STORY: Find a show or app with a remote, see the focused action, and open its provider.
 
-FIRST VIEWPORT: All A/B/C layouts use a 1808 px content width with 56 px left and right margins at the 1920 × 1080 reference size. C has a 1132 × 486 hero, a 20 px gap, and a 656 × 486 shared Discover panel with two 608 × 184 compact rows. Six visible 94 px dark app tiles follow in a finite horizontal row, then content shelves. The hero action sits at lower left.
+FIRST VIEWPORT: All A/B/C layouts use a 1808 px content width with 56 px left and right margins at the 1920 × 1080 reference size. C has a 1132 × 486 hero, a 20 px gap, and a 656 × 486 shared Discover panel with two 608 × 184 compact rows. Your apps follows as a finite row of 208 × 94 px dark tiles with 18 px gaps; up to eight complete tiles fit at the reference width. A and B also use 208 px widths, retaining heights of 116 and 176 px respectively. The Library grid remains six columns with integer (inner - 5 × 18) / 6 widths and 154 px heights. The hero action sits at lower left.
 
 NAVIGATION: The left sidebar is HIDDEN BY DEFAULT in every layout. Left from the first app or content card reveals the fixed overlay rail and dims content to alpha 0.45. The six destinations are Home, Shows, Library, Inputs, Search, and Settings. Right, Back, choosing a destination, or returning focus to content hides it and restores alpha 1.0. Library opens the complete Library · All apps grid; Your apps remains a separate customizable horizontal row. No top navigation, top wordmark, or rail monogram.
 
-FORM: C Balanced remains selected; A Cinema and B Quiet remain alternatives. The original choice used seed 2a08e375. The latest explicit owner instruction supersedes the previously visible sidebar and reserves the full width for content when navigation is closed.
+FORM: C Balanced remains selected; A Cinema and B Quiet remain alternatives. The original choice used seed 2a08e375. The owner retains the hidden sidebar and full-width content. The approved 0.2.1 patch narrows Your apps cards and adds a finite focus spotlight with bounded artwork drift, preserving the rest of the native composition.
 
-FINISH: Version 0.2.0 preserves the incumbent home world. Current actual ADB A/B/C captures show the home and B shows Watchlist below Movies. Functional validation reports 202 JVM tests and 35 Android tests passing. The final functional gate and the user-approved one-hour soak checkpoint review passed; see docs/validation.md. The original two-hour run was stopped at the user's request and its native outcome remains UNRECORDED. New feature dialogs, details, and the updater have not been captured; their appearance is source-derived. The finish review requested a fix to the stale persisted row contract, not a redesign or blanket certification.
+FINISH: This update documents the 0.2.1 native card source without claiming new screenshots or device validation. Historical 0.2.0 ADB A/B/C captures show that release's home and B shows Watchlist below Movies. Its validation reports 202 JVM tests and 35 Android tests passing, with a passed final functional gate and user-approved one-hour soak checkpoint review; see docs/validation.md. The original two-hour run was stopped at the user's request and its native outcome remains UNRECORDED. Those results do not validate this card patch. The narrower app row, new focus motion, feature dialogs, details, and updater are not certified by the retained captures.
 
 ## Runtime constraints
 
-Operate mode; TV remote from couch distance. Geometry scales from a 1920-wide reference. Hero type is 58 reference pixels, section type 24, and card titles 29; system font scale also applies. Full accessible labels accompany visual truncation. Card-focus motion is finite at 140 ms; horizontal row travel uses 180 ms. Both respect disabled animations. Changed-row refreshes preserve unaffected cards and the viewport where possible; final functional validation and the passed user-approved one-hour soak checkpoint review are scoped in docs/validation.md.
+Operate mode; TV remote from couch distance. Geometry scales from a 1920-wide reference. Hero type is 58 reference pixels, section type 24, and card titles 29; system font scale also applies. Full accessible labels accompany visual truncation. Card focus scale lasts 140 ms; spotlight opacity and up to 6 reference pixels of rightward artwork drift use a separate 180 ms transition. Horizontal row travel remains 180 ms. Disabled animations apply final states immediately. Changed-row refreshes preserve unaffected cards and the viewport where possible. Historical 0.2.0 functional validation and its one-hour soak review retain their scope in docs/validation.md.
+
+The native spotlight is a cached ivory RadialGradient clipped inside every card mode, including Library tiles. It lies beneath text and HERO/SHOW scrims, with no external glow, idle pulse, or looping motion. Focus drift moves only artwork within the card: landscape images reserve 12 reference pixels of overscan, portraits cap movement to available side space, app logos preserve their existing fit, and fallback app artwork reserves 6 pixels at each side. Focus reversals retarget from the current amount. Window hiding, aggregated visibility loss, and detachment cancel both focus animators and settle the current focus state; animation starts only while attached, shown, and in a visible window. These constraints are source-derived, not new measured results.
 
 Use real Android TV content and attributed app artwork. General discovery is labeled and does not imply personal history or subscription availability. No fictional scenes, invented progress, or episode state are introduced.
 
@@ -40,7 +42,7 @@ AppIconPack uses twelve unmodified Homarr Dashboard Icons PNGs on a native dark 
 
 Live sports uses authentic ESPN events and broadcast logos or names, with Opens RBTV+ when selected. Optional accessibility assistance matches both teams and kickoff time in supported RBTV 3.0.320 layouts for NFL, college football, NBA, and Premier League. It runs only after an explicit game selection, for at most 30 seconds, and stops before server selection. Unsupported or unmatched events open the app for manual selection. No game, channel, server, stream availability, or verified deep link is promised.
 
-## Version 0.2.0 extension
+## Historical version 0.2.0 extension
 
 Watchlist is a local saved-title shelf immediately after Movies by default, including its empty Save something for later state. Hold OK adds/removes titles; long lists page in groups of 60 through newer/older saved-title actions. Confirmed later local viewing may remove a saved title with an Undo entry. Library and viewing history retain their separate purposes.
 
@@ -52,8 +54,8 @@ Favorite teams use native league and checkbox dialogs. Optional kickoff reminder
 
 Settings → Updates opens a separate native scrollable screen with explicit check, download, install, cancel, and back controls. It reuses sage-black/ivory/pale-sage colors, uses native dp/sp controls, and requires user action plus Android installation confirmation. Home never opens it automatically. New native menus, details, reminder states, and updater dialogs are not visually certified by the current A/B/C captures.
 
-Evidence: docs/screenshots/A-cinema.png, B-quiet.png, and C-balanced.png are actual 1920 × 1080 ADB captures for this extension. They show preserved home styling; B visibly includes Watchlist below Movies. Existing sidebar and other captures retain their earlier provenance. Screenshot pixels are preserved. Functional test totals are 202 JVM and 35 Android; the final functional gate and user-approved one-hour soak checkpoint review passed as recorded in docs/validation.md. Uncaptured feature surfaces remain outside visual certification; the original two-hour run's native outcome remains UNRECORDED.
+Historical evidence: docs/screenshots/A-cinema.png, B-quiet.png, and C-balanced.png are actual 1920 × 1080 ADB captures for 0.2.0. They show preserved home styling; B visibly includes Watchlist below Movies. Existing sidebar and other captures retain their earlier provenance. Screenshot pixels are preserved. That release's functional test totals are 202 JVM and 35 Android; its final functional gate and user-approved one-hour soak checkpoint review passed as recorded in docs/validation.md. This evidence does not cover the 0.2.1 card changes. Uncaptured feature surfaces remain outside visual certification; the original two-hour run's native outcome remains UNRECORDED.
 
 ## Publication and evidence
 
-The owner requested a public GitHub repository when this work is finished, with current prettTV branding and the current package ID throughout publishable files. Actual selected A/B/C launcher captures may be published. Device dumps, account data, preference exports, and other-app screens remain excluded. Current 0.2.0 A/B/C actual ADB captures occupy docs/screenshots/A-cinema.png, B-quiet.png, and C-balanced.png. Prior hide/Library/restore, cold-Home, and sidebar evidence keeps its historical scope; optional helpers remain untested end to end. See docs/native-design-evidence.md for the historical review scope and current evidence limits.
+The owner requested a public GitHub repository when this work is finished, with current prettTV branding and the current package ID throughout publishable files. Actual selected A/B/C launcher captures may be published. Device dumps, account data, preference exports, and other-app screens remain excluded. Retained 0.2.0 A/B/C actual ADB captures occupy docs/screenshots/A-cinema.png, B-quiet.png, and C-balanced.png; this documentation update adds no captures. Prior hide/Library/restore, cold-Home, and sidebar evidence keeps its historical scope; optional helpers remain untested end to end. See docs/native-design-evidence.md for the historical review scope and evidence limits.

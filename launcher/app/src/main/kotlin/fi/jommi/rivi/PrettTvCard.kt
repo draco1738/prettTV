@@ -1,5 +1,7 @@
 package fi.jommi.rivi
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.*
@@ -36,6 +38,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode):
     private var appGround=0xFF1C241E.toInt()
     private val imagePaint=Paint(Paint.FILTER_BITMAP_FLAG)
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG)
+    private val spotlightPaint=Paint(Paint.ANTI_ALIAS_FLAG)
     private val text=TextPaint(Paint.ANTI_ALIAS_FLAG)
     private val shape=Path()
     private val compactShape=Path()
@@ -45,6 +48,9 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode):
     private val actionBounds=RectF()
     private var shade:LinearGradient?=null
     private var leftShade:LinearGradient?=null
+    private var focusAmount=0f
+    private var focusMotion:ValueAnimator?=null
+    private val focusInterpolator=DecelerateInterpolator()
     private val ivory=0xFFF4F1E9.toInt()
     private val muted=0xFFBCC4BA.toInt()
     private fun s(n:Float)=n*unit
@@ -65,6 +71,11 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode):
             floatArrayOf(0f,.32f,.58f,1f),Shader.TileMode.CLAMP)
         else LinearGradient(0f,h*.35f,0f,h.toFloat(),intArrayOf(0x000A100C,0xD60A100C.toInt()),null,Shader.TileMode.CLAMP)
         leftShade=LinearGradient(0f,0f,w*.85f,0f,intArrayOf(0xB30A100C.toInt(),0x0D0A100C),null,Shader.TileMode.CLAMP)
+        // Cache an elliptical pool of light; focus changes only its opacity.
+        if(w>0 && h>0)spotlightPaint.shader=RadialGradient(0f,0f,1f,
+            intArrayOf(0x2EF4F1E9,0x0FF4F1E9,0x00F4F1E9),floatArrayOf(0f,.34f,.74f),Shader.TileMode.CLAMP).apply {
+            setLocalMatrix(Matrix().apply { setScale(w*.94f,h*1.4f); postTranslate(w*.23f,0f) })
+        }
     }
     private fun line(c:Canvas,value:String,x:Float,y:Float,size:Float,max:Float,color:Int=ivory,bold:Boolean=false) {
         text.color=color; text.textSize=s(size)*resources.configuration.fontScale
@@ -102,33 +113,40 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode):
         val artW=if(compact)w*.52f else w
         val artH=if(compact)h-s(12f) else h
         val top=if(compact)s(6f) else 0f
+        val travel=s(6f); val drift=travel*focusAmount
         if(image!=null && !image.isRecycled) {
             c.save()
             if(compact)c.clipPath(compactShape)
             if(mode==Mode.APP) {
                 val logo=logoBounds
-                val ratio=if(logo!=null)minOf(w*.70f/logo.width(),h*.58f/logo.height()) else minOf(w/image.width,h/image.height)
+                val ratio=if(logo!=null)minOf(w*.70f/logo.width(),h*.58f/logo.height()) else minOf((w-2*travel).coerceAtLeast(1f)/image.width,h/image.height)
                 val cx=logo?.exactCenterX() ?: (image.width/2f); val cy=logo?.exactCenterY() ?: (image.height/2f)
-                appMatrix.setScale(ratio,ratio); appMatrix.postTranslate(w/2-cx*ratio,h/2-cy*ratio)
+                appMatrix.setScale(ratio,ratio); appMatrix.postTranslate(w/2-cx*ratio+drift,h/2-cy*ratio)
                 appShader?.setLocalMatrix(appMatrix); imagePaint.shader=appShader
                 c.drawRect(rect,imagePaint); imagePaint.shader=null
             } else if(mode==Mode.SPORT) {
                 val ratio=minOf(w*.50f/image.width,h*.33f/image.height)
                 val dw=image.width*ratio; val dh=image.height*ratio
-                imageDestination.set((w-dw)/2,s(51f),(w+dw)/2,s(51f)+dh)
+                imageDestination.set((w-dw)/2+drift,s(51f),(w+dw)/2+drift,s(51f)+dh)
                 c.drawBitmap(image,null,imageDestination,imagePaint)
             } else {
                 val contain=image.width.toFloat()/image.height<1.3f
-                val ratio=if(contain)minOf(artW/image.width,artH/image.height) else maxOf(artW/image.width,artH/image.height)
+                // Reserve the full travel at rest so focus never exposes a landscape edge.
+                val ratio=if(contain)minOf(artW/image.width,artH/image.height) else maxOf((artW+2*travel)/image.width,artH/image.height)
                 val dw=image.width*ratio; val dh=image.height*ratio
                 val imageTop=top+(artH-dh)*(if(mode==Mode.HERO && w/h>3f).12f else .5f)
-                imageDestination.set((artW-dw)/2,imageTop,(artW+dw)/2,imageTop+dh)
+                val imageDrift=if(contain)minOf(drift,((artW-dw)/2).coerceAtLeast(0f)) else drift
+                imageDestination.set((artW-dw)/2+imageDrift,imageTop,(artW+dw)/2+imageDrift,imageTop+dh)
                 c.drawBitmap(image,null,imageDestination,imagePaint)
             }
             c.restore()
         }
         // A very small lift separates dark app artwork from the page without whitening logos.
         if(mode==Mode.APP) { paint.color=0x06FFFFFF; c.drawRect(rect,paint) }
+        if(focusAmount>0f) {
+            spotlightPaint.alpha=(255*focusAmount).toInt()
+            c.drawRect(rect,spotlightPaint)
+        }
         if(mode==Mode.HERO) { paint.shader=leftShade; c.drawRect(rect,paint); paint.shader=null }
         if(mode==Mode.HERO || mode==Mode.SHOW) { paint.shader=shade; c.drawRect(rect,paint); paint.shader=null }
         when(mode) {
@@ -179,12 +197,40 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode):
         paint.style=Paint.Style.FILL
     }
     override fun onFocusChanged(gain:Boolean,direction:Int,old:Rect?) {
-        super.onFocusChanged(gain,direction,old); animate().cancel()
-        val target=if(gain && mode!=Mode.HERO && mode!=Mode.COMPACT)1.025f else 1f
-        if(ValueAnimator.areAnimatorsEnabled())animate().scaleX(target).scaleY(target).setDuration(140).setInterpolator(DecelerateInterpolator()).start()
-        else { scaleX=target; scaleY=target }
+        super.onFocusChanged(gain,direction,old); cancelFocusMotion()
+        val target=focusScale(gain); val amount=if(gain)1f else 0f
+        if(ValueAnimator.areAnimatorsEnabled() && isAttachedToWindow && windowVisibility==VISIBLE && isShown) {
+            animate().scaleX(target).scaleY(target).setDuration(140).setInterpolator(focusInterpolator).start()
+            if(focusAmount!=amount) {
+                val motion=ValueAnimator.ofFloat(focusAmount,amount).apply {
+                    duration=180; interpolator=focusInterpolator
+                    addUpdateListener { updateFocusAmount(it.animatedValue as Float) }
+                    addListener(object:AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(animation:Animator) { if(focusMotion===animation)focusMotion=null }
+                    })
+                }
+                focusMotion=motion; motion.start()
+            }
+        } else { scaleX=target; scaleY=target; updateFocusAmount(amount) }
         invalidate()
     }
+    private fun focusScale(focused:Boolean)=if(focused && mode!=Mode.HERO && mode!=Mode.COMPACT)1.025f else 1f
+    private fun updateFocusAmount(amount:Float) { if(focusAmount!=amount) { focusAmount=amount; invalidate() } }
+    private fun cancelFocusMotion() { animate().cancel(); focusMotion?.cancel(); focusMotion=null }
+    private fun settleFocus() {
+        cancelFocusMotion()
+        val target=focusScale(isFocused); scaleX=target; scaleY=target
+        updateFocusAmount(if(isFocused)1f else 0f)
+    }
+    override fun onWindowVisibilityChanged(visibility:Int) {
+        super.onWindowVisibilityChanged(visibility)
+        if(visibility!=VISIBLE)settleFocus()
+    }
+    override fun onVisibilityAggregated(isVisible:Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        if(!isVisible)settleFocus()
+    }
+    override fun onDetachedFromWindow() { settleFocus(); super.onDetachedFromWindow() }
     private fun confirm(key:Int)=key==KeyEvent.KEYCODE_DPAD_CENTER || key==KeyEvent.KEYCODE_ENTER || key==KeyEvent.KEYCODE_NUMPAD_ENTER
     override fun onKeyDown(key:Int,event:KeyEvent):Boolean { if(!confirm(key))return super.onKeyDown(key,event); if(event.repeatCount==0)event.startTracking(); return true }
     override fun onKeyLongPress(key:Int,event:KeyEvent):Boolean { if(!confirm(key))return super.onKeyLongPress(key,event); performLongClick(); return true }

@@ -41,6 +41,8 @@ The script temporarily installs an isolated target and test runner, executes the
 | Queue of 100 requests | Every accepted or rejected request finishes |
 | Screen replacement and closure | Zero late callbacks |
 | Cache recovery | Uses only the isolated target's cache |
+| Attached card focus and lifecycle | Rapid reversal cancels stale motion; hidden/detached cards settle and recover |
+| Native card raster checks | Artwork moves within covered bounds while text, progress and outlines stay fixed; contained portraits remain visible |
 
 <details>
 <summary>How the fault tests stay isolated</summary>

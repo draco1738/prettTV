@@ -665,7 +665,7 @@ class MainActivity : Activity() {
     private fun buildApps(height:Int) {
         val entries=orderedApps().filter { it.key !in prefs.hidden }
         page.addView(section("Your apps","${entries.size} apps"))
-        val strip=row(); val width=(inner-5*18)/6
+        val strip=row(); val width=208
         if(entries.isEmpty()) {
             val choose=button(if(apps.isEmpty()) { if(appLoadError)"Apps unavailable · Retry" else if(appDiscoveryComplete)"No apps found · Retry" else "Loading your apps…" } else "Choose apps for this row","empty-app-row") { if(apps.isEmpty())reload() else reviewApps() }
             appAnchor=choose; if(firstCard==null)firstCard=choose
@@ -1045,7 +1045,7 @@ class MainActivity : Activity() {
         dialog(p.title,choices)
     }
     private fun credits() {
-        dialog("prettTV 0.2.0",listOf(
+        dialog("prettTV 0.2.1",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },

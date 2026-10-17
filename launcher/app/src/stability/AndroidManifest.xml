@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <application android:label="prettTV stability sandbox" tools:replace="android:label">
+        <activity android:name=".CardFocusTestActivity" android:exported="false" />
         <!-- This isolated fault-test copy must never become a Home candidate or app-row tile. -->
         <activity android:name=".MainActivity">
             <intent-filter tools:node="removeAll" />

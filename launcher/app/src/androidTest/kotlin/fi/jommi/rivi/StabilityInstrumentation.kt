@@ -161,6 +161,7 @@ class StabilityInstrumentation:Instrumentation() {
                     }.commit())
                 }
             }
+            CardFocusAndroidChecks.run(this, ::test)
             HomeFeatureAndroidChecks.run(this, ::test)
             UpdateAndroidChecks.run(this, ::test)
             finish(Activity.RESULT_OK,Bundle().apply { putString("stream","STABILITY PASS: $passed Android fault tests\n");putInt("passed",passed) })

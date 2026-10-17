@@ -97,7 +97,18 @@ components:
   app-card-balanced:
     textColor: "{colors.ivory}"
     rounded: "{rounded.card}"
+    width: "208px"
     height: "94px"
+  app-card-cinema:
+    textColor: "{colors.ivory}"
+    rounded: "{rounded.card}"
+    width: "208px"
+    height: "116px"
+  app-card-quiet:
+    textColor: "{colors.ivory}"
+    rounded: "{rounded.card}"
+    width: "208px"
+    height: "176px"
   sport-card:
     backgroundColor: "{colors.card-ground}"
     textColor: "{colors.ivory}"
@@ -150,7 +161,7 @@ The owner's direction is dark sage and black, lightweight and attractive, with s
 
 This is the native Android TV system: Kotlin Android Views, Canvas cards, native dialogs, and the device's system sans-serif aliases. C Balanced is the selected home; A Cinema and B Quiet remain available. The owner has chosen a left sidebar that is hidden by default in all three layouts and appears as a fixed overlay on request. The exact brand spelling is prettTV, appearing in the footer's About/Credits entry, with no top wordmark or rail monogram.
 
-The hidden sidebar is the latest explicit owner override. It contains Home, Shows, Library, Inputs, Search, and Settings. Left from the first card reveals it and dims content; Right, Back, or choosing a destination dismisses it. The content keeps its full width when the rail is closed. The Android application ID is `dev.zane.pretttv`.
+The hidden sidebar remains the owner's chosen navigation. It contains Home, Shows, Library, Inputs, Search, and Settings. Left from the first card reveals it and dims content; Right, Back, or choosing a destination dismisses it. The content keeps its full width when the rail is closed. The Android application ID is `dev.zane.pretttv`.
 
 **Key Characteristics:**
 
@@ -160,9 +171,11 @@ The hidden sidebar is the latest explicit owner override. It contains Home, Show
 - A hidden-by-default left overlay sidebar shared by A, B, and C.
 - Native text scaling, readable metadata, and full accessible labels behind visual truncation.
 
-This 0.2.0 refresh records an extension of the incumbent world. Current actual ADB captures in `docs/screenshots/A-cinema.png`, `B-quiet.png`, and `C-balanced.png` preserve the home palette, native typography, cards, and A/B/C compositions; B visibly introduces Watchlist below Movies. Source in `launcher/app/src/main/kotlin/fi/jommi/rivi/` establishes the new configurable shelves and native feature controls. Functional validation reports 202 JVM tests and 35 Android tests passing. The final functional gate and the user-approved one-hour soak checkpoint review passed; see `docs/validation.md`. The original two-hour run was stopped at the user's request and its native outcome remains UNRECORDED.
+The approved 0.2.1 patch narrows Your apps cards to 208 reference pixels and adds a finite focus spotlight with a small artwork drift. Layout-specific app heights, Library grid geometry, palette, typography, content order, and hidden navigation remain intact. The measurements and motion below describe the native source; this documentation update claims no new device validation or screenshots.
 
-The current capture set does not show the new details, personalization, sports-preference, or update dialogs. Their descriptions below are source-derived, not a claimed visual pass. Earlier font-scale, hide/restore, cold-Home, and scoped visual checks remain historical evidence in the validation record. Optional playback tracking and RBTV assistance remain off in the supplied evidence; no new end-to-end playback or game-matching result is claimed. Screenshot pixels are unmodified actual device output.
+Historical 0.2.0 actual ADB captures in `docs/screenshots/A-cinema.png`, `B-quiet.png`, and `C-balanced.png` show that release's home palette, native typography, cards, and A/B/C compositions; B visibly introduces Watchlist below Movies. Source in `launcher/app/src/main/kotlin/fi/jommi/rivi/` establishes its configurable shelves and native feature controls. The 0.2.0 validation reports 202 JVM tests and 35 Android tests passing. That release's final functional gate and user-approved one-hour soak checkpoint review passed; see `docs/validation.md`. The original two-hour run was stopped at the user's request and its native outcome remains UNRECORDED. These results do not validate the 0.2.1 card patch.
+
+The retained capture set does not show the 0.2.1 narrower app row or focus motion, nor the 0.2.0 details, personalization, sports-preference, or update dialogs. Their descriptions below are source-derived, not a claimed visual pass. Earlier font-scale, hide/restore, cold-Home, and scoped visual checks remain historical evidence in the validation record. Optional playback tracking and RBTV assistance remain off in the supplied evidence; no new end-to-end playback or game-matching result is claimed. Screenshot pixels are unmodified actual device output.
 
 The earlier finish verdict was **ship for the scored metadata-contrast and native-evidence fixes**, with no material regressions found in the changes inspected at that time. It was not whole-surface certification; the confirmed device actions and current bounded visual confirmation have their own stated scope. The obsolete static-comp font guess and fictional preview content remain outside design authority. Original provenance and review scope are retained in `docs/native-design-evidence.md` and `docs/validation.md`.
 
@@ -219,7 +232,7 @@ The home is a 1920 × 1080 reference composition, scaled by display width. The r
 
 **C Balanced, selected:** a 56-pixel header precedes the upper content by 18 pixels. The feature uses `hero-balanced`, followed by a card-gap and one shared side panel (656 × 486). That panel contains a Discover heading and two compact rows (608 × 184), with 24-pixel horizontal padding. These dimensions describe C's current surface, not a mandatory composition for every future screen.
 
-The app shelf follows after a card-gap. It shows six dark app tiles at a time, with app-gap spacing; width is the integer result of `(inner - 5 × 18) / 6`. Every included app occurs once in this finite row, and Home returns it to its start. The sidebar's Library action opens the complete six-column Library · All apps grid later on the page. Hiding an app affects only this horizontal Your apps row; it stays in Library, search, and viewing history.
+The app shelf follows after a card-gap. Your apps uses 208-pixel-wide dark tiles in all three layouts, with app-gap spacing: up to eight complete tiles fit within the 1808-pixel reference width. Their heights remain 116 in A, 176 in B, and 94 in C. Every included app occurs once in this finite row, and Home returns it to its start. The sidebar's Library action opens the complete six-column Library · All apps grid later on the page. That grid retains its existing width formula, integer `(inner - 5 × 18) / 6`, and 154-pixel card height. Hiding an app affects only the horizontal Your apps row; it stays in Library, search, and viewing history.
 
 Content shelves default to four complete Standard cards and a visible portion of the next. Small shows five cards, Standard four, and Large three; their heights use `show-card-small`, `show-card`, and `show-card-large`. Width is the integer result of `(inner - count × 20 - 46) / count`. Sports event cards use the same size choices. Section headers occupy 44 reference pixels, shelf wrappers allow 6 pixels above and below focus-scaled cards, and section gaps separate shelves. Settings → Customize rows reorders or hides the content shelves and restores defaults; title limits of 20, 40, or 60 apply to Suggestions, Discover, Trending, and New releases.
 
@@ -227,21 +240,27 @@ Default content order is Continue watching · Shows, Continue watching · Movies
 
 Personal rows and the hero use local playback evidence across providers. Published timestamps seed a frozen baseline; refreshing a provider timestamp alone does not promote a title. Optional supported media sessions or I watched this most recently update local recency. App metadata can be missing or ambiguous, so the hero is not guaranteed to represent all real viewing. Feed providers are balanced before row limits; user-selected Recommendation services or real shared activity establish service priority, with general/free feeds later and Stremio last and badged. Inferred priority is not verified login status. Discover uses additional titles outside the other discovery shelves while preserving the same card language.
 
-**A Cinema:** the shared full-width content frame and hidden overlay rail, a full-width 470-pixel hero, and 116-pixel app tiles.
+**A Cinema:** the shared full-width content frame and hidden overlay rail, a full-width 470-pixel hero, and 208 × 116-pixel Your apps tiles.
 
-**B Quiet:** the shared full-width content frame and hidden overlay rail, a short introductory line, 176-pixel app tiles, then the shared content shelves. It omits the hero and shared Discover panel. A and B preserve the same colors, card language, source semantics, and remote behavior as C.
+**B Quiet:** the shared full-width content frame and hidden overlay rail, a short introductory line, 208 × 176-pixel Your apps tiles, then the shared content shelves. It omits the hero and shared Discover panel. A and B preserve the same colors, card language, source semantics, and remote behavior as C.
 
 ## Elevation & Depth
 
-The home uses tonal layers, artwork scrims, fine outlines, and restrained focus scale. Custom cards do not draw drop shadows or glows. Dialog appearance remains owned by Android's `Theme.DeviceDefault.NoActionBar` theme.
+The home uses tonal layers, artwork scrims, fine outlines, restrained focus scale, and a clipped focus spotlight. The spotlight is painted inside the card, with no external glow or drop shadow. Dialog appearance remains owned by Android's `Theme.DeviceDefault.NoActionBar` theme.
 
 SHOW cards use the native green-black scrim recorded in the sidecar: transparent through 32% of height, reaching alpha `0xE6` at 58% and `0xF2` at the bottom. This is the implemented metadata-contrast fix. The hero adds a left-to-right scrim and a bottom scrim behind its title and action. Those gradient stops are native paint values, not invented surface colors.
 
 App tiles receive a very light white overlay (`0x06` alpha) to separate dark artwork from the page. Focused compact cards receive a `0x0D` white overlay. Neither changes the app-logo identity.
 
-**The Quiet Focus Rule.** Resting surfaces stay still. Focus changes finish in 140 ms with `DecelerateInterpolator`; SHOW, APP, and SPORT cards scale to 1.025, while HERO and COMPACT remain at 1.0. When Android disables animators, the state changes immediately.
+**The Quiet Focus Rule.** Cards animate only when focus changes, then stay still. SHOW, APP, and SPORT scale to 1.025 over 140 ms; HERO and COMPACT remain at 1.0. A separate 180 ms focus amount controls the spotlight opacity and up to 6 reference pixels of rightward artwork drift; loss of focus returns both to rest. Both transitions use `DecelerateInterpolator`. Text, progress, and action geometry do not independently drift with the artwork. Disabled animators apply the final focus state immediately.
 
-Horizontal focus travel uses a separate finite 180 ms native `ValueAnimator` with `DecelerateInterpolator`; disabling animators makes the scroll immediate. Content refreshes replace changed rows and preserve unaffected cards, artwork, focus, and viewport where possible. This description remains source-derived; final functional validation and the passed user-approved one-hour soak checkpoint review are scoped in `docs/validation.md`.
+Every `PrettTvCard` mode shares the spotlight, including Library app cards. Its ivory radial gradient uses ARGB `0x2EF4F1E9`, `0x0FF4F1E9`, and `0x00F4F1E9` at positions 0, 0.34, and 0.74. A size-cached matrix turns it into an ellipse centered at 23% of card width on the top edge, with axes scaled to 94% of width and 140% of height. It stays inside the rounded clip and beneath title text and the HERO/SHOW legibility scrims. Focus changes its opacity; there is no idle pulse or continuously running shader.
+
+Landscape imagery reserves 12 reference pixels of horizontal overscan at rest to cover the full 6-pixel travel. Contained portrait imagery limits drift to its available side space. App logos keep their 70%-width/58%-height fit; fallback app artwork reserves 6 pixels on either side, and sports logos retain their existing fit. The artwork is translated rather than stretched.
+
+Interrupted focus changes cancel the previous motion and retarget from the current focus amount. Animation starts only for an attached, shown card in a visible window. Window hiding, aggregated visibility loss, and detachment cancel both focus animators and settle the current focus state. These are source-derived bounds, not new performance or lifecycle test results.
+
+Horizontal focus travel retains its separate finite 180 ms native `ValueAnimator` with `DecelerateInterpolator`; disabling animators makes the scroll immediate. Content refreshes replace changed rows and preserve unaffected cards, artwork, focus, and viewport where possible. Historical 0.2.0 functional validation and its user-approved one-hour soak checkpoint review are scoped in `docs/validation.md` and do not establish results for this patch.
 
 ## Shapes
 
@@ -316,7 +335,7 @@ This screen uses Android dp/sp rather than the home's 1920-wide reference units:
 ### Do:
 
 - **Do** preserve the sage-black ground, fine visible card edges, and color-pop app marks.
-- **Do** keep remote focus clear through the implemented fill, outline, and finite scale treatments.
+- **Do** keep remote focus clear through the implemented fill, outline, finite scale, clipped spotlight, and bounded artwork drift.
 - **Do** retain system font scaling, full accessible labels, and honest visual truncation.
 - **Do** use actual provider imagery, attributed icon assets, published progress, and labeled data sources.
 - **Do** order personal history using local playback evidence and distinguish discovery, game-assistance, and app-opening paths.
@@ -332,6 +351,6 @@ This screen uses Android dp/sp rather than the home's 1920-wide reference units:
 - **Don't** turn finite app shelves into looping rows or repeat apps to imply more content.
 - **Don't** add idle animation, decorative drop shadows, or bright global accent surfaces to this quiet system.
 - **Don't** extend the confirmed hide/restore and Home checks into claims about untested playback tracking or RBTV matching.
-- **Don't** treat the passed functional gate and user-approved one-hour soak review as visual certification of uncaptured 0.2.0 dialogs, or as completion of the original two-hour run.
+- **Don't** treat the 0.2.0 functional gate and user-approved one-hour soak review as validation of the 0.2.1 card patch, visual certification of uncaptured dialogs, or completion of the original two-hour run.
 
 App hiding (0.1.5): keep the current viewport and move focus to the next surviving app, or the previous app at the row's end. An empty Your apps row focuses its chooser. Hiding from Library retains the same Library tile. Arrangement actions apply after the menu dismisses; they do not send the user to the hero or restart content fetching. Explicit Home still resets to the top and the beginning of the app row.

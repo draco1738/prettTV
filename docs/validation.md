@@ -6,6 +6,7 @@ Recorded results for each release, newest first. Device observations apply to th
 
 | Release | Scope | Recorded |
 | :--- | :--- | :--- |
+| [0.2.1 candidate](#pretttv-021-card-focus-candidate--2026-10-17) | Narrower app cards and finite focus treatment; interim checks | 2026-10-17 |
 | [0.2.0](#pretttv-020-personal-rows-and-release-hardening--2026-10-17) | Personal rows and release hardening | 2026-10-17 |
 | [0.1.10](#pretttv-0110-stock-troubleshooting-recovery--2026-10-17) | Stock troubleshooting recovery | 2026-10-17 |
 | [0.1.9](#pretttv-019-scrolling-and-row-navigation--2026-10-17) | Scrolling and row navigation | 2026-10-17 |
@@ -17,6 +18,52 @@ Recorded results for each release, newest first. Device observations apply to th
 | [0.1.3](#pretttv-013-discover-row--2026-10-17) | Discover row | 2026-10-17 |
 | [0.1.2](#pretttv-012-dark-tile-correction--2026-10-17) | Dark-tile correction | 2026-10-17 |
 | [0.1.1](#pretttv-011-validation--2026-10-17) | Validation | 2026-10-17 |
+
+## prettTV 0.2.1 card-focus candidate — 2026-10-17
+
+These interim results apply to the implemented candidate with **208-reference-pixel Your apps widths**, existing A/B/C heights of **116/176/94**, **15-pixel corners** and **18-pixel app gaps**. Library grid geometry is unchanged. A clipped ivory spotlight reaches approximately 18% opacity while artwork moves up to six reference pixels over a finite 180 ms focus transition. The existing 140 ms focus scale remains. Hidden or detached cards cancel and settle their focus motion; disabled animations apply final states immediately.
+
+The owner subsequently requested rounder app cards and less space between them. That revision is awaiting mockup review. The results below do not validate the proposed 22-pixel corners or 12-pixel gaps, and publication remains on hold.
+
+The tested candidate is versionCode 13. Candidate APK SHA-256: `35fa2d0375159353ceb83346ebdf2929a132f68de73891ad6e576b5259f8cffa`. Its verified signing-certificate SHA-256 is `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`, matching the established release identity. The installed APK was pulled back from the TV and matched the candidate hash.
+
+**202 JVM tests and 40 Android fault/UI checks passed.** Android lint reports zero errors and 31 existing warnings. The five additional isolated card checks cover interrupted focus transitions, settling, hidden/detached cards and reattachment, immediate unattached focus state, fixed overlays, landscape edge coverage and contained portrait bounds. Raster stability demonstrates that tested card pixels settle; it is not a measurement of zero idle frames throughout Home. These tests do not directly toggle the TV's system animation setting.
+
+### Completed device checks
+
+All three layouts passed three navigation cycles each: **423 guarded inputs, six forced cold starts and nine leave-and-return cycles** in total.
+
+| Layout | Guarded inputs | Cold-start times | Leave/return cycles | Strict position checks with unchanged content |
+| --- | ---: | --- | ---: | ---: |
+| A · Cinema | 141 | 697 ms, 557 ms | 3 passed | 2 |
+| B · Quiet | 141 | 535 ms, 510 ms | 3 passed | 3 |
+| C · Balanced | 141 | 572 ms, 531 ms | 3 passed | 2 |
+
+Cold-start times of **510–697 ms** include ADB overhead and measure a focusable Home, not completed network artwork or playback readiness. All nine lifecycle cycles preserved Home process continuity and usable focus. Seven cycles also verified the same focus and viewport against unchanged content. Content signatures changed during the first A and first C cycle, so those two runs do not claim strict position equivalence.
+
+The separate C row-navigation check passed reversal across nine app cards, held-Left containment, intentional sidebar entry and return to the original card. Actual A/B/C native Home captures were recorded and visually reviewed for this candidate. They remain private pending the rounder-card/tighter-spacing design decision; the public gallery still shows the earlier release.
+
+An initial A setup used taps at observed control bounds to select the layout, leaving Android in touch mode. The stress harness failed its focus-readiness precondition before sending any test inputs (`inputActions: 0`). Returning to remote navigation restored the expected focus, and the subsequent A run passed. No app-code change was required for that setup failure; the initial result remains a failed precondition rather than a passed test.
+
+### Bounded C motion comparison
+
+The same warmed C navigation route was measured before and after the card update:
+
+| Measure | Before | Card-focus candidate |
+| --- | ---: | ---: |
+| Rendered frames | 200 | 200 |
+| Janky frames | 54 (27.0%) | 53 (26.5%) |
+| Median frame time | 16 ms | 17 ms |
+| 90th percentile | 27 ms | 28 ms |
+| 95th percentile | 28 ms | 29 ms |
+| 99th percentile | 28 ms | 29 ms |
+| Slow UI-thread frames | 0 | 0 |
+
+Jank count decreased by one while measured frame-time percentiles increased by one millisecond. These short samples do not establish a performance improvement, sustained frame rate or broad-device result. No large change is apparent in this route; remaining missed frame deadlines are retained in the record.
+
+Final private exports matched the pre-install baseline exactly across all four groups: Home, apps, playback and personalization. The crash buffer was byte-for-byte unchanged. Retained exit records contained no CRASH or ANR reason; requested force stops and the retained system invalid-start record were accounted for. No temporary test packages remained. Read-only recovery diagnostics reported configured, unpaused and IDLE; prettTV remained the default Home with C Balanced and the feature focused. No stock restore was executed.
+
+This is a bounded patch check, not a repetition of the complete 0.2.0 feature-release gate. The one-hour soak was **not rerun** for this candidate, and the earlier release's broader A/B/C results do not certify it. Raw device traces, settings and viewing data remain private.
 
 ## prettTV 0.2.0 personal rows and release hardening — 2026-10-17
 
