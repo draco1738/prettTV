@@ -1,20 +1,29 @@
-# Narrower app cards — focus concepts
+# Narrower app cards — current versus proposed
 
 Rendered design previews for prettTV's **C Balanced** layout. These are proposals, not screenshots of an installed update. The Android UI has not changed.
 
-![Three focus treatments with narrower app cards](comparison.png)
+The revised comparison makes the change easier to judge: the current and proposed cards are shown at the same scale, with enlarged views of the selected card.
+
+![Current and proposed app rows and enlarged selected cards](comparison.png)
 
 [Open the full-size comparison](comparison.png)
 
-All three use **252 × 94** app cards: about **12% narrower**, with the existing height and corner shape. Dark logos retain their color accents. The app row keeps its beginning and end.
+The proposal uses **252 × 94** app cards instead of **286 × 94**: about **12% narrower**, with the existing height and corner shape. Dark logos retain their color accents. The app row keeps its beginning and end.
 
 | Treatment | Appearance and motion |
 | --- | --- |
-| **1 · Soft spotlight** | A faint light on the selected card; artwork stays still. |
-| **2 · Artwork depth** | Selected artwork shifts 3 pixels over 180 ms, then settles. No spotlight. |
-| **3 · Combined — recommended** | A weaker spotlight with the same small artwork shift. |
+| **Current** | Flat selected surface, with the existing 1.025 focus scale. |
+| **Proposed** | A localized spotlight at up to 18% opacity, plus 6 pixels of internal logo movement over 180 ms. The existing focus scale remains. |
 
-The image shows the settled states. Motion must be judged in a running preview; a still image cannot demonstrate it. These browser-rendered concepts do not establish frame rate on the TV. Native implementation and hardware checks follow design selection.
+## See the movement
+
+![Synchronized current versus proposed focus movement](focus-motion.gif)
+
+[Open the animated comparison](focus-motion.gif) · [Download the MP4](focus-motion.mp4)
+
+The clip repeats the demonstration. Each proposed focus transition settles completely; the launcher would have no idle animation. The selected-card close-ups are enlarged 2× so the internal motion is visible. The spotlight is intentionally stronger than the first set of nearly identical stills.
+
+These are browser-rendered concepts, not Android performance measurements. The baseline uses the current documented dimensions and focus scale. Native implementation and hardware checks follow design selection.
 
 ## Credits
 
