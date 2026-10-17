@@ -15,7 +15,7 @@
 ![Android](https://img.shields.io/badge/Android%20TV-8.0%2B-3ddc84?style=flat-square&logo=android&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](../LICENSE)
 
-[Why](#-why) • [Features](#-features) • [Install](#-install) • [Controls](#-controls) • [Undo](#-undo) • [Build](#-build-from-source)
+[Why](#-why) • [Features](#-features) • [Install](#-install) • [Controls](#-controls) • [Undo](#️-undo) • [Build](#-build-from-source)
 
 <img src="screenshot.png" width="860" alt="Rivi home screen: a favourites row above a grid of all apps">
 
