@@ -3,6 +3,7 @@ package fi.jommi.rivi
 /** Rank shared app cards without claiming to know an account's login or entitlement. */
 object RecommendationPolicy {
     const val STREMIO="com.stremio.one"
+    private const val PLUTO="tv.pluto.android"
     private const val ANIME_SERVICE="com.crunchyroll.crunchyroid"
     private val freeServices=setOf("tv.pluto.android","com.tubitv","com.google.android.youtube.tv",
         "com.plexapp.android","com.roku.web.trc","com.amazon.imdb.tv","com.xumo.xumo")
@@ -17,8 +18,9 @@ object RecommendationPolicy {
         !it.catalog && it.position>0 && it.duration>0 && it.packageName !in freeServices && it.packageName!=STREMIO
     }.map { it.packageName }.toSet()
 
-    private fun tier(p:Program,services:Set<String>):Int = when {
-        p.packageName==STREMIO -> 4
+    private fun tier(p:Program,services:Set<String>,lowerPriority:Set<String>):Int = when {
+        p.packageName==STREMIO -> 5
+        p.packageName in lowerPriority -> 4
         p.catalog -> 3
         p.packageName in services -> 0
         p.packageName in freeServices -> 2
@@ -26,9 +28,9 @@ object RecommendationPolicy {
     }
 
     /** Round-robin providers within each priority tier before imposing any row limit. */
-    fun balanced(rows:List<Program>,services:Set<String>,recent:List<String> = emptyList()):List<Program> {
+    fun balanced(rows:List<Program>,services:Set<String>,recent:List<String> = emptyList(),lowerPriority:Set<String> = emptySet()):List<Program> {
         val result=ArrayList<Program>()
-        for((_,tierRows) in rows.filter { it.title.isNotBlank() }.groupBy { tier(it,services) }.toSortedMap()) {
+        for((_,tierRows) in rows.filter { it.title.isNotBlank() }.groupBy { tier(it,services,lowerPriority) }.toSortedMap()) {
             val groups=tierRows.groupBy { it.packageName }.entries.sortedWith(
                 compareBy<Map.Entry<String,List<Program>>> { it.key==ANIME_SERVICE }
                     .thenBy { recent.indexOf(it.key).let { i -> if(i<0)Int.MAX_VALUE else i } })
@@ -59,7 +61,9 @@ object RecommendationPolicy {
         val fallback=popular.filter { it.packageName !in hidden && it.titleKey !in blocked && it.titleKey !in appTitles }
         val trending=balanced(popularAppCards(eligible,popular)+fallback,services,recent).take(60)
         val used=(watching+trending+releases).map { it.titleKey }.toSet()
-        val candidates=balanced(eligible+catalog.filter { it.packageName !in hidden },services,recent)
+        // Pluto is a fallback in Suggestions/Discover even after a recent launch or a saved
+        // service selection. Personal history and the separate Trending policy are unchanged.
+        val candidates=balanced(eligible+catalog.filter { it.packageName !in hidden },services,recent,lowerPriority=setOf(PLUTO))
             .filter { it.titleKey !in used }
         val suggestions=ArrayList<Program>(); val discover=ArrayList<Program>()
         val perSource=HashMap<String,Int>()

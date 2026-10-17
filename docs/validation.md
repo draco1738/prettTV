@@ -1,3 +1,9 @@
+# prettTV 0.1.6 Pluto recommendation priority — 2026-10-17
+
+Pluto TV now has a separate fallback tier in Suggestions and Discover, after other app/catalog sources and before Stremio. The tier applies before deduplication, allocation and the 60-title limits, and is not overridden by launch recency or a selected-service entry. Trending, app availability and personal viewing-history rules are unchanged.
+
+70 JVM tests pass. Two new regressions cover a large Pluto feed that must not displace other apps, and sparse rows where Pluto remains available after other sources but before Stremio. The signed v0.1.6 APK installed in place on the TCL.
+
 # prettTV 0.1.5 app-hide focus fix — 2026-10-17
 
 Hiding a focused Your apps tile now selects the next surviving neighbor, the previous neighbor at the end, or the empty-row chooser when none remain. Library and sports shortcuts keep their own focus identity because hiding affects only Your apps. Favorite rearrangement follows the same app. The app menu captures its originating focus and scroll positions and applies its action after dismissal. Screen rebuilds restore saved horizontal positions after layout; a pending restoration survives another feed-triggered rebuild. Local app arrangement no longer restarts recommendation fetching.

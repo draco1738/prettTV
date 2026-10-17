@@ -87,4 +87,23 @@ class RecommendationPolicyTest {
         val other=card("Other",prime)
         assertEquals(listOf(heavy,other,light),RecommendationPolicy.balanced(listOf(light,heavy,other),setOf(disney,prime)))
     }
+    @Test fun plutoCannotDisplaceOtherAppChoicesEvenWhenSelectedAndRecentlyOpened() {
+        val pluto="tv.pluto.android"
+        val previews=cards(pluto,180)+cards(disney,40)+cards(free,100)
+        val rows=RecommendationPolicy.build(previews,emptyList(),emptyList(),emptyList(),emptyList(),
+            setOf(disney,pluto),recent=listOf(pluto))
+        for(row in listOf(rows.suggestions,rows.discover)) {
+            assertEquals(60,row.size)
+            assertTrue(row.none { it.packageName==pluto })
+            assertEquals(disney,row.first().packageName)
+        }
+    }
+    @Test fun plutoStillFillsSparseDiscoveryAfterOtherAppsAndBeforeStremio() {
+        val pluto="tv.pluto.android"
+        val previews=cards(pluto,4)+cards(free,4)+cards(disney,4)
+        val catalog=cards(stremio,4).map { it.copy(catalog=true) }
+        val rows=RecommendationPolicy.build(previews,catalog,emptyList(),emptyList(),emptyList(),setOf(disney))
+        for(row in listOf(rows.suggestions,rows.discover))
+            assertEquals(listOf(disney,disney,free,free,pluto,pluto,stremio,stremio),row.map { it.packageName })
+    }
 }

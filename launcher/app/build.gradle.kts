@@ -15,8 +15,8 @@ android {
         applicationId = "dev.zane.pretttv"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "0.1.5"
+        versionCode = 7
+        versionName = "0.1.6"
     }
 
     // Release signing is optional. Put a `signing.properties` file next to settings.gradle.kts

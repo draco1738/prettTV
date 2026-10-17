@@ -12,7 +12,7 @@ Hold OK on a title to hide it from the large feature, Continue watching, or both
 
 ## Install and use
 
-Download and extract **prettTV-0.1.5-with-RBTV.zip** from [Releases](https://github.com/draco1738/prettTV/releases). Connect an authorized Android TV through ADB, then run `./install.ps1` on Windows or `./install.sh` on macOS/Linux. The bundle installs both prettTV and RBTV+ by default, verifies the pinned RBTV checksum, and preserves any RBTV version already installed. Use `-Tv <serial>` / `TV=<serial>` to select a TV. Android TV 8.0 / API 26 or later is required.
+Download and extract **prettTV-0.1.6-with-RBTV.zip** from [Releases](https://github.com/draco1738/prettTV/releases). Connect an authorized Android TV through ADB, then run `./install.ps1` on Windows or `./install.sh` on macOS/Linux. The bundle installs both prettTV and RBTV+ by default, verifies the pinned RBTV checksum, and preserves any RBTV version already installed. Use `-Tv <serial>` / `TV=<serial>` to select a TV. Android TV 8.0 / API 26 or later is required.
 
 When installing from a source checkout, the scripts build prettTV and fetch the pinned RBTV asset from the public release if needed. `-NoBuild` / `--no-build` reuses the built APK. `-LauncherOnly` / `--launcher-only` explicitly skips RBTV. A bare prettTV APK updates only the launcher; use the complete bundle for the default two-app installation.
 
@@ -32,13 +32,15 @@ Suggestions, Discover and Trending prioritize app cards from services with share
 
 Providers are balanced before the 60-title limit, with cards reserved from each service for both Suggestions and Discover. This gives Discover a broader mix instead of leaving it with one anime feed. Selected services come first, followed by other app feeds, known free services and general catalog fallback. Stremio stays last and has a purple **S** badge. Duplicate normalized titles retain the preferred app source; Discover excludes titles already in watching, Suggestions, Trending and New releases.
 
+Pluto TV has lower priority specifically in Suggestions and Discover: it fills remaining space after other sources, before Stremio. Opening Pluto or selecting it as a recommendation service does not override this lower priority. The app remains available normally; its viewing history and Trending ranking are unchanged.
+
 Trending uses explicitly labeled popular/trending app channels and app cards matching a unique same-title, same-type entry in Cinemeta's Popular catalog. Matching only changes ranking: the provider's title, artwork and launch intent are retained. Unknown types and ambiguous catalog matches are skipped. Remaining slots use Cinemeta's Popular order, alternating series and films. New releases uses supplied dates within the past 120 days. Catalog presence does not guarantee a playable stream or subscription entitlement. Cinemeta cards link to Stremio; app-published cards use their provider's intent. No additional catalog requests were added for balancing or Discover.
 
 Live sports pulls live/upcoming NFL, college football, NBA, NHL, MLB and Premier League fixtures from ESPN's public scoreboard feed. Cards use supplied broadcast logos and kickoff times; live cards include scores. Requests run while Home is visible, with a two-minute cache. Data older than five minutes loses its LIVE label/score, and records expire after fifteen minutes. These are uncontracted endpoints and may become unavailable.
 
 **A network logo is not a stream link.** The optional **prettTV game handoff** accessibility helper opens RBTV 3.0.320, selects a verified sport tab, and looks for both complete team names and the local kickoff/date. It supports NFL, college football, NBA and Premier League in that pinned version. It stops after opening the matching game; server selection remains yours. Requests expire after 30 seconds or 16 list scrolls. Ambiguous, missing, unsupported or differently timed events fall back to manual selection. The helper reads and operates RBTV only during an explicit request, never intercepts Home, and never accepts updates or chooses servers. Enable it in Android Accessibility settings. Other RBTV versions/leagues use the ordinary app-launch fallback. Upcoming games may show a countdown rather than server choices.
 
-The [release](https://github.com/draco1738/prettTV/releases/tag/v0.1.5) contains the default prettTV + RBTV installation bundle, individual APKs and checksums. See [RBTV provenance and review limits](docs/companion-apps.md). RBTV is a separate third-party application with its own terms; prettTV’s MIT license does not cover it.
+The [release](https://github.com/draco1738/prettTV/releases/tag/v0.1.6) contains the default prettTV + RBTV installation bundle, individual APKs and checksums. See [RBTV provenance and review limits](docs/companion-apps.md). RBTV is a separate third-party application with its own terms; prettTV’s MIT license does not cover it.
 
 The UI uses native Views/Canvas, two artwork workers and bounded caches. Visible cards request artwork; off-screen cards release bitmap references. Each app appears once in the finite horizontal row, with shared artwork. Twelve bundled [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons) PNG assets and an adapted Disney+ vector provide recognizable marks on dark tiles, with original color accents. Sources, pinned revision, hashes and the supplied license are included. Other apps use their installed artwork; source images are contained rather than stretched.
 
@@ -67,7 +69,7 @@ cd launcher
 
 On Windows use `gradlew.bat`. Output: `launcher/app/build/outputs/apk/release/app-release.apk`. Configure `launcher/local.properties` with your SDK path. Private release signing uses ignored `launcher/signing.properties` with `storeFile`, `storePassword`, and `keyAlias`; otherwise builds use the local debug key. CI artifacts cannot update the owner's release-signed installation. Signing secrets are never committed.
 
-68 JVM tests cover app ordering, content filtering, progress, chronology, release dates, long-row bounds, independent title hiding, app-hide focus continuity, service priority, provider variety and conservative popularity matching. See [validation notes](docs/validation.md). Upstream Rivi benchmarks are not prettTV benchmarks.
+70 JVM tests cover app ordering, content filtering, progress, chronology, release dates, long-row bounds, independent title hiding, app-hide focus continuity, service priority, provider variety and conservative popularity matching. See [validation notes](docs/validation.md). Upstream Rivi benchmarks are not prettTV benchmarks.
 
 ## Captured on the TCL TV
 
