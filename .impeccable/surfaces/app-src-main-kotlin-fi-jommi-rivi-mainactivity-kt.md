@@ -6,30 +6,40 @@ related_targets: []
 ---
 ## Direction contract
 
-THESIS: A calm television home that puts a useful feature, apps and suggestions within one view.
+THESIS: A calm television home that puts a useful feature, apps, and suggestions within one view.
 
-OWN-WORLD: Sage-black ground, ivory type, quiet outlines, landscape stills and a single selected navigation pill. System sans-serif keeps native TV legibility.
+OWN-WORLD: Sage-black ground, ivory type, subtle card outlines, real landscape stills, and colored app marks. System sans-serif preserves native TV legibility. The exact brand is prettTV; branding and credits appear only at the footer.
 
 STORY: Find a show or app with a remote, see the focused action, and open its provider.
 
-FIRST VIEWPORT: C uses 56 px margins, a 1132 × 486 feature, a 656 px shared side panel, six visible 94 px dark app tiles in a finite horizontal row, then horizontal content rows. Hero action sits at lower left.
+FIRST VIEWPORT: All A/B/C layouts use a 1808 px content width with 56 px left and right margins at the 1920 × 1080 reference size. C has a 1132 × 486 hero, a 20 px gap, and a 656 × 486 shared Discover panel with two 608 × 184 compact rows. Six visible 94 px dark app tiles follow in a finite horizontal row, then content shelves. The hero action sits at lower left.
 
-FORM: User-selected C Balanced from the three previews; seed 2a08e375. A Cinema and B Quiet remain selectable alternatives.
+NAVIGATION: The left sidebar is HIDDEN BY DEFAULT in every layout. Left from the first app or content card reveals the fixed overlay rail and dims content to alpha 0.45. The six destinations are Home, Shows, Library, Inputs, Search, and Settings. Right, Back, choosing a destination, or returning focus to content hides it and restores alpha 1.0. Library opens the complete Library · All apps grid; Your apps remains a separate customizable horizontal row. No top navigation, top wordmark, or rail monogram.
 
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+FORM: C Balanced remains selected; A Cinema and B Quiet remain alternatives. The original choice used seed 2a08e375. The latest explicit owner instruction supersedes the previously visible sidebar and reserves the full width for content when navigation is closed.
+
+FINISH: Installed v0.1.1 built with 52 tests passing. The Prime Video hide/Library/restore sequence is confirmed on the TV (34 → 33 → 34), as is cold Home after force-stop into dev.zane.pretttv C with The Night Agent hero. Search/history independence is source-verified only. Final actual A/B/C/sidebar captures are recorded, the prior font-scale 1.3 review passed, and one bounded visual confirmation is in progress after the Disney+ sizing correction. Optional playback and RBTV helpers remain off; no end-to-end helper result is claimed. Every shipping raster retains its provenance.
 
 ## Runtime constraints
 
-Operate mode; TV remote from couch distance. Coordinates scale from 1920 × 1080. Hero type 58 px, section type 24 px, cards 29 px; system font scale applies. Full accessible labels accompany visual truncation. Focus motion is finite, 140 ms, and respects disabled animations.
+Operate mode; TV remote from couch distance. Geometry scales from a 1920-wide reference. Hero type is 58 reference pixels, section type 24, and card titles 29; system font scale also applies. Full accessible labels accompany visual truncation. Focus motion is finite, 140 ms, and respects disabled animations.
 
-Use real installed-app artwork and Android TV rows. General TVmaze discovery is labeled and does not imply personal watch history or current subscription availability. Scene artwork replaces fictional mockup content. No invented progress or episode state.
+Use real Android TV content and attributed app artwork. General discovery is labeled and does not imply personal history or subscription availability. No fictional scenes, invented progress, or episode state are introduced.
 
-The launcher APK does not modify system packages. This TCL's separate setup disabled two Google Home components to make its normal Home resolver honor Luma; Projectivy was removed after Home recovery was verified; its APK is preserved outside the repository. Document that setup separately and preserve the local rollback journal.
+The application ID is dev.zane.pretttv. The implementation workflow reports that owner preferences were exported and imported successfully and the previous application was removed. Preference exports remain local and excluded from publication. Device-specific Home setup and rollback records remain separate from the launcher design.
 
-## Accepted follow-up requirements
+## Accepted content and artwork requirements
 
-The owner praised the rebuilt C, then requested dark icons with colored accents; two separate Continue watching rows (Shows, Movies); longer horizontal Suggestions, Trending and New releases (up to 60 each); and an all-app row with a clear beginning and end, returning to its default start on Home. The large left hero uses the newest published playback timestamp regardless of provider; the two small cards remain discovery. The latest owner instruction supersedes app bias: both Continue watching rows and the hero use newest published engagement first, regardless of source. Stremio-last ordering applies only to discovery. A purple S marks Stremio.
+The finite Your apps row contains each included app once, resets to its beginning on Home, and has a clear end. Hold OK toggles Hide from Your apps row or Show in Your apps row. Hiding affects only this horizontal row: Library retains every discoverable app, and search, suggestions, and viewing history are unaffected. Settings → Restore apps to Your apps row clears all row-only hide choices. An empty row offers Choose apps for this row. Shows and Movies have separate Continue watching shelves. Live sports follows Movies, then Suggestions, Trending, and New releases, with discovery rows supporting up to 60 titles. Two compact side-panel cards remain discovery. Stremio-last ordering applies only to discovery; a purple S identifies Stremio.
 
-Hold OK on a title to hide it from hero, Continue watching or both. Restore individual titles in Settings → Hidden titles. Filters are local, normalized across sources, and never modify shared accounts. TV listings permission is requested at first launch and granted on the test TV; actual app data is now populated. The owner explicitly requested real A/B/C TV screenshots in the private GitHub repository. Original fictional comp artwork and the original bottom-row content are superseded by these explicit requests.
+Personal rows and the hero use local playback evidence. Provider timestamps seed a frozen baseline; later timestamp refreshes alone do not prove playback. Optional supported media sessions can update local recency. Hold OK → I watched this most recently supplies a manual correction. Missing or ambiguous metadata remains unknown. Playback tracking requires Android Notification access but does not read or store notification text.
 
-Latest owner adjustments: subtle card-edge contrast, no top Luma wordmark or rail monogram, brand/credits only at the bottom. Live sports includes ESPN schedules and broadcast logos; the installed RBTV+ exposes no verified per-game link, so a game opens the chosen app with channel guidance. SportioTV and HD Streamz are uninstalled; RBTV+ remains. C stays selected on the TV.
+Hold OK can hide a title from the hero, Continue watching, or both. Settings → Hidden titles restores individual titles. Filters stay local and do not change shared accounts. Discover launchable sideloaded apps, exclude unwanted launchers, and retain app-by-app inclusion controls.
+
+AppIconPack uses eleven unmodified Homarr Dashboard Icons PNGs on a native dark tile: Netflix, Prime Video, YouTube, Apple TV+, Crunchyroll, Stremio, Paramount+, Peacock, Pluto TV, Hulu, and NordVPN. Sources, SHA-256 values, and modification flags are recorded in launcher/app/src/main/assets/app-icons/sources.json; LICENSE.txt is adjacent. Disney+ and HBO Max retain installed artwork because pack candidates did not fit. Unmapped apps also retain installed artwork or native label fallback.
+
+Live sports uses authentic ESPN events and broadcast logos or names, with Opens RBTV+ when selected. Optional accessibility assistance matches both teams and kickoff time in supported RBTV 3.0.320 layouts for NFL, college football, NBA, and Premier League. It runs only after an explicit game selection, for at most 30 seconds, and stops before server selection. Unsupported or unmatched events open the app for manual selection. No game, channel, server, stream availability, or verified deep link is promised.
+
+## Publication and evidence
+
+The owner requested a public GitHub repository when this work is finished, with current prettTV branding and the current package ID throughout publishable files. Actual selected A/B/C launcher captures may be published. Device dumps, account data, preference exports, and other-app screens remain excluded. Final actual TV captures prettTV-final-A.png, prettTV-final-B.png, prettTV-final-C.png, and prettTV-final-sidebar.png are designated for docs/screenshots/A-cinema.png, B-quiet.png, C-balanced.png, and sidebar.png. Device proof is scoped to the hide/Library/restore and cold-Home checks; optional helpers remain untested end to end. See docs/native-design-evidence.md for the historical review scope and current evidence limits.

@@ -15,7 +15,7 @@ import java.net.URL
 
 /** All queries and catalog work stay off the UI thread. Observers exist only while Home is visible. */
 class ContentRepository(private val context: Context, private val deliver: (HomeContent) -> Unit) {
-    private val thread = HandlerThread("luma-content").apply { start() }
+    private val thread = HandlerThread("pretttv-content").apply { start() }
     private val worker = Handler(thread.looper)
     private val ui = Handler(Looper.getMainLooper())
     private val dir = File(context.cacheDir, "catalog").apply { mkdirs() }
@@ -28,6 +28,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private var observing = false
     private var games=emptyList<SportsEvent>()
     private val sports=SportsCatalog(dir,::get)
+    private val playback=PlaybackHistory(context)
     private val observer = object : ContentObserver(ui) { override fun onChange(selfChange: Boolean) { refresh() } }
     private val refreshTask = Runnable { load() }
 
@@ -64,7 +65,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             fun publish() {
                 val combined=ContentPolicy.combine(watching, previews, catalogRows.toList(), excluded)
                 val bias=watching.filter { it.packageName!=STREMIO }.map { it.packageName }.distinct()+priority
-                val result = combined.copy(watching=ContentPolicy.chronological(combined.watching),suggestions=ContentPolicy.prioritize(combined.suggestions,bias),
+                val result = combined.copy(watching=playback.merge(combined.watching),suggestions=ContentPolicy.prioritize(combined.suggestions,bias),
                     trending=ContentPolicy.clean(trending,excluded),newReleases=ContentPolicy.clean(releases,excluded),
                     liveSports=ContentPolicy.clean(published.filter { it.liveSports },excluded),
                     games=if(useCatalog)SportsPolicy.upcoming(games,System.currentTimeMillis()) else emptyList())
@@ -143,20 +144,20 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private fun catalog(seed: Seed): Program? {
         val file=File(dir,"${seed.id}.json")
         var json: JSONObject? = try { if (file.exists()) JSONObject(file.readText()) else null } catch (_: Exception) { null }
-        if (json == null || json.optInt("lumaArtVersion") != 2 || System.currentTimeMillis()-file.lastModified()>86_400_000L) {
+        if (json == null || json.optInt("pretttvArtVersion") != 2 || System.currentTimeMillis()-file.lastModified()>86_400_000L) {
             try {
                 val fresh=JSONObject(get("https://api.tvmaze.com/shows/${seed.id}", 250_000))
                 // Official episode stills supply photographic 16:9 scenes rather than title posters.
                 // These are artwork references for each show, never claims about a user's episode.
                 val episode=JSONObject(get("https://api.tvmaze.com/episodes/${seed.episode}",250_000))
-                fresh.put("lumaLandscape",episode.optJSONObject("image")?.optString("original").orEmpty())
-                fresh.put("lumaArtVersion",2)
+                fresh.put("pretttvLandscape",episode.optJSONObject("image")?.optString("original").orEmpty())
+                fresh.put("pretttvArtVersion",2)
                 val tmp=File(dir,"${seed.id}.tmp"); tmp.writeText(fresh.toString()); if (!tmp.renameTo(file)) { file.writeText(fresh.toString()); tmp.delete() }
                 json=fresh
             } catch (_: Exception) { }
         }
         val j=json ?: return null
-        val art=j.optString("lumaLandscape").ifBlank { j.optJSONObject("image")?.optString("original").orEmpty() }
+        val art=j.optString("pretttvLandscape").ifBlank { j.optJSONObject("image")?.optString("original").orEmpty() }
         val genres=j.optJSONArray("genres")
         val genre=if (genres != null && genres.length()>0) genres.optString(0) else "Series"
         val summary=android.text.Html.fromHtml(j.optString("summary"),android.text.Html.FROM_HTML_MODE_LEGACY).toString().trim()
@@ -171,7 +172,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 val suffix=if(extra.isBlank())"" else "/$extra"
                 val fresh=JSONObject(get("https://v3-cinemeta.strem.io/catalog/$type/$catalog$suffix.json",1_500_000))
                 file.writeText(fresh.toString()); data=fresh
-            } catch(e:Exception) { android.util.Log.w("LumaCatalog","$type/$catalog: ${e.javaClass.simpleName}: ${e.message}") }
+            } catch(e:Exception) { android.util.Log.w("PrettTvCatalog","$type/$catalog: ${e.javaClass.simpleName}: ${e.message}") }
         }
         val rows=data?.optJSONArray("metas") ?: return emptyList()
         val result=ArrayList<Program>()
@@ -197,7 +198,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         val con=address.openConnection() as HttpURLConnection
         try {
             con.connectTimeout=4000; con.readTimeout=4000; con.instanceFollowRedirects=false
-            con.setRequestProperty("User-Agent","LumaTV/0.1")
+            con.setRequestProperty("User-Agent","prettTV/0.1.1")
             val status=con.responseCode
             if(status in listOf(301,302,303,307,308)) {
                 address=URL(address,con.getHeaderField("Location") ?: throw java.io.IOException("Missing redirect"))

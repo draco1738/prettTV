@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-17T02:36:54.7371536-04:00",
-  "title": "Design System: Luma TV",
+  "generatedAt": "2026-10-17T03:12:16.7540137-04:00",
+  "title": "Design System: prettTV",
   "extensions": {
     "colorMeta": {
       "ivory": {
@@ -27,6 +27,10 @@
       "card-edge": {
         "role": "neutral",
         "displayName": "Quiet sage edge"
+      },
+      "app-pack-ground": {
+        "role": "neutral",
+        "displayName": "Dark icon-pack ground"
       }
     },
     "typographyMeta": {
@@ -48,7 +52,7 @@
       },
       "label": {
         "displayName": "Control label",
-        "purpose": "Top navigation, utility buttons, Discover heading, and clock."
+        "purpose": "Utility buttons, Discover heading, and clock."
       },
       "action": {
         "displayName": "Hero action",
@@ -57,6 +61,10 @@
       "support": {
         "displayName": "Shelf support",
         "purpose": "Right-aligned counts and source labels."
+      },
+      "rail-label": {
+        "displayName": "Sidebar destination",
+        "purpose": "All six hidden-overlay sidebar destinations in A, B, and C."
       }
     },
     "shadows": [],
@@ -76,9 +84,14 @@
       "previewPolicy": "Native-only documentation. No HTML/CSS stand-ins, synthetic tonal ramps, browser previews, or inferred mobile breakpoints are supplied. The component entries describe the actual native primitives; the sidecar does not provide a runnable web rendering.",
       "sources": [
         "launcher/app/src/main/kotlin/fi/jommi/rivi/MainActivity.kt",
-        "launcher/app/src/main/kotlin/fi/jommi/rivi/LumaCard.kt",
-        "launcher/app/src/main/kotlin/fi/jommi/rivi/NavIcon.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/PrettTvCard.kt",
         "launcher/app/src/main/kotlin/fi/jommi/rivi/Apps.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/AppIconPack.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/PlaybackHistory.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/PlaybackTracker.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/RbtvHandoffService.kt",
+        "launcher/app/src/main/assets/app-icons/sources.json",
+        "launcher/app/src/main/assets/app-icons/LICENSE.txt",
         "docs/surface-brief.txt",
         "docs/native-design-evidence.md",
         "docs/validation.md"
@@ -89,7 +102,9 @@
           "docs/screenshots/A-cinema.png",
           "docs/screenshots/B-quiet.png"
         ],
-        "provenance": "Actual 1920x1080 captures from the connected TCL Android TV, as recorded in docs/validation.md; generated comps are superseded."
+        "provenance": "Final actual 1920x1080 TCL Android TV captures were recorded as prettTV-final-A.png, prettTV-final-B.png, prettTV-final-C.png, and prettTV-final-sidebar.png under the E: tool root. They are designated for the selected, alternative, and sidebar repository destinations during final packaging.",
+        "freshness": "Final v0.1.1 captures have been recorded. The prior font-scale 1.3 capture review passed. Disney+ sizing is corrected; one bounded visual confirmation is in progress.",
+        "sidebar": "docs/screenshots/sidebar.png"
       },
       "gradients": [
         {
@@ -168,10 +183,49 @@
         "cardFocusedOutline": "2.4 reference pixels, colors.ivory; non-HERO modes",
         "compactRestOutline": "None; the shared Discover panel supplies containment.",
         "heroActionOutline": "1.3 reference pixels with colors.hero-action-edge at rest; 2.5 with colors.ivory on focus.",
-        "topNavFocusedOutline": "MainActivity.round(): px(2) native stroke with colors.ivory.",
-        "navIcons": "Authored Canvas paths; unit = min(width, height) / 64. Rounded focus ground uses 28 * unit, stroke 2.2 * unit, with colors.ivory and colors.icon-focus-ink."
+        "rail": "Sidebar starts at View.GONE. Left from a first app reveals Library, other shelf starts reveal Shows, and the hero reveals Home. Open-rail buttons invert from colors.button-ground/colors.ivory to colors.button-focus/colors.sage-black. Left stays in the rail; vertical endpoints stop. Right or Back dismisses the overlay and restores content focus. Choosing a destination or returning focus to content also dismisses it.",
+        "sidebarContentDimming": "Content ScrollView alpha is 0.45 while the overlay rail is visible and 1.0 after dismissal. This is an immediate native visibility/alpha state change, not a new motion token."
       },
-      "reviewScope": "Independent ship verdict covers the scored metadata-contrast and native-evidence fixes and inspected regression scope. It is not whole-surface certification. Static-comp gates remain pending."
+      "reviewScope": "Historical independent ship verdict covered the scored metadata-contrast and native-evidence fixes. Current TV proof covers Prime Video hide/Library/restore and cold Home. The prior font-scale 1.3 review passed; one bounded visual confirmation is in progress after Disney+ sizing correction. This is not whole-surface certification. Optional playback and RBTV helpers remain off, with no end-to-end result claimed.",
+      "brand": {
+        "displayName": "prettTV",
+        "placement": "Footer About prettTV · Credits; no top wordmark or rail monogram.",
+        "applicationId": "dev.zane.pretttv"
+      },
+      "userOverride": "The latest owner instruction requires the sidebar to be hidden by default in every A/B/C layout. Left from the first card reveals the fixed overlay and dims content. Right, Back, choosing a destination, or returning focus to content dismisses it. Content uses its full width without a permanent rail column. Library opens the complete Library · All apps grid. Your apps remains a separate customizable horizontal row.",
+      "sourceDerivedStatus": "Installed v0.1.1 built with 52 tests passing. Prime Video hide/Library/restore is confirmed on the TCL TV, with Your apps counts 34 → 33 → 34. Cold Home after force-stop resolved dev.zane.pretttv to C with The Night Agent hero. Search and history independence were verified in source, not in separate device sessions. Optional helpers remain off and untested end to end.",
+      "playbackEvidence": "Published engagement timestamps seed a stored baseline and subsequent timestamp-only refreshes do not promote a title. Optional supported active media sessions or the manual I watched this most recently action update local recency. Notification access is required for the optional tracker; it does not read or store notification text. Missing or ambiguous title metadata remains unknown.",
+      "sportsHandoff": "Optional accessibility assistance starts only after a selected game and is bounded to 30 seconds inside supported RBTV 3.0.320 layouts. It matches both teams and kickoff time for supported leagues, stops before server selection, and leaves unsupported or unmatched events to manual selection. No deep link, game availability, channel availability, or playback success is guaranteed.",
+      "packageMigration": "The implementation workflow reports successful owner-preference export/import and removal of the previous application. Preference exports remain local and excluded from publication.",
+      "appIconPack": {
+        "implementation": "AppIconPack renders attributed PNGs into a separate native bitmap on colors.app-pack-ground. Original PNG files remain unchanged.",
+        "iconCount": 11,
+        "mappedApps": [
+          "Netflix",
+          "Prime Video",
+          "YouTube",
+          "Apple TV+",
+          "Crunchyroll",
+          "Stremio",
+          "Paramount+",
+          "Peacock",
+          "Pluto TV",
+          "Hulu",
+          "NordVPN"
+        ],
+        "initialFit": "Contained within 72% of tile width and 68% of tile height before normal card logo fitting.",
+        "installedArtworkExceptions": [
+          "Disney+",
+          "HBO Max"
+        ],
+        "exceptionReason": "Candidate pack images did not fit; these apps retain installed artwork. Unmapped apps also retain installed artwork or native label fallback.",
+        "provenanceManifest": "launcher/app/src/main/assets/app-icons/sources.json",
+        "license": "launcher/app/src/main/assets/app-icons/LICENSE.txt",
+        "provenance": "Homarr Dashboard Icons; pinned source URLs, SHA-256 hashes, and modified:false are recorded for all eleven PNGs."
+      },
+      "publication": "The owner requested a public GitHub repository when the work is finished. Selected A/B/C launcher captures may be published. Device dumps, account data, preference exports, and other-app screens remain excluded. This records the target, not a completed visibility check.",
+      "appVisibility": "Hiding affects only the horizontal Your apps row. Library retains every discoverable app. TV proof: Prime Video hidden by Hold OK → Hide from Your apps row reduced the count 34 → 33; it remained in Library and offered Show in Your apps row; restoration returned 34. Search, suggestions, and viewing-history independence are source-verified rather than separate device-session results. Settings can clear all row-only hide choices.",
+      "helperValidation": "PlaybackTracker and RBTV accessibility assistance are optional and remain off on the test TV. No end-to-end playback tracking, game matching, channel availability, or stream playback success is claimed."
     }
   },
   "components": [
@@ -179,42 +233,42 @@
       "name": "Hero and painted action",
       "kind": "card",
       "refersTo": "hero-balanced",
-      "description": "LumaCard.Mode.HERO: real feature artwork, lower-left title and provider action, optional published progress; one focusable native View. Hero focus strengthens the action without scaling the feature."
+      "description": "PrettTvCard.Mode.HERO: real feature artwork, lower-left title and provider action, optional published progress; one focusable native View. Hero focus strengthens the action without scaling the feature."
     },
     {
       "name": "Show card",
       "kind": "card",
       "refersTo": "show-card",
-      "description": "LumaCard.Mode.SHOW: imagery, dark metadata scrim, medium title, muted detail, optional progress. Ivory focus outline and finite scale."
+      "description": "PrettTvCard.Mode.SHOW: imagery, dark metadata scrim, medium title, muted detail, optional progress. Ivory focus outline and finite scale."
     },
     {
       "name": "Shared compact discovery",
       "kind": "custom",
-      "description": "Two LumaCard.Mode.COMPACT rows share one Discover panel. Image uses 52% of the row, text follows, summary is two lines. Focus reveals a border without scale."
+      "description": "Two PrettTvCard.Mode.COMPACT rows share one Discover panel. Image uses 52% of the row, text follows, summary is two lines. Focus reveals a border without scale."
     },
     {
       "name": "App tile",
       "kind": "card",
       "refersTo": "app-card-balanced",
-      "description": "LumaCard.Mode.APP: installed-app banner or logo on a dark ground, guarded local artwork transformations, label fallback, visible finite-row focus."
+      "description": "PrettTvCard.Mode.APP: eleven mapped unmodified Homarr Dashboard Icons PNGs are composed on a dark native ground. Disney+ and HBO Max retain installed art, as do unmapped apps. Left from the first app reveals Library in the sidebar. Long OK hides or shows the app only in Your apps; Library, search, and viewing history retain it."
     },
     {
       "name": "Sports card",
       "kind": "card",
       "refersTo": "sport-card",
-      "description": "LumaCard.Mode.SPORT: actual broadcast logo or network name, status, title, and event detail. The section identifies ESPN schedules and Opens RBTV+; activation opens the app with channel guidance."
+      "description": "PrettTvCard.Mode.SPORT: actual broadcast logo or network name, status, title, and event detail. ESPN and Opens RBTV+ labels remain explicit. Optional bounded accessibility assistance finds a supported matching game and stops before server selection; unsupported or unmatched events use manual app selection."
     },
     {
-      "name": "Top navigation",
+      "name": "Hidden overlay sidebar",
       "kind": "nav",
-      "refersTo": "nav-selected",
-      "description": "Selected Home is an ivory pill. Unselected focused destinations use nav-focused and an ivory border. Search and Settings are authored Canvas icons with inverted focus."
+      "refersTo": "rail-button",
+      "description": "All A/B/C layouts share six labeled native buttons: Home, Shows, Library, Inputs, Search, and Settings. The sidebar is hidden by default. Left from a first card reveals it over dimmed content; Right, Back, or choosing a destination dismisses it. Library opens the complete Library · All apps grid."
     },
     {
       "name": "Utility button",
       "kind": "button",
       "refersTo": "button",
-      "description": "Focusable native TextView with tonal resting fill; button-focused inverts to pale sage. Used by the alternate rails, utility actions, and footer credits."
+      "description": "Focusable native TextView with tonal resting fill; button-focused inverts to pale sage. Used by utility actions and footer credits; sidebar buttons use their smaller rail-label and rail-button padding."
     },
     {
       "name": "Empty shelf action",
@@ -225,16 +279,17 @@
     {
       "name": "Search and dialog controls",
       "kind": "input",
-      "description": "Android EditText inside AlertDialog, with native dialog buttons and menu lists. No custom HTML/CSS component or unobserved typography metrics are specified."
+      "description": "Android EditText inside AlertDialog, native menu lists, local recency correction, playback-tracking explanation, and optional game-handoff prompt. No custom HTML/CSS component or unobserved typography metrics are specified."
     }
   ],
   "narrative": {
     "northStar": "A quiet television home",
-    "overview": "The owner's direction is dark sage and black, lightweight and attractive, with subtle contrast and colored app logos. The interface feels restrained and cinematic: the dark ground recedes, real artwork supplies the color, and a small number of ivory focus treatments make the next remote action clear from a couch.\n\nThis is the built native Android TV system: Kotlin Android Views, Canvas cards, native dialogs, and the device's system sans-serif aliases. C Balanced is the selected home; A Cinema and B Quiet remain available. The provisional Luma identity appears in the footer's About/Credits entry, with no top wordmark or rail monogram.",
+    "overview": "The owner's direction is dark sage and black, lightweight and attractive, with subtle contrast and colored app logos. The interface feels restrained and cinematic: the dark ground recedes, real artwork supplies the color, and a small number of ivory focus treatments make the next remote action clear from a couch.\n\nThis is the native Android TV system: Kotlin Android Views, Canvas cards, native dialogs, and the device's system sans-serif aliases. C Balanced is the selected home; A Cinema and B Quiet remain available. The owner has chosen a left sidebar that is hidden by default in all three layouts and appears as a fixed overlay on request. The exact brand spelling is prettTV, appearing in the footer's About/Credits entry, with no top wordmark or rail monogram.\n\nThe hidden sidebar is the latest explicit owner override. It contains Home, Shows, Library, Inputs, Search, and Settings. Left from the first card reveals it and dims content; Right, Back, or choosing a destination dismisses it. The content keeps its full width when the rail is closed. The Android application ID is `dev.zane.pretttv`.",
     "keyCharacteristics": [
       "Sage-black ground, gentle tonal separation, and fine visible card edges.",
-      "Actual provider artwork and installed-app marks supply the color.",
+      "Actual provider artwork, attributed app icons, and installed-app marks supply the color.",
       "A clear remote focus state, finite rows, and quiet finite motion.",
+      "A hidden-by-default left overlay sidebar shared by A, B, and C.",
       "Native text scaling, readable metadata, and full accessible labels behind visual truncation."
     ],
     "rules": [
@@ -253,17 +308,18 @@
       "Do preserve the sage-black ground, fine visible card edges, and color-pop app marks.",
       "Do keep remote focus clear through the implemented fill, outline, and finite scale treatments.",
       "Do retain system font scaling, full accessible labels, and honest visual truncation.",
-      "Do use actual provider imagery, published progress, and labeled data sources.",
-      "Do keep personal history chronological and distinguish discovery and app-opening sports cards.",
-      "Do keep Luma branding and credits at the footer and retain A and B as alternatives to selected C."
+      "Do use actual provider imagery, attributed icon assets, published progress, and labeled data sources.",
+      "Do order personal history using local playback evidence and distinguish discovery, game-assistance, and app-opening paths.",
+      "Do keep the six-destination sidebar hidden by default in all three layouts and make Library open the complete app grid.",
+      "Do spell the brand prettTV, keep branding and credits at the footer, and retain A and B as alternatives to selected C."
     ],
     "donts": [
-      "Don't add a top Luma wordmark or rail monogram.",
+      "Don't add a top prettTV wordmark, top navigation, or rail monogram.",
       "Don't replace native system sans with the obsolete automated Salsa guess, or flatten fictional comps into the running home.",
-      "Don't invent watch progress, episode state, provider availability, or a verified sports stream link.",
+      "Don't treat refreshed provider timestamps as proof of playback or invent progress, episode state, provider availability, or a verified sports stream link.",
       "Don't turn finite app shelves into looping rows or repeat apps to imply more content.",
       "Don't add idle animation, decorative drop shadows, or bright global accent surfaces to this quiet system.",
-      "Don't describe the scoped finish verdict as complete functional certification or a passed pixel-fidelity gate."
+      "Don't extend the confirmed hide/restore and Home checks into claims about untested playback tracking or RBTV matching."
     ]
   }
 }

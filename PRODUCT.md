@@ -1,4 +1,4 @@
-# Luma TV
+# prettTV
 
 <!-- impeccable:product-schema 1 -->
 
@@ -28,7 +28,7 @@ Preserve app launching, favorites, hiding and ordering apps, HDMI input access, 
 
 ## Brand Commitments
 
-User supplied PLUI and Rivi as explicit visual references and asked for the good parts of stock Google TV. The requested feel is progressive, lightweight and attractive. Luma TV is a provisional local app label, not an approved commercial brand. PLUI code and artwork are analysis references only; build original implementation on Rivi's reusable MIT base.
+User supplied PLUI and Rivi as explicit visual references and asked for the good parts of stock Google TV. The requested feel is progressive, lightweight and attractive. prettTV is the owner-selected project name; the Android package is dev.zane.pretttv. PLUI code and artwork are analysis references only; build original implementation on Rivi's reusable MIT base.
 
 ## Evidence on Hand
 
@@ -46,4 +46,4 @@ Pinned Rivi source and official APK; official PLUI APK decompiled for static ana
 
 D-pad navigation, visible focus, readable text from a couch, labels for accessibility, system font scaling and disabled-animation support.
 
-Latest owner adjustments: subtle card-edge contrast, no top Luma wordmark or rail monogram, brand/credits only at the bottom. Live sports includes ESPN schedules and broadcast logos; the installed RBTV+ exposes no verified per-game link, so a game opens the chosen app with channel guidance. SportioTV and HD Streamz are uninstalled; RBTV+ remains. C stays selected on the TV.
+Latest owner adjustments: automatically hidden left sidebar in all three layouts, subtle card-edge contrast, no top wordmark or rail monogram, brand/credits only at the bottom. C stays selected. RBTV+ comes with the default installation bundle. Optional bounded RBTV game matching and local playback evidence replace reliance on stale provider timestamps; app coverage and game availability remain limited and must be described honestly. SportioTV and HD Streamz remain removed.

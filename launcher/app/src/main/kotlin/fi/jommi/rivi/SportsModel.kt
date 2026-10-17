@@ -8,7 +8,7 @@ import java.util.Locale
 /** A schedule entry is not a stream. Broadcast names do not identify an RBTV channel. */
 data class SportsEvent(val id:String,val title:String,val league:String,val startsAt:Long,
     val state:String,val status:String,val network:String,val logo:String,val source:String,
-    val fetchedAt:Long,val score:String="") {
+    val fetchedAt:Long,val score:String="",val teams:List<String> = emptyList()) {
     fun fresh(now:Long)=now-fetchedAt in 0..300_000
     fun heading(now:Long):String = "$league · "+when {
         !fresh(now) -> "Schedule · updated ${((now-fetchedAt).coerceAtLeast(0)/60_000)}m ago"

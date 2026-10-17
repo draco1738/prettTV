@@ -1,0 +1,68 @@
+[
+  {
+    "file": "apple-tv-plus-light.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/apple-tv-plus-light.png",
+    "sha256": "9d8df4fb38e53c92e04b5ac4331a2e13dd373d51d77d742bfd4ab6ea8697a829",
+    "modified": false
+  },
+  {
+    "file": "crunchyroll.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/crunchyroll.png",
+    "sha256": "b0ef17795300f60228e53fe1cd4dd30913833ec7965f21f9edf4d185ce134d5d",
+    "modified": false
+  },
+  {
+    "file": "hulu.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/hulu.png",
+    "sha256": "c2248cc3ee3286340c76e325a326be0c3e80ea70ef53eb8e0aae5a44f59f1798",
+    "modified": false
+  },
+  {
+    "file": "netflix.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/netflix.png",
+    "sha256": "f6fd02b1c4823ceb7d0782134d48f1ca0e418aff71f9fb0e84f09626c3566746",
+    "modified": false
+  },
+  {
+    "file": "nordvpn.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/nordvpn.png",
+    "sha256": "5a07ce3e7b328fed4e9b65561c15374badc13dd8fde8ebea9425e9b05dddda03",
+    "modified": false
+  },
+  {
+    "file": "paramount-plus-light.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/paramount-plus-light.png",
+    "sha256": "7a15ebf4199728ef7c70513d70fbc20f6657c926e715b2dc0384170fd1d006af",
+    "modified": false
+  },
+  {
+    "file": "peacock-light.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/peacock-light.png",
+    "sha256": "c255a679a907767281f7ca74331c4180c54ff22e1b9a152200c02e65d2d78df5",
+    "modified": false
+  },
+  {
+    "file": "pluto-tv.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/pluto-tv.png",
+    "sha256": "efebf69574aca77f2d405a188382bcc6e0d228573c464cb58271006b7a637117",
+    "modified": false
+  },
+  {
+    "file": "prime-video-light.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/prime-video-light.png",
+    "sha256": "6980f02e6011b9bd0e431509964d9ceda5a3800412b1dc1fc20e251c9b1a8bce",
+    "modified": false
+  },
+  {
+    "file": "stremio.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/stremio.png",
+    "sha256": "5a1f3e31fd9c2f6eef3deb8e43d6e78de1a6dd2a8c7491f703d193712b83d9d4",
+    "modified": false
+  },
+  {
+    "file": "youtube.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/youtube.png",
+    "sha256": "21712266fd01c447e36b4461ff86124735c483c8921252c011f0a43547031552",
+    "modified": false
+  }
+]

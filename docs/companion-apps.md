@@ -1,6 +1,6 @@
 # RBTV+ companion installer
 
-Requested by the owner and attached separately to the private v0.1.0 release. It is not incorporated into Luma's source/APK and is not covered by Luma's MIT license.
+Included by default in the owner-requested prettTV 0.1.1 installation bundle and attached as an individual release asset. Both installers verify the pinned SHA-256 before a fresh install and preserve an existing RBTV installation. The explicit launcher-only flag opts out. It is not incorporated into prettTV's source/APK and is not covered by prettTV's MIT license.
 
 - App/package: RBTV+ / `com.rblive.app`
 - Version: 3.0.320 (version code 320)
@@ -15,8 +15,8 @@ Requested by the owner and attached separately to the private v0.1.0 release. It
 
 Manifest, signature and selected entry-point code were inspected. The manifest requests network access, legacy storage, package visibility, package-install requests and advertising identifiers/referrer access; cleartext traffic is allowed. No SMS, contacts, microphone, camera, accessibility-service or device-admin capability was found in the inspected manifest. Installation of other packages and other special privileges were not granted during setup.
 
-The TV catalog opened. It advertised version 3.0.323 inside the app; that update was not installed or reviewed. Playback of a specific live stream was not verified. This was a limited review, not a malware certification. Luma's privacy claims do not apply to the companion app.
+The TV catalog opened. It advertised version 3.0.323 inside the app; that update was not installed or reviewed. Playback of a specific live stream was not verified. This was a limited review, not a malware certification. prettTV's privacy claims do not apply to the companion app.
 
-No verified external game/channel interface was found in 3.0.320. Its launcher/home entries can open the app, but the TV player activity is not exported. ESPN broadcast labels are therefore guidance for channel selection, not a direct stream mapping.
+No verified external game/channel interface was found in 3.0.320. Its launcher/home entries can open the app, but the TV player activity is not exported. prettTV’s optional accessibility helper instead navigates the visible RBTV catalog, matching both team names and kickoff/date in supported sport tabs. It leaves server choice to the user; it does not extract streams or bypass player controls. ESPN broadcast labels alone are never used as game identity.
 
-HD Streamz and SportioTV were removed at the owner's request and are not included in this release. Their prior local installers are kept outside the repository; they are not silently reinstalled by Luma.
+HD Streamz and SportioTV were removed at the owner's request and are not included in this release. Their prior local installers are kept outside the repository; they are not silently reinstalled by prettTV.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Select a working replacement Home BEFORE uninstalling Luma.
+# Select a working replacement Home BEFORE uninstalling prettTV.
 # --stock-home explicitly restores the two Google TV Home packages used in the TCL setup.
 set -u
 cd "$(dirname "$0")"
@@ -7,7 +7,7 @@ source adb/common.sh
 if [ "${1:-}" = "--stock-home" ]; then
   for package in com.google.android.apps.tv.launcherx com.google.android.tungsten.setupwraith; do
     if sh_ pm path "$package" | grep -q package:; then
-      sh_ pm enable --user 0 "$package" >/dev/null || die "Could not enable $package; Luma remains installed"
+      sh_ pm enable --user 0 "$package" >/dev/null || die "Could not enable $package; prettTV remains installed"
       audit "enable" "$package" ""
     fi
   done
@@ -17,11 +17,11 @@ else
 fi
 case "$replacement" in
   */*) ;;
-  *) die "No replacement Home is enabled. Restore one first, or use ./restore.sh --stock-home. Luma remains installed." ;;
+  *) die "No replacement Home is enabled. Restore one first, or use ./restore.sh --stock-home. prettTV remains installed." ;;
 esac
-sh_ cmd package set-home-activity --user 0 "$replacement" >/dev/null || die "Home selection failed; Luma remains installed"
-[ "$(current_home)" = "$replacement" ] || die "Replacement Home did not become the resolver; Luma remains installed"
-sh_ am start -n "$replacement" >/dev/null || die "Replacement Home did not launch; Luma remains installed"
+sh_ cmd package set-home-activity --user 0 "$replacement" >/dev/null || die "Home selection failed; prettTV remains installed"
+[ "$(current_home)" = "$replacement" ] || die "Replacement Home did not become the resolver; prettTV remains installed"
+sh_ am start -n "$replacement" >/dev/null || die "Replacement Home did not launch; prettTV remains installed"
 if sh_ pm path "$PKG" | grep -q package:; then
   "${A[@]}" uninstall "$PKG" </dev/null || die "Uninstall failed"
   audit "uninstall" "$PKG" ""

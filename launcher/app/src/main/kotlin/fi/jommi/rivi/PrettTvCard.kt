@@ -10,7 +10,7 @@ import android.view.View
 import android.view.animation.DecelerateInterpolator
 
 /** Native still-art card. Remote/focus pattern adapted from Rivi by Jommi (MIT). */
-class LumaCard(context:Context,private val unit:Float,private val mode:Mode):View(context) {
+class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode):View(context) {
     enum class Mode { HERO, SHOW, COMPACT, APP, SPORT }
     var title=""
     var detail=""

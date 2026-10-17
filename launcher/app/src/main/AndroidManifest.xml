@@ -59,6 +59,17 @@
             </intent-filter>
         </activity>
 
-        <!-- Use Android's normal Home selection. No accessibility interception is registered. -->
+        <!-- Optional media-session access; no notification payload is consumed. -->
+        <service android:name=".PlaybackTracker" android:label="@string/playback_tracker_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
+            <meta-data android:name="android.service.notification.default_filter_types" android:value="0" />
+        </service>
+        <!-- User-initiated, bounded navigation inside RBTV only; never intercepts Home. -->
+        <service android:name=".RbtvHandoffService" android:label="@string/rbtv_helper_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/rbtv_handoff_service" />
+        </service>
     </application>
 </manifest>

@@ -1,8 +1,7 @@
-Luma TV — work in progress
+prettTV — native Android TV launcher
 
-2026-10-17: User approved C (Balanced), then requested that all three layouts be implemented in one custom GitHub repository. C is the TV default; A (Cinema) and B (Quiet) must also be selectable working layouts.
-The current launcher code is the pinned MIT Rivi 0.15 base, not yet the completed Luma implementation. Three image-generation previews and exact prompts are in docs/designs. Screenshots contain fictional example shows, not viewing history. No benchmark is a measurement of Luma.
+All three layouts are implemented. C Balanced is the owner's selected TV Home. All layouts use automatically hidden left navigation; the current README images are actual TV screenshots.
 
-Repository visibility: private by default. Upload original derivative source, MIT license/attribution, all three previews and prompts, analysis notes. Do not upload proprietary PLUI APKs/decompiled code, ADB keys, device dumps, signing keys or SDK/Gradle caches.
+The owner requested public GitHub visibility after the complete rename. Preserve Rivi's MIT attribution and history. Do not publish signing keys, account data, ADB identities, private preference backups, SDK/Gradle caches, or proprietary decompiled source.
 
-Hardware is reachable again at the previously confirmed IPv4 address; address, serial and device snapshots remain outside this repository. User approved continuing installation/testing and using C.
+See README.md, THIRD_PARTY_NOTICES.md and docs/validation.md for behavior, sources and validation limits.

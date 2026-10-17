@@ -1,5 +1,8 @@
 <resources>
-    <string name="app_name">Luma TV</string>
+    <string name="app_name">prettTV</string>
+    <string name="playback_tracker_label">prettTV playback tracking</string>
+    <string name="rbtv_helper_label">prettTV game handoff</string>
+    <string name="rbtv_helper_desc">After you select a sports event in prettTV, find its two teams and start time in RBTV and open the matching game. Stops before selecting a server. Reads and operates RBTV only during this request, for up to 30 seconds. It does not intercept Home or operate other apps.</string>
     <string name="favourites">Favourites</string>
     <string name="all_apps">All apps</string>
     <string name="settings">Settings</string>

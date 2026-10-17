@@ -115,17 +115,18 @@ class AppRepository(private val context: Context) {
         val f = File(cacheDir, cacheName(e, w, h, r))
         if (f.exists()) {
             val opts = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
-            BitmapFactory.decodeFile(f.path, opts)?.let { if (it.width == w && it.height == h) { e.logoBounds=logoBounds(it); return it } else it.recycle() }
+            BitmapFactory.decodeFile(f.path, opts)?.let { if (it.width == w && it.height == h) { e.logoBounds=logoBounds(it,e.packageName); return it } else it.recycle() }
         }
-        val raw = render(e, w, h) ?: return null
-        darkTile(e,raw)
+        val packed=AppIconPack.render(context,e.packageName,w,h)
+        val raw = packed ?: render(e, w, h) ?: return null
+        if(packed==null)darkTile(e,raw)
         val bmp = rounded(raw, r); raw.recycle()
-        e.logoBounds=logoBounds(bmp)
+        e.logoBounds=logoBounds(bmp,e.packageName)
         try { FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) } } catch (_: Exception) {}
         return bmp
     }
 
-    fun cacheName(e: AppEntry, w: Int, h: Int, r: Float) = "luma-dark2_${e.key.replace('/', '_')}_${e.versionCode}_${w}x${h}r${r.toInt()}.png"
+    fun cacheName(e: AppEntry, w: Int, h: Int, r: Float) = "pretttv-icons3_${e.key.replace('/', '_')}_${e.versionCode}_${w}x${h}r${r.toInt()}.png"
 
     /** Owner-requested dark tiles, derived locally from installed-app banners; no copied logo assets. */
     private fun darkTile(e: AppEntry,b: Bitmap) {
@@ -167,7 +168,7 @@ class AppRepository(private val context: Context) {
     }
 
     /** Find a logo on a quiet banner, off the UI thread. Photographic banners keep their full framing. */
-    private fun logoBounds(b: Bitmap): Rect? {
+    private fun logoBounds(b: Bitmap,packageName:String): Rect? {
         val w=b.width; val h=b.height; val pixels=IntArray(w*h)
         b.getPixels(pixels,0,w,0,0,w,h)
         var left=w; var top=h; var right=0; var bottom=0; var ink=0
@@ -184,7 +185,10 @@ class AppRepository(private val context: Context) {
             }
         }
         val fraction=ink.toFloat()/(w*h)
-        if(fraction !in .025f.. .45f || left<8 || top<8 || right>w-9 || bottom>h-9 || right<=left || bottom<=top)return null
+        // Disney's installed square icon has a fine wordmark with little ink. Size that
+        // mark to the same visual bounds as landscape logos instead of shrinking the square.
+        val minimumInk=if(packageName=="com.disney.disneyplus") .003f else .025f
+        if(fraction !in minimumInk.. .45f || left<8 || top<8 || right>w-9 || bottom>h-9 || right<=left || bottom<=top)return null
         return Rect(left-2,top-2,right+3,bottom+3)
     }
 

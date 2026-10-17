@@ -76,7 +76,7 @@ class ArtworkLoader(private val context: Context) {
         val con = address.openConnection() as HttpURLConnection
         try {
             con.connectTimeout = 4000; con.readTimeout = 4000; con.instanceFollowRedirects = false
-            con.setRequestProperty("User-Agent", "LumaTV/0.1")
+            con.setRequestProperty("User-Agent", "prettTV/0.1.1")
             val status=con.responseCode
             if(status in listOf(301,302,303,307,308)) {
                 val next=con.getHeaderField("Location") ?: return null

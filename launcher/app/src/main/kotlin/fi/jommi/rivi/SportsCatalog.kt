@@ -46,12 +46,15 @@ class SportsCatalog(private val dir:File,private val get:(String,Int)->String) {
                     if(network.isBlank())network=c.optJSONArray("broadcasts")?.optJSONObject(0)?.optJSONArray("names")?.optString(0).orEmpty()
                     if(!logo.startsWith("https://a.espncdn.com/"))logo=""
                     val competitors=c.optJSONArray("competitors")
+                    val teams=if(competitors==null)emptyList() else (0 until competitors.length()).mapNotNull { j ->
+                        competitors.optJSONObject(j)?.optJSONObject("team")?.optString("displayName")?.takeIf { it.isNotBlank() }
+                    }
                     val score=if(competitors==null)"" else (0 until competitors.length()).mapNotNull { j ->
                         val team=competitors.optJSONObject(j) ?: return@mapNotNull null
                         team.optJSONObject("team")?.optString("abbreviation")?.let { "$it ${team.optString("score")}" }
                     }.joinToString(" – ")
                     result.add(SportsEvent("espn:$path:$id",e.optString("shortName").ifBlank { e.optString("name") },label,date,
-                        type.optString("state"),type.optString("shortDetail"),network,logo,url,fetched,score))
+                        type.optString("state"),type.optString("shortDetail"),network,logo,url,fetched,score,teams))
                 }
             } catch(_:Exception) { }
         }
