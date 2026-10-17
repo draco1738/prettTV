@@ -26,6 +26,12 @@ third_party/
 __pycache__/
 *.pyc
 
+# Local design tooling and duplicate working copies of published previews
+.impeccable/build/
+.impeccable/mocks/
+.impeccable/review/
+.impeccable/config.local.json
+
 # motion study: your own tile artwork and recordings
 tools/motion-study/tiles/
 tools/motion-study/tiles.js

@@ -1,0 +1,12 @@
+Implementation brief, 2026-10-17
+
+User-pinned reference direction: PLUI's depth/panels, Rivi's lean native rendering, stock Google TV's useful content rows.
+Mode: Operate (choose a show or launch an app with a TV remote).
+Build in the existing native source rather than starting an unrelated mockup. No new standing workflow preference is recorded.
+
+Structure: narrow navigation rail, concise clock/header, feature panel driven by real program data, favorites, Continue Watching, recommendations, all apps.
+Colors: near-black olive-charcoal surfaces, warm ivory focus, muted sage accent, quiet off-white type. Glass appearance uses translucent fills, not live background blur.
+Motion: finite 140–190 ms focus scale/opacity, stop on detach; no perpetual glow, video background, or polling for clock seconds.
+Content: empty rows tell the truth and provide a useful next action; show imagery comes only from installed apps' published TV-provider rows. Any HTTP artwork is skipped.
+Performance target: fit within the TCL's 16.67 ms frame budget at 1080p UI. This is a target, not a measured result. Artwork decode/cache limits and lifecycle cancellation must be enforced.
+Ship checks: compile, meaningful model tests, remote navigation/empty-state and populated-row review, screenshot on actual Android TV or emulator; hardware smoothness and provider coverage remain unverified until connected.

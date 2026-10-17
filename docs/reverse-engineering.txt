@@ -1,0 +1,33 @@
+Launcher analysis — 2026-10-17
+
+Inputs
+Rivi v0.15 source: jommi9/rivi, e4ca2ea9be442e17aa54b94b96bca4762d9607c1 (MIT).
+Rivi official APK: 68,001 bytes; SHA256 9a6dbbfd519b63e4dd0a8f5e733d731f0ed334d286a730c854b37d6d621cd141.
+PLUI official sideload APK: 36,304,950 bytes; version 2.26.10.17 (1307); SHA256 80e1bde1db41e0a3aca2fac2514db888a602eb9ef170b0a339e52708f2a6d6bf.
+PLUI documentation: https://github.com/smartago/plui-tv-launcher
+Official build source: https://smartago.net/us/downloads/com.premium.tv.launcher.ui.apk
+Privacy policy: https://smartago.net/us/premium-tv-launcher-privacy-policy/
+
+Method and limits
+Read Rivi's actual Kotlin source and decoded its release manifest. Used official JADX 1.5.6 to decode PLUI's manifest/resources, inventoried all five DEX files, then targeted the app-containing classes4.dex for decompilation. That targeted pass finished with 118 errors; some methods retain fallback output or incomplete reconstruction. This is a static architectural analysis, not a complete original-source reconstruction or proof of runtime behavior. Neither app was benchmarked on the owner's TCL during this analysis.
+
+Rivi
+One Activity, native Views, nine Kotlin implementation files, no runtime third-party dependencies and no INTERNET permission in the release APK. Favourites are a horizontal strip; other apps a six-column grid. Apps.kt discovers Leanback apps, renders exact-size banners/icons off the main thread and caches PNGs keyed by component/version/size. SharedPreferences retains ordering, hidden apps and launches made through Rivi.
+TileView.kt uses 1.08 focus scale, 190 ms settle-in, 130 ms settle-out and 140 ms ring/label fade. ShadowView.kt builds a small cached shadow bitmap. Activity clock uses ACTION_TIME_TICK and unregisters when paused. There is no permanent frame loop. The optional HomeKeyService receives key events (not exclusively Home), handles Home, and filters window events to stock launcher packages; XML forbids reading window content. It leaves stock packages enabled.
+Rivi has no recommendations, Continue Watching, network catalog or wallpaper system. Published performance numbers are author measurements on a JMGO projector, not predictions for this TCL. MIT source can be reused with its notice retained.
+
+PLUI
+The repository has documentation and screenshots, not the application's source. The inspected build contains Kotlin/Jetpack Compose, AndroidX components, Media3, camera/RTSP and several optional services. It supports 32-bit ARM. Names and Kotlin metadata expose useful architectural boundaries: HomeViewModel/HomeScreen, WidgetGrid, WatchNext, LiveTv, DeviceReporter, ErrorReporter, Identity and network clients.
+WatchNext.java reads content://android.media.tv/watch_next_program, uses a ContentObserver, separates watchlist type 3 from continue entries, and retains artwork, playback position, duration, provider package and intent URI. LiveTv.java also references preview_program, channel and recordings. These are published system rows, not universal access to streaming-account histories. The user's TV returned no rows in both watch-next and preview-program queries at inspection time.
+TvCardKt contains an optional repeated 1,200 ms focus pulse. Several clock widget variants contain infinite animation transitions. GlowKt caches BlurMaskFilter objects but draws glow geometry. This identifies configurable rendering work, not proof that every installation is continuously busy or slow. Video, camera and animated widgets would need individual profiling.
+Identity reads Android ID and generates a visitor ID; registration/reporting and license/network paths are present. The manifest declares AD_ID even though the policy says advertising IDs are not read. Searches across decoded DEX string tables found no AdvertisingIdClient/getAdvertisingIdInfo API reference or Firebase Analytics/Google measurement package reference. That is not proof that no telemetry exists: first-party reporting code does exist. The manifest permits cleartext traffic, consistent with its documented HTTP IP-location request. AdContent/PromoPane and server-delivered promotional content plumbing also exist; actual visible content and activation depend on runtime configuration. Do not infer actual ad display solely from class names.
+
+Luma implementation direction
+Reuse Rivi's MIT foundation and finite focus motion. Independently implement PLUI-inspired depth/panels and stock-style program rows; do not copy proprietary decompiled code or branded assets. Keep TV settings and inputs accessible. Load artwork off-thread with memory/disk limits; stop observation when hidden. Prefer published TV rows, with honest empty states and optional public show discovery when rows are absent. No device registration, analytics, advertising identifiers or developer promo catalog.
+Three approved layouts: A Cinema; B Quiet; C Balanced (default). All retain real app launching, remote navigation and show discovery. Smoothness must be measured on the TCL; its current display mode is 60 Hz, giving a 16.67 ms frame budget.
+
+References for implementation
+https://github.com/jommi9/rivi/tree/v0.15
+https://developer.android.com/training/tv/discovery/recommendations-channel
+https://developer.android.com/training/tv/discovery/watch-next-add-programs
+https://www.tvmaze.com/api (public show metadata, attribution/licensing requirements apply)

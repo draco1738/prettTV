@@ -1,0 +1,3 @@
+User explicitly selected visual mockups first on 2026-10-17, after asking to combine PLUI, Rivi and stock Google TV into a progressive, lightweight, attractive home.
+Generate three compositions: Cinema, Quiet, Balanced. Maintain charcoal/olive, warm ivory, muted sage; finite focus feedback; readable TV typography and native remote controls. Use fictional example shows with visible design-preview labeling; these are not the user's viewing history.
+Pending user selection. No comp is approved. No new UI code or TV installation before selection.
