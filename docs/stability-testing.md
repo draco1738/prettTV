@@ -15,7 +15,7 @@ From the repository root, with PowerShell 7 and an authorized ADB device:
 ./tests/android-fault-tests.ps1 -Tv '<serial>' -OutputDirectory '<local-results-directory>'
 ```
 
-This temporarily installs the isolated target and test runner, executes six Android checks, and removes both packages in `finally`. It refuses to replace pre-existing test installations. Fixtures include valid/large images, corrupted bytes, oversized streams and delayed responses. The queue test submits 100 requests and requires every accepted or rejected request to finish. Cancellation tests require zero late callbacks into replaced/closed screens. Cache recovery uses only the isolated target’s cache. The fixture provider runs inside that same sandbox because the TCL’s cross-app autostart policy blocks an externally hosted test provider; no TV policy is changed.
+This temporarily installs the isolated target and test runner, executes ten Android checks, and removes both packages in `finally`. It refuses to replace pre-existing test installations. Fixtures include valid/large images, corrupted bytes, oversized streams and delayed responses. The queue test submits 100 requests and requires every accepted or rejected request to finish. Cancellation tests require zero late callbacks into replaced/closed screens. Cache recovery uses only the isolated target’s cache. The fixture provider runs inside that same sandbox because the TCL’s cross-app autostart policy blocks an externally hosted test provider; no TV policy is changed.
 
 For navigation tests, leave the TV idle with **C Balanced** selected and prettTV already configured as default Home:
 

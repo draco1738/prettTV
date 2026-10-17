@@ -17,7 +17,7 @@ class RbtvHandoffService:AccessibilityService() {
         private var request:SportsEvent?=null
         private var expires=0L
         private var instance:RbtvHandoffService?=null
-        fun enabled(c:Context)=c.getSystemService(AccessibilityManager::class.java)
+        fun enabled(c:Context)=!StockRecoveryStore.paused(c) && c.getSystemService(AccessibilityManager::class.java)
             .getEnabledAccessibilityServiceList(-1).any { ComponentName.unflattenFromString(it.id)==ComponentName(c,RbtvHandoffService::class.java) }
         fun supported(c:Context,event:SportsEvent):Boolean = try {
             c.packageManager.getPackageInfo("com.rblive.app",0).versionName=="3.0.320" && RbtvMatchPolicy.tab(event.league)!=null && event.teams.size==2
@@ -32,7 +32,7 @@ class RbtvHandoffService:AccessibilityService() {
     private var lastStep=0L
     private val step=Runnable { advance() }
     private val deadline=Runnable { if(request!=null)finish("Game not found automatically. Choose it in RBTV.") }
-    override fun onServiceConnected() { instance=this; if(request!=null)start() }
+    override fun onServiceConnected() { instance=this; if(StockRecoveryStore.paused(this))cancel() else if(request!=null)start() }
     override fun onAccessibilityEvent(event:AccessibilityEvent?) { if(request!=null)schedule() }
     override fun onInterrupt() { cancel() }
     override fun onDestroy() { cancel(); if(instance===this)instance=null; super.onDestroy() }
@@ -43,6 +43,7 @@ class RbtvHandoffService:AccessibilityService() {
     private fun nodes(root:AccessibilityNodeInfo,id:String)=root.findAccessibilityNodeInfosByViewId("com.rblive.app:id/$id").orEmpty()
     private fun label(root:AccessibilityNodeInfo,id:String)=nodes(root,id).firstOrNull()?.text?.toString().orEmpty()
     private fun advance() {
+        if(StockRecoveryStore.paused(this)) { cancel(); return }
         val event=request ?: return
         if(SystemClock.elapsedRealtime()>expires) { finish("Game not found automatically. Choose it in RBTV."); return }
         // Throttle repeated content events and never leave the allowed package.

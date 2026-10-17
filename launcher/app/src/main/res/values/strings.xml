@@ -25,4 +25,6 @@
     <string name="menu_home_button">Home button setup</string>
     <string name="home_button_on">Home button: opens Rivi</string>
     <string name="home_button_off">Home button: opens Google TV. Turn on \"Rivi Home button\" under Accessibility.</string>
+    <string name="stock_recovery_title">Return to stock Google TV</string>
+    <string name="stock_recovery_status">Return to stock Google TV\n\n%1$s</string>
 </resources>

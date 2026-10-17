@@ -652,6 +652,13 @@ class MainActivity : Activity() {
         items+="Game handoff settings" to { safeStart(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),"Accessibility settings") }
         items+="Refresh apps and shows" to { reload() }
         items+="About and credits" to { credits() }
+        if(StockRecoveryStore.paused(this))items+="Resume prettTV helpers" to {
+            StockRecoveryStore.resume(this)
+            PlaybackTracker.resumeAfterStock()
+            runCatching { android.service.notification.NotificationListenerService.requestRebind(ComponentName(this,PlaybackTracker::class.java)) }
+            Toast.makeText(this,"prettTV helpers resumed",Toast.LENGTH_SHORT).show()
+        }
+        items+="Return to stock Google TV" to { safeStart(Intent(this,StockRecoveryActivity::class.java),"Stock recovery") }
         dialog("prettTV",items)
     }
     private fun reviewApps(index:Int=0) {
@@ -751,7 +758,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("About this show").setMessage(detail).setPositiveButton("Open ${p.app}") { _,_ -> openProgram(p) }.setNeutralButton("Source") { _,_ -> if(p.sourceUrl.isNotBlank())safeStart(Intent(Intent.ACTION_VIEW,Uri.parse(p.sourceUrl)),"TVmaze") }.setNegativeButton("Close",null).show()
     }
     private fun credits() {
-        dialog("prettTV 0.1.9",listOf(
+        dialog("prettTV 0.1.10",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },
@@ -769,6 +776,17 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle(title).setView(scroll).setPositiveButton("Close",null).show()
     }
     override fun dump(prefix:String,fd:java.io.FileDescriptor?,out:java.io.PrintWriter,args:Array<out String>?) {
+        val recovery=args?.indexOf("--configure-stock-recovery") ?: -1
+        if(recovery>=0) {
+            try { StockRecoveryStore(this).configure(args!![recovery+1]); out.println("PRETTTV_RECOVERY_CONFIGURED") }
+            catch(_:Exception) { out.println("PRETTTV_RECOVERY_CONFIGURATION_FAILED") }
+            return
+        }
+        if(args?.contains("--stock-recovery-status")==true) {
+            val store=StockRecoveryStore(this)
+            out.println("PRETTTV_RECOVERY configured=${try { store.plan()!=null } catch(_:Exception) { false }} paused=${StockRecoveryStore.paused(this)} phase=${StockRecoverySession.state.phase}")
+            out.println(store.status()); return
+        }
         val stores=mapOf("home" to settings,"apps" to getSharedPreferences("rivi",MODE_PRIVATE),"playback" to getSharedPreferences("prett-playback",MODE_PRIVATE))
         if(args?.contains("--export-local-settings")==true) { out.println("PRETTTV_SETTINGS="+LocalSettingsTransfer.export(stores)); return }
         val restore=args?.indexOf("--restore-local-settings") ?: -1

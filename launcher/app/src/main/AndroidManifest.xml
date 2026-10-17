@@ -37,6 +37,10 @@
         android:usesCleartextTraffic="false"
         android:theme="@style/Theme.Rivi">
 
+        <activity android:name=".StockRecoveryActivity" android:exported="false" android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode|locale|layoutDirection|density|fontScale|smallestScreenSize" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

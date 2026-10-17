@@ -12,6 +12,11 @@ import android.service.notification.NotificationListenerService
 
 /** Uses media sessions only. No notification text is read, logged, retained or transmitted. */
 class PlaybackTracker:NotificationListenerService() {
+    companion object {
+        private var instance:PlaybackTracker?=null
+        fun pauseForStock() { instance?.close() }
+        fun resumeAfterStock() { instance?.let { it.close(); it.onListenerConnected() } }
+    }
     private val ui=Handler(Looper.getMainLooper())
     private val callbacks=HashMap<MediaController,MediaController.Callback>()
     private val firstPlaying=HashMap<String,Long>()
@@ -20,10 +25,13 @@ class PlaybackTracker:NotificationListenerService() {
     private val changed=MediaSessionManager.OnActiveSessionsChangedListener { attach(it.orEmpty()) }
     private val sample=object:Runnable { override fun run() { scan() } }
     override fun onListenerConnected() {
+        instance=this
+        if(StockRecoveryStore.paused(this))return
         history=PlaybackHistory(this); manager=getSystemService(MediaSessionManager::class.java)
         try { manager.addOnActiveSessionsChangedListener(changed,ComponentName(this,PlaybackTracker::class.java),ui); attach(manager.getActiveSessions(ComponentName(this,PlaybackTracker::class.java))) } catch(_:SecurityException) { }
     }
     private fun attach(controllers:List<MediaController>) {
+        if(StockRecoveryStore.paused(this)) { close(); return }
         callbacks.forEach { (c,cb)->c.unregisterCallback(cb) }; callbacks.clear()
         controllers.forEach { c ->
             val cb=object:MediaController.Callback() {
@@ -36,6 +44,7 @@ class PlaybackTracker:NotificationListenerService() {
         scan()
     }
     private fun scan() {
+        if(StockRecoveryStore.paused(this)) { close(); return }
         ui.removeCallbacks(sample); var playing=false; val active=HashSet<String>()
         for(c in callbacks.keys) {
             val state=c.playbackState ?: continue
@@ -54,7 +63,7 @@ class PlaybackTracker:NotificationListenerService() {
         if(playing)ui.postDelayed(sample,5_000)
     }
     override fun onListenerDisconnected() { close() }
-    override fun onDestroy() { close(); super.onDestroy() }
+    override fun onDestroy() { close(); if(instance===this)instance=null; super.onDestroy() }
     private fun close() {
         ui.removeCallbacksAndMessages(null)
         if(::manager.isInitialized)try { manager.removeOnActiveSessionsChangedListener(changed) } catch(_:Exception) { }
