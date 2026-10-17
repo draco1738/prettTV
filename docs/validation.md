@@ -1,3 +1,9 @@
+# prettTV 0.1.9 motion candidate — 2026-10-17
+
+Scroll events now coalesce artwork visibility work into at most one scan every 80 ms, with a trailing scan for the settled viewport. Stop and rebuild cancel pending scans. Assigning an unchanged bitmap no longer invalidates a card, and offscreen cards are cleared only when they actually hold artwork. Canvas drawing reuses geometry and cached typefaces. The app row uses native smooth scrolling when system animations are enabled; the existing 140 ms focus animation and visual design are preserved.
+
+The signed candidate and isolated test APKs build. All 88 JVM tests pass; Android lint reports zero errors and 38 existing warnings. A scoped code review found no changed-path regressions. The new [motion measurement script](../tests/measure-home-motion.ps1) has passed PowerShell parsing; it has not yet been run. Installation, a controlled before/after hardware comparison and final on-TV verification await confirmation that the TV is idle. No frame-rate improvement or v0.1.9 device-test result is claimed at this stage. v0.1.8 remains the published release.
+
 # prettTV 0.1.8 stability and failure recovery — 2026-10-17
 
 Failed shared TV-provider reads retain the last successful watching, preview and channel snapshots; valid empty results still clear them. Retained content is filtered against currently installed apps, and cancelled refreshes cannot replace the snapshot. Diagnostics distinguish failed shared-provider reads from an empty feed. App discovery failures retain existing apps and retry while Home is visible. Individual label/icon failures no longer abort the remaining app worker, and cached app-tile dimensions and file size are checked before bitmap allocation.

@@ -54,6 +54,8 @@ class MainActivity : Activity() {
     private data class CardArt(val card:PrettTvCard,val url:String,val w:Int,val h:Int,val request:ArtworkRequest=ArtworkRequest())
     private val cardArt=ArrayList<CardArt>()
     private val ui = Handler(Looper.getMainLooper())
+    private var artworkScanScheduled=false
+    private val scanArtwork=Runnable { artworkScanScheduled=false; loadVisibleArt() }
     private val retryArtwork = Runnable { loadVisibleArt() }
     private val retryApps = Runnable { if(visible && dirty)reload() }
     private val loader = HandlerThread("pretttv-apps").apply { start() }
@@ -107,7 +109,7 @@ class MainActivity : Activity() {
     }
     override fun onStop() {
         visible=false; contentRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
-        ui.removeCallbacks(retryArtwork); ui.removeCallbacks(retryApps); cardArt.forEach { it.request.cancel() }
+        cancelArtworkScan(); ui.removeCallbacks(retryArtwork); ui.removeCallbacks(retryApps); cardArt.forEach { it.request.cancel() }
         (currentFocus?.tag as? String)?.let { settings.edit().putString("focus",it).apply() }
         super.onStop()
     }
@@ -167,7 +169,7 @@ class MainActivity : Activity() {
         if(reset)homeRequested=true
         val saved=if(homeRequested)Viewport() else restore ?: pendingViewport ?: viewport()
         pendingViewport=saved
-        artwork.cancel(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); appCards.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
+        artwork.cancel(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); appCards.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
         root=ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER; clipChildren=false; clipToPadding=false }
         page=column().apply { setPadding(px(56),px(30),px(56),px(40)) }
         val stage=FrameLayout(this).apply { setBackgroundColor(bgColor); clipChildren=false; clipToPadding=false }
@@ -190,7 +192,7 @@ class MainActivity : Activity() {
             if(next?.tag is String && !(next.tag as String).startsWith("rail-")) { lastContentFocus=next; hideRail(restore=false) }
         }
         setContentView(stage); ready=true; updateClock()
-        root.viewTreeObserver.addOnScrollChangedListener { loadVisibleArt() }
+        root.viewTreeObserver.addOnScrollChangedListener { scheduleArtworkScan() }
         val renderedRoot=root
         // Restore after measurement, when horizontal scroll bounds are known. A feed refresh
         // that rebuilds again before this frame inherits the same pending viewport.
@@ -407,6 +409,15 @@ class MainActivity : Activity() {
         }
         constrainRow(strip)
     }
+    // Scrolling remains frame-driven; visibility/network work runs at most once per 80 ms.
+    // Keep one trailing scan so the final viewport is always populated after movement stops.
+    private fun scheduleArtworkScan() {
+        if(!visible || artworkScanScheduled)return
+        artworkScanScheduled=true; ui.postDelayed(scanArtwork,80)
+    }
+    private fun cancelArtworkScan() {
+        ui.removeCallbacks(scanArtwork); artworkScanScheduled=false
+    }
     private fun loadVisibleArt() {
         if(!visible || isDestroyed)return
         val rect=Rect()
@@ -419,7 +430,7 @@ class MainActivity : Activity() {
                         if(bitmap==null && visible) { ui.removeCallbacks(retryArtwork); ui.postDelayed(retryArtwork,30_000) }
                     }
                 }
-            } else { item.card.art=null }
+            } else if(item.card.art!=null) { item.card.art=null }
         }
     }
     private fun orderedApps():List<AppEntry> {
@@ -450,7 +461,7 @@ class MainActivity : Activity() {
         }
         val scroll=HorizontalScrollView(this).apply {
             isFocusable=false; isHorizontalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER
-            clipChildren=true; clipToPadding=true; isSmoothScrollingEnabled=false; setPadding(0,px(4),0,px(4))
+            clipChildren=true; clipToPadding=true; isSmoothScrollingEnabled=android.animation.ValueAnimator.areAnimatorsEnabled(); setPadding(0,px(4),0,px(4))
         }
         horizontalRows["your-apps"]=scroll
         entries.forEachIndexed { i,e ->
@@ -677,7 +688,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("About this show").setMessage(detail).setPositiveButton("Open ${p.app}") { _,_ -> openProgram(p) }.setNeutralButton("Source") { _,_ -> if(p.sourceUrl.isNotBlank())safeStart(Intent(Intent.ACTION_VIEW,Uri.parse(p.sourceUrl)),"TVmaze") }.setNegativeButton("Close",null).show()
     }
     private fun credits() {
-        dialog("prettTV 0.1.8",listOf(
+        dialog("prettTV 0.1.9",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },
