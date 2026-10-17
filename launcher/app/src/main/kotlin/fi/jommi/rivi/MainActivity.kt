@@ -99,6 +99,8 @@ class MainActivity : Activity() {
         updateClock()
         if(dirty || apps.isEmpty())reload() else startContent()
         ui.post(retryArtwork)
+        // onStop removes timers; preserve recovery for cards still in their failure backoff.
+        ui.postDelayed(retryArtwork,30_000)
     }
     override fun onStop() {
         visible=false; contentRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
