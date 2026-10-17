@@ -126,7 +126,7 @@ class AppRepository(private val context: Context) {
         return bmp
     }
 
-    fun cacheName(e: AppEntry, w: Int, h: Int, r: Float) = "pretttv-icons3_${e.key.replace('/', '_')}_${e.versionCode}_${w}x${h}r${r.toInt()}.png"
+    fun cacheName(e: AppEntry, w: Int, h: Int, r: Float) = "pretttv-icons4_${e.key.replace('/', '_')}_${e.versionCode}_${w}x${h}r${r.toInt()}.png"
 
     /** Owner-requested dark tiles, derived locally from installed-app banners; no copied logo assets. */
     private fun darkTile(e: AppEntry,b: Bitmap) {

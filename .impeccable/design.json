@@ -198,8 +198,8 @@
       "sportsHandoff": "Optional accessibility assistance starts only after a selected game and is bounded to 30 seconds inside supported RBTV 3.0.320 layouts. It matches both teams and kickoff time for supported leagues, stops before server selection, and leaves unsupported or unmatched events to manual selection. No deep link, game availability, channel availability, or playback success is guaranteed.",
       "packageMigration": "The implementation workflow reports successful owner-preference export/import and removal of the previous application. Preference exports remain local and excluded from publication.",
       "appIconPack": {
-        "implementation": "AppIconPack renders attributed PNGs into a separate native bitmap on colors.app-pack-ground. Original PNG files remain unchanged.",
-        "iconCount": 11,
+        "implementation": "Twelve original PNGs plus a Disney+ Android vector adapted from the pinned SVG, all drawn on the shared dark ground.",
+        "iconCount": 13,
         "mappedApps": [
           "Netflix",
           "Prime Video",
@@ -211,17 +211,16 @@
           "Peacock",
           "Pluto TV",
           "Hulu",
-          "NordVPN"
+          "NordVPN",
+          "HBO Max",
+          "Disney+"
         ],
         "initialFit": "Contained within 72% of tile width and 68% of tile height before normal card logo fitting.",
-        "installedArtworkExceptions": [
-          "Disney+",
-          "HBO Max"
-        ],
-        "exceptionReason": "Candidate pack images did not fit; these apps retain installed artwork. Unmapped apps also retain installed artwork or native label fallback.",
+        "installedArtworkExceptions": [],
+        "exceptionReason": "Unmapped apps retain installed artwork. Disney+ and HBO use bundled art independent of cache state.",
         "provenanceManifest": "launcher/app/src/main/assets/app-icons/sources.json",
         "license": "launcher/app/src/main/assets/app-icons/LICENSE.txt",
-        "provenance": "Homarr Dashboard Icons; pinned source URLs, SHA-256 hashes, and modified:false are recorded for all eleven PNGs."
+        "provenance": "Pinned URLs and hashes are recorded; twelve PNGs are unmodified. Disney foreground paths are retained, background omitted, and arc changed to cyan; the vector is marked modified."
       },
       "publication": "The owner requested a public GitHub repository when the work is finished. Selected A/B/C launcher captures may be published. Device dumps, account data, preference exports, and other-app screens remain excluded. This records the target, not a completed visibility check.",
       "appVisibility": "Hiding affects only the horizontal Your apps row. Library retains every discoverable app. TV proof: Prime Video hidden by Hold OK → Hide from Your apps row reduced the count 34 → 33; it remained in Library and offered Show in Your apps row; restoration returned 34. Search, suggestions, and viewing-history independence are source-verified rather than separate device-session results. Settings can clear all row-only hide choices.",
@@ -250,7 +249,7 @@
       "name": "App tile",
       "kind": "card",
       "refersTo": "app-card-balanced",
-      "description": "PrettTvCard.Mode.APP: eleven mapped unmodified Homarr Dashboard Icons PNGs are composed on a dark native ground. Disney+ and HBO Max retain installed art, as do unmapped apps. Left from the first app reveals Library in the sidebar. Long OK hides or shows the app only in Your apps; Library, search, and viewing history retain it."
+      "description": "PrettTvCard.Mode.APP: twelve mapped unmodified Homarr Dashboard Icons PNGs are composed on a dark native ground. Disney+ and HBO use stable bundled art on the shared dark ground. Unmapped apps retain installed art. Left from the first app reveals Library in the sidebar. Long OK hides or shows the app only in Your apps; Library, search, and viewing history retain it."
     },
     {
       "name": "Sports card",

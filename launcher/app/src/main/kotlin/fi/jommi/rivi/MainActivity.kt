@@ -606,7 +606,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("About this show").setMessage(detail).setPositiveButton("Open ${p.app}") { _,_ -> openProgram(p) }.setNeutralButton("Source") { _,_ -> if(p.sourceUrl.isNotBlank())safeStart(Intent(Intent.ACTION_VIEW,Uri.parse(p.sourceUrl)),"TVmaze") }.setNegativeButton("Close",null).show()
     }
     private fun credits() {
-        dialog("prettTV 0.1.1",listOf(
+        dialog("prettTV 0.1.2",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },

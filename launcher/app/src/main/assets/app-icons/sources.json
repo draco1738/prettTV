@@ -64,5 +64,19 @@
     "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/youtube.png",
     "sha256": "21712266fd01c447e36b4461ff86124735c483c8921252c011f0a43547031552",
     "modified": false
+  },
+  {
+    "file": "hbo-light.png",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/png/hbo-light.png",
+    "sha256": "dc8f49f0f9d024ed6ef95f900c4e70b092f48c20b7f97ddcd48f27b0427ad66b",
+    "modified": false
+  },
+  {
+    "file": "../../res/drawable/ic_disney_dark.xml",
+    "source": "https://github.com/homarr-labs/dashboard-icons/blob/6d31345986eba2067a63eb41c1a5a87d4e8e850a/svg/disney-plus.svg",
+    "source_sha256": "cdc480ea45b4fe48c3503e118d763f959ec9affdb645c1a71467b24b108a15ee",
+    "sha256": "c60bd5d1057a4adb0ebbb76c2839175395779a3c34e1561b9c7a4d799ef874fe",
+    "modified": true,
+    "changes": "Converted foreground paths to Android VectorDrawable; removed square background and replaced arc gradient with cyan; preserved path geometry."
   }
 ]

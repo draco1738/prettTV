@@ -12,7 +12,7 @@ Hold OK on a title to hide it from the large feature, Continue watching, or both
 
 ## Install and use
 
-Download and extract **prettTV-0.1.1-with-RBTV.zip** from [Releases](https://github.com/draco1738/prettTV/releases). Connect an authorized Android TV through ADB, then run `./install.ps1` on Windows or `./install.sh` on macOS/Linux. The bundle installs both prettTV and RBTV+ by default, verifies the pinned RBTV checksum, and preserves any RBTV version already installed. Use `-Tv <serial>` / `TV=<serial>` to select a TV. Android TV 8.0 / API 26 or later is required.
+Download and extract **prettTV-0.1.2-with-RBTV.zip** from [Releases](https://github.com/draco1738/prettTV/releases). Connect an authorized Android TV through ADB, then run `./install.ps1` on Windows or `./install.sh` on macOS/Linux. The bundle installs both prettTV and RBTV+ by default, verifies the pinned RBTV checksum, and preserves any RBTV version already installed. Use `-Tv <serial>` / `TV=<serial>` to select a TV. Android TV 8.0 / API 26 or later is required.
 
 When installing from a source checkout, the scripts build prettTV and fetch the pinned RBTV asset from the public release if needed. `-NoBuild` / `--no-build` reuses the built APK. `-LauncherOnly` / `--launcher-only` explicitly skips RBTV. A bare prettTV APK updates only the launcher; use the complete bundle for the default two-app installation.
 
@@ -32,9 +32,9 @@ Live sports pulls live/upcoming NFL, college football, NBA, NHL, MLB and Premier
 
 **A network logo is not a stream link.** The optional **prettTV game handoff** accessibility helper opens RBTV 3.0.320, selects a verified sport tab, and looks for both complete team names and the local kickoff/date. It supports NFL, college football, NBA and Premier League in that pinned version. It stops after opening the matching game; server selection remains yours. Requests expire after 30 seconds or 16 list scrolls. Ambiguous, missing, unsupported or differently timed events fall back to manual selection. The helper reads and operates RBTV only during an explicit request, never intercepts Home, and never accepts updates or chooses servers. Enable it in Android Accessibility settings. Other RBTV versions/leagues use the ordinary app-launch fallback. Upcoming games may show a countdown rather than server choices.
 
-The [release](https://github.com/draco1738/prettTV/releases/tag/v0.1.1) contains the default prettTV + RBTV installation bundle, individual APKs and checksums. See [RBTV provenance and review limits](docs/companion-apps.md). RBTV is a separate third-party application with its own terms; prettTV’s MIT license does not cover it.
+The [release](https://github.com/draco1738/prettTV/releases/tag/v0.1.2) contains the default prettTV + RBTV installation bundle, individual APKs and checksums. See [RBTV provenance and review limits](docs/companion-apps.md). RBTV is a separate third-party application with its own terms; prettTV’s MIT license does not cover it.
 
-The UI uses native Views/Canvas, two artwork workers and bounded caches. Visible cards request artwork; off-screen cards release bitmap references. Each app appears once in the finite horizontal row, with shared artwork. Eleven bundled [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons) assets provide recognizable marks on dark tiles, with original color accents. Sources, pinned revision, hashes and the supplied license are included. Other apps use their installed artwork; source images are contained rather than stretched.
+The UI uses native Views/Canvas, two artwork workers and bounded caches. Visible cards request artwork; off-screen cards release bitmap references. Each app appears once in the finite horizontal row, with shared artwork. Twelve bundled [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons) PNG assets and an adapted Disney+ vector provide recognizable marks on dark tiles, with original color accents. Sources, pinned revision, hashes and the supplied license are included. Other apps use their installed artwork; source images are contained rather than stretched.
 
 ## Privacy and recovery
 

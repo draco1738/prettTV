@@ -1,3 +1,9 @@
+# prettTV 0.1.2 dark-tile correction — 2026-10-17
+
+The reported rollback was checked against the installed package: v0.1.1 and C Balanced were still selected. The certificate reinstall had removed cached artwork; unmapped Disney+ and HBO then rendered their installed bright/gradient banners. Version 0.1.2 uses an attributed Disney+ foreground vector on the common dark ground and an unmodified bundled white HBO logo. Cache generation icons4 invalidates the former tiles. Neither mapped app now depends on installed artwork.
+
+The signed v0.1.2 update installed in place without uninstalling or resetting preferences. The new cache generation rendered dark tiles on the TV; A/B/C captures were refreshed, with C restored and The Night Agent still the hero. The same 52 JVM tests pass. An additional Android cache-only clear command did not return, so its client was stopped; explicit completion of that command is not claimed. Source-level cache independence and the new-generation TV renders are the evidence. No launcher behavior, viewing-history policy or special-access state changed.
+
 # prettTV 0.1.1 validation — 2026-10-17
 
 Signed release built with JDK 17, Android SDK 34 and build-tools 35.0.0. All 52 JVM tests pass: 16 app-model, 14 content-policy, 7 sports-policy, 7 playback-policy and 8 RBTV match-policy tests. The PowerShell and Bash installers passed eight isolated checks: fresh installs include both APKs; existing RBTV is preserved; launcher-only installs one APK; a bad companion checksum installs neither. The restore script passed syntax checks but was not run against the configured Home.
