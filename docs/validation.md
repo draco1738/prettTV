@@ -1,3 +1,9 @@
+# prettTV 0.1.5 app-hide focus fix — 2026-10-17
+
+Hiding a focused Your apps tile now selects the next surviving neighbor, the previous neighbor at the end, or the empty-row chooser when none remain. Library and sports shortcuts keep their own focus identity because hiding affects only Your apps. Favorite rearrangement follows the same app. The app menu captures its originating focus and scroll positions and applies its action after dismissal. Screen rebuilds restore saved horizontal positions after layout; a pending restoration survives another feed-triggered rebuild. Local app arrangement no longer restarts recommendation fetching.
+
+68 JVM tests pass, including three new focus-policy regressions for middle/first/last removal, multiple missing neighbors, an empty row and reordered apps. The signed update installed in place on the TCL. Navigation reached a scrolled app row and the app options menu, but the hide operation did not apply before unrelated TV navigation resumed. The TV subsequently entered Stremio; remote input was stopped. The hidden-app set remained unchanged at 24 entries. This pass does not claim a completed on-device hide/restore or Library-focus check. Earlier visual captures still describe the unchanged design.
+
 # prettTV 0.1.4 service-first discovery — 2026-10-17
 
 65 JVM tests pass. Eleven new policy tests cover large early free feeds, allocating multiple providers to both Suggestions and Discover, explicit service priority, conservative viewing-activity inference, app intent preservation, unknown/ambiguous popularity matches, cross-row exclusions, 60-title bounds and empty input. The signed v0.1.4 update installed in place on the TCL; C Balanced, the local hero and dark icons were retained.

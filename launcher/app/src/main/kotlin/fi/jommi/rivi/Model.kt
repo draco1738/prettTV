@@ -48,6 +48,17 @@ object HomeModel {
     fun focusTarget(wanted: String?, a: Arranged): String? =
         wanted?.takeIf { it in a.favourites || it in a.rest } ?: a.favourites.firstOrNull() ?: a.rest.firstOrNull()
 
+    /** Keep the same item after a reorder; after removal prefer the next surviving neighbor. */
+    fun focusAfterChange(wanted:String,before:List<String>,after:List<String>):String? {
+        if(wanted in after)return wanted
+        val index=before.indexOf(wanted)
+        if(index<0)return after.firstOrNull()
+        val remaining=after.toHashSet()
+        return before.drop(index+1).firstOrNull { it in remaining }
+            ?: before.take(index).lastOrNull { it in remaining }
+            ?: after.firstOrNull()
+    }
+
     /** Disk-cache files that no longer correspond to an installed app version can be deleted. */
     fun staleCacheFiles(existing: List<String>, wanted: Set<String>): List<String> = existing.filter { it !in wanted }
 }

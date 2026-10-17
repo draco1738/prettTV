@@ -100,6 +100,25 @@ class HomeModelTest {
         assertEquals(listOf("old_1_256x144r14.png"), HomeModel.staleCacheFiles(listOf("a_2_256x144r14.png", "old_1_256x144r14.png"), setOf("a_2_256x144r14.png")))
     }
 
+    @Test fun hidingAnAppKeepsTheNextNeighborInsteadOfJumpingToTheBeginning() {
+        val before=listOf("a","b","c","d","e")
+        assertEquals("d",HomeModel.focusAfterChange("c",before,listOf("a","b","d","e")))
+        assertEquals("b",HomeModel.focusAfterChange("a",before,listOf("b","c","d","e")))
+        assertEquals("d",HomeModel.focusAfterChange("e",before,listOf("a","b","c","d")))
+    }
+
+    @Test fun hideFocusSkipsOtherRemovedAppsAndHandlesAnEmptyRow() {
+        val before=listOf("a","b","c","d","e")
+        assertEquals("e",HomeModel.focusAfterChange("c",before,listOf("a","e")))
+        assertEquals("a",HomeModel.focusAfterChange("c",before,listOf("a")))
+        assertNull(HomeModel.focusAfterChange("a",listOf("a"),emptyList()))
+        assertEquals("new",HomeModel.focusAfterChange("missing",before,listOf("new")))
+    }
+
+    @Test fun rearrangingAppsKeepsFocusOnTheSameApp() {
+        assertEquals("c",HomeModel.focusAfterChange("c",listOf("a","b","c"),listOf("c","a","b")))
+    }
+
     @Test fun onlyTheStockHomeScreenIsRedirected() {
         val lx = "com.google.android.apps.tv.launcherx"
         assertEquals(true, HomeKeyService.isStockHomeScreen(lx, "$lx.home.HomeActivity"))

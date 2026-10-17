@@ -45,6 +45,9 @@ class MainActivity : Activity() {
     private var libraryAnchor:View?=null
     private var showAnchor: View? = null
     private val focusables = LinkedHashMap<String, View>()
+    private val horizontalRows=LinkedHashMap<String,HorizontalScrollView>()
+    private data class Viewport(val focus:String?=null,val y:Int=0,val rows:Map<String,Int> = emptyMap())
+    private var pendingViewport:Viewport?=null
     private val appCards = HashMap<String, MutableList<PrettTvCard>>()
     private data class CardArt(val card:PrettTvCard,val url:String,val w:Int,val h:Int,var requested:Boolean=false)
     private val cardArt=ArrayList<CardArt>()
@@ -147,12 +150,16 @@ class MainActivity : Activity() {
     private fun gap(n:Int) { page.addView(View(this),LinearLayout.LayoutParams(1,px(n))) }
     private fun updateClock() { if(::clock.isInitialized)clock.text=android.text.format.DateFormat.getTimeFormat(this).format(Date()) }
 
-    private fun render(reset:Boolean=false) {
+    private fun viewport(focus:String?=null)=Viewport(
+        focus ?: (currentFocus?.tag as? String) ?: (lastContentFocus?.tag as? String) ?: settings.getString("focus",null),
+        if(ready)root.scrollY else 0,horizontalRows.mapValues { it.value.scrollX })
+
+    private fun render(reset:Boolean=false,restore:Viewport?=null) {
         if(isFinishing)return
         if(reset)homeRequested=true
-        val focus=if(homeRequested)null else (currentFocus?.tag as? String) ?: settings.getString("focus",null)
-        val oldScroll=if(ready && !homeRequested)root.scrollY else 0
-        artwork.cancel(); cardArt.clear(); focusables.clear(); appCards.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
+        val saved=if(homeRequested)Viewport() else restore ?: pendingViewport ?: viewport()
+        pendingViewport=saved
+        artwork.cancel(); cardArt.clear(); focusables.clear(); horizontalRows.clear(); appCards.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
         root=ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER; clipChildren=false; clipToPadding=false }
         page=column().apply { setPadding(px(56),px(30),px(56),px(40)) }
         val stage=FrameLayout(this).apply { setBackgroundColor(bgColor); clipChildren=false; clipToPadding=false }
@@ -177,13 +184,20 @@ class MainActivity : Activity() {
         setContentView(stage); ready=true; updateClock()
         root.viewTreeObserver.addOnScrollChangedListener { loadVisibleArt() }
         val renderedRoot=root
-        root.post {
-            if(root!==renderedRoot)return@post
-            (focusables[focus] ?: firstCard ?: focusables.values.firstOrNull())?.requestFocus()
-            root.scrollTo(0,oldScroll)
-            loadVisibleArt()
-            homeRequested=false
-        }
+        // Restore after measurement, when horizontal scroll bounds are known. A feed refresh
+        // that rebuilds again before this frame inherits the same pending viewport.
+        renderedRoot.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw():Boolean {
+                renderedRoot.viewTreeObserver.removeOnPreDrawListener(this)
+                if(root!==renderedRoot)return true
+                saved.rows.forEach { (key,x) -> horizontalRows[key]?.scrollTo(x,0) }
+                (focusables[saved.focus] ?: firstCard ?: focusables.values.firstOrNull())?.requestFocus()
+                root.scrollTo(0,saved.y)
+                pendingViewport=null; homeRequested=false
+                loadVisibleArt()
+                return true
+            }
+        })
     }
     private fun buildHeader() {
         val header=row()
@@ -373,6 +387,7 @@ class MainActivity : Activity() {
                 isFocusable=false; clipChildren=true; clipToPadding=true; setPadding(0,px(6),0,px(6))
                 addView(strip,ViewGroup.LayoutParams(-2,px(height)))
             }
+            horizontalRows[key]=scroll
             page.addView(scroll,LinearLayout.LayoutParams(-1,px(height+12)))
         }
         constrainRow(strip)
@@ -400,7 +415,7 @@ class MainActivity : Activity() {
     private fun appCard(e:AppEntry,key:String):PrettTvCard=PrettTvCard(this,scale,PrettTvCard.Mode.APP).apply {
         title=e.label; contentDescription=e.label; logoBounds=e.logoBounds; art=e.bitmap; register(this,key)
         appCards.getOrPut(e.key){ArrayList()}.add(this)
-        setOnClickListener { launch(e) }; setOnLongClickListener { appMenu(e); true }
+        setOnClickListener { launch(e) }; setOnLongClickListener { appMenu(e,key); true }
         if(appAnchor==null)appAnchor=this
         if(firstCard==null)firstCard=this
     }
@@ -420,6 +435,7 @@ class MainActivity : Activity() {
             isFocusable=false; isHorizontalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER
             clipChildren=true; clipToPadding=true; isSmoothScrollingEnabled=false; setPadding(0,px(4),0,px(4))
         }
+        horizontalRows["your-apps"]=scroll
         entries.forEachIndexed { i,e ->
             strip.addView(appCard(e,"favorite-${e.key}"),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<entries.lastIndex)rightMargin=px(18) })
         }
@@ -487,10 +503,19 @@ class MainActivity : Activity() {
     private fun dialog(title:String,items:List<Pair<String,()->Unit>>) {
         AlertDialog.Builder(this).setTitle(title).setItems(items.map { it.first }.toTypedArray()) { _,i -> items[i].second() }.setNegativeButton("Close",null).show()
     }
-    private fun appMenu(e:AppEntry) {
+    private fun appMenu(e:AppEntry,origin:String) {
+        val place=viewport(origin)
+        val before=orderedApps().filter { it.key !in prefs.hidden }.map { it.key }
         val favs=prefs.favourites.toMutableList(); val index=favs.indexOf(e.key)
         val items=ArrayList<Pair<String,()->Unit>>()
-        fun changed() { render(); startContent() }
+        fun changed() {
+            val target=if(origin.startsWith("favorite-")) {
+                val after=orderedApps().filter { it.key !in prefs.hidden }.map { it.key }
+                HomeModel.focusAfterChange(e.key,before,after)?.let { "favorite-$it" } ?: "empty-app-row"
+            } else origin
+            // Row visibility and arrangement do not change recommendation sources.
+            render(restore=place.copy(focus=target))
+        }
         if(index>=0) {
             items+="Remove from favorites" to { favs.remove(e.key); prefs.favourites=favs; changed() }
             if(index>0)items+="Move left" to { prefs.favourites=HomeModel.move(favs,e.key,-1); changed() }
@@ -499,7 +524,13 @@ class MainActivity : Activity() {
         if(e.key in prefs.hidden)items+="Show in Your apps row" to { prefs.hidden=prefs.hidden-e.key; changed() }
         else items+="Hide from Your apps row" to { prefs.hidden=prefs.hidden+e.key; changed() }
         items+="App info" to { safeStart(repo.appInfoIntent(e.packageName),e.label) }
-        dialog(e.label,items)
+        var chosen:(()->Unit)?=null
+        val menu=AlertDialog.Builder(this).setTitle(e.label)
+            .setItems(items.map { it.first }.toTypedArray()) { _,i -> chosen=items[i].second }
+            .setNegativeButton("Close",null).create()
+        // Let the modal release window focus before requesting focus on the replacement tile.
+        menu.setOnDismissListener { chosen?.invoke() }
+        menu.show()
     }
     private fun menu() {
         val items=ArrayList<Pair<String,()->Unit>>()
@@ -621,7 +652,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("About this show").setMessage(detail).setPositiveButton("Open ${p.app}") { _,_ -> openProgram(p) }.setNeutralButton("Source") { _,_ -> if(p.sourceUrl.isNotBlank())safeStart(Intent(Intent.ACTION_VIEW,Uri.parse(p.sourceUrl)),"TVmaze") }.setNegativeButton("Close",null).show()
     }
     private fun credits() {
-        dialog("prettTV 0.1.4",listOf(
+        dialog("prettTV 0.1.5",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },
@@ -650,6 +681,7 @@ class MainActivity : Activity() {
         super.dump(prefix,fd,out,args)
         out.println("prettTV layout=${layout.name} apps=${apps.size} watching=${content.watching.size} suggestions=${content.suggestions.size} discover=${content.discover.size} trending=${content.trending.size} new=${content.newReleases.size} games=${content.games.size} discovery=$discovery")
         out.println("prettTV focus=${currentFocus?.tag} visible=$visible artwork=${appCards.values.flatten().count { it.art!=null }}")
+        if(args?.contains("--viewport-diagnostics")==true)out.println("VIEWPORT y=${root.scrollY} rows="+horizontalRows.mapValues { it.value.scrollX })
         if(args?.contains("--feed-diagnostics")==true)out.println(contentRepo.diagnostics())
         if(args?.contains("--content-diagnostics")==true)for(p in content.watching)
             out.println("WATCH ${p.packageName} | ${p.title} | ${p.id} | engagement=${p.engagedAt} | position=${p.position} | duration=${p.duration}")
