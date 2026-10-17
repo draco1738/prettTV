@@ -12,7 +12,7 @@ import android.view.View
 import android.view.animation.DecelerateInterpolator
 
 /** Native still-art card. Remote/focus pattern adapted from Rivi by Jommi (MIT). */
-class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode):View(context) {
+class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,private val cornerRadius:Float=15f):View(context) {
     private companion object {
         val regularTypeface:Typeface=Typeface.create("sans-serif",Typeface.NORMAL)
         val mediumTypeface:Typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL)
@@ -56,7 +56,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode):
     private fun s(n:Float)=n*unit
     init { isFocusable=true; isClickable=true; id=generateViewId() }
     override fun onSizeChanged(w:Int,h:Int,oldw:Int,oldh:Int) {
-        rect.set(s(3f),s(3f),w-s(3f),h-s(3f)); shape.reset(); shape.addRoundRect(rect,s(15f),s(15f),Path.Direction.CW)
+        rect.set(s(3f),s(3f),w-s(3f),h-s(3f)); shape.reset(); shape.addRoundRect(rect,s(cornerRadius),s(cornerRadius),Path.Direction.CW)
         if(mode==Mode.COMPACT) {
             compactShape.reset()
             imageDestination.set(s(3f),s(6f),w*.52f,h-s(6f))
@@ -193,7 +193,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode):
         paint.style=Paint.Style.STROKE
         paint.color=if(isFocused && mode!=Mode.HERO)ivory else 0xFF4B584B.toInt()
         paint.strokeWidth=s(if(isFocused && mode!=Mode.HERO)2.4f else 1f)
-        if(!compact || isFocused)c.drawRoundRect(rect,s(15f),s(15f),paint)
+        if(!compact || isFocused)c.drawRoundRect(rect,s(cornerRadius),s(cornerRadius),paint)
         paint.style=Paint.Style.FILL
     }
     override fun onFocusChanged(gain:Boolean,direction:Int,old:Rect?) {

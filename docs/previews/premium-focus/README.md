@@ -1,8 +1,8 @@
-# Narrower app cards — approved design record
+# Narrower app cards — intermediate design record
 
-[← prettTV](../../../README.md) · [Native design](../../../DESIGN.md) · [Validation history](../../validation.md)
+[← prettTV](../../../README.md) · [Latest approved geometry](../rounder-app-cards/README.md) · [Native design](../../../DESIGN.md) · [Validation history](../../validation.md)
 
-These browser-rendered **C Balanced** comparisons record the design approved for the native **v0.2.1** card update. They remain design previews, not screenshots of the installed Android app. The labels “Current” and “Proposed” in the images describe the earlier v0.2.0 baseline and the approved direction.
+These browser-rendered **C Balanced** comparisons record the intermediate **208-width / 15-radius / 18-gap** design for v0.2.1. The owner later approved [22-pixel corners and 12-pixel gaps](../rounder-app-cards/README.md), retaining the widths, heights and focus treatment shown here. These assets remain design previews, not screenshots of the installed Android app. Their “Current” and “Proposed” labels describe the earlier v0.2.0 baseline and the intermediate direction.
 
 The comparison shows both rows at the same scale, with enlarged views of the selected card.
 
@@ -10,16 +10,16 @@ The comparison shows both rows at the same scale, with enlarged views of the sel
 
 [Open the full-size comparison](comparison.png)
 
-The approved C row uses **208 × 94** app cards instead of **286 × 94**: about **27.3% narrower**, with the existing height and corner shape. This followed an intermediate 236-pixel proposal. Dark logos retain their color accents, and the finite app row keeps its beginning and end.
+This C comparison uses **208 × 94** app cards instead of **286 × 94**: about **27.3% narrower**, with the then-existing 15-pixel corners and 18-pixel gaps. This followed a 236-pixel proposal. Dark logos retain their color accents, and the finite app row keeps its beginning and end. The final approved width and height remain the same; only the later geometry comparison shows the accepted rounder corners and tighter spacing.
 
 | Treatment | Appearance and motion |
 | --- | --- |
 | **Earlier baseline** | Flat selected surface, with the existing 1.025 focus scale. |
-| **Approved direction** | A localized ivory spotlight at up to about 18% opacity, plus 6 reference pixels of internal artwork movement over 180 ms. The existing 140 ms focus scale remains. |
+| **Retained focus direction** | A localized ivory spotlight at up to about 18% opacity, plus 6 reference pixels of internal artwork movement over 180 ms. The existing 140 ms focus scale remains. |
 
-## Native implementation
+## Retained dimensions and focus treatment
 
-Your apps uses the same **208-reference-pixel width** and **18-pixel gap** in all three layouts:
+Your apps retains the same **208-reference-pixel width** in all three layouts. This intermediate preview shows an 18-pixel gap and 15-pixel radius; the final approved values are **12-pixel gaps and 22-pixel corners**:
 
 | Layout | App-card dimensions |
 | --- | --- |
@@ -27,7 +27,7 @@ Your apps uses the same **208-reference-pixel width** and **18-pixel gap** in al
 | **B · Quiet** | 208 × 176 |
 | **C · Balanced** | 208 × 94 |
 
-These are 1920-wide design-reference pixels, scaled to the display width, not Android dp. App-row heights are unchanged. The Library grid retains its six-column geometry and 154-reference-pixel height.
+These are 1920-wide design-reference pixels, scaled to the display width, not Android dp. App-row heights are unchanged. The radius and gap refinement applies only to Your apps; the Library grid retains its six-column geometry, 154-reference-pixel height, 18-pixel gaps and 15-pixel corners.
 
 The native card component applies the clipped spotlight and bounded artwork drift to app and content cards, including Library tiles. The spotlight's peak alpha is `0x2E` (about 18%), fading across an ivory elliptical gradient. Artwork moves up to 6 reference pixels rightward as focus settles over 180 ms; text and progress do not independently drift. The existing 140 ms scale reaches 1.025 for app, show and sports cards; hero and compact cards keep their original scale.
 
@@ -41,7 +41,7 @@ Focus reversal retargets the finite transition from its current position. Hidden
 
 The clip repeats the demonstration; the native transition runs only when focus changes and then settles. The selected-card close-ups are enlarged 2× so the internal motion is visible. The spotlight is intentionally stronger than the first set of nearly identical stills.
 
-These assets do not measure Android rendering or prove hardware behavior. They preserve the approved direction, while [validation history](../../validation.md) records completed native checks and their limits. No new test totals or hardware-performance result is claimed by this preview update.
+These rendered concepts preserve the accepted focus treatment and intermediate geometry. They are not native captures or performance measurements; [validation history](../../validation.md) records the scoped native checks and outcomes.
 
 ## Credits
 

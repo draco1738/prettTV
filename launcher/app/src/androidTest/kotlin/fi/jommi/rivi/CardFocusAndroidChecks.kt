@@ -34,7 +34,7 @@ internal object CardFocusAndroidChecks {
                 val group=LinearLayout(activity).apply { orientation=LinearLayout.HORIZONTAL }
                 row=group
                 activity.setContentView(group)
-                List(2) { PrettTvCard(activity,1f,PrettTvCard.Mode.APP).apply {
+                List(2) { PrettTvCard(activity,1f,PrettTvCard.Mode.APP,22f).apply {
                     isFocusableInTouchMode=true
                     group.addView(this,LinearLayout.LayoutParams(208,94))
                 } }
@@ -102,8 +102,8 @@ internal object CardFocusAndroidChecks {
             test("Unattached focus uses the immediate complete state without scheduling motion") {
                 main(instrumentation) {
                     val group=LinearLayout(context)
-                    val card=PrettTvCard(context,1f,PrettTvCard.Mode.APP).apply { isFocusableInTouchMode=true; layout(0,0,208,94) }
-                    val sibling=PrettTvCard(context,1f,PrettTvCard.Mode.APP).apply { isFocusableInTouchMode=true; layout(0,0,208,94) }
+                    val card=PrettTvCard(context,1f,PrettTvCard.Mode.APP,22f).apply { isFocusableInTouchMode=true; layout(0,0,208,94) }
+                    val sibling=PrettTvCard(context,1f,PrettTvCard.Mode.APP,22f).apply { isFocusableInTouchMode=true; layout(0,0,208,94) }
                     group.addView(card); group.addView(sibling)
                     check(card.requestFocus() && !card.isAttachedToWindow)
                     check(settled(card,true))
@@ -120,7 +120,7 @@ internal object CardFocusAndroidChecks {
                     try {
                         for(mode in PrettTvCard.Mode.entries) {
                             val (w,h)=dimensions(mode)
-                            val card=PrettTvCard(context,1f,mode).apply {
+                            val card=PrettTvCard(context,1f,mode,if(mode==PrettTvCard.Mode.APP)22f else 15f).apply {
                                 isFocusableInTouchMode=true
                                 title="Fixed title"; detail="Fixed details"; summary="Fixed summary"; action="Continue"; progress=.5f
                                 if(mode==PrettTvCard.Mode.APP)logoBounds=Rect(60,20,100,70)

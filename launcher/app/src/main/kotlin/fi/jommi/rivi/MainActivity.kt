@@ -655,7 +655,7 @@ class MainActivity : Activity() {
         val byKey=apps.associateBy { it.key }
         return (arranged.favourites+arranged.rest).mapNotNull { byKey[it] }.distinctBy { it.key }
     }
-    private fun appCard(e:AppEntry,key:String):PrettTvCard=PrettTvCard(this,scale,PrettTvCard.Mode.APP).apply {
+    private fun appCard(e:AppEntry,key:String,cornerRadius:Float=15f):PrettTvCard=PrettTvCard(this,scale,PrettTvCard.Mode.APP,cornerRadius).apply {
         title=e.label; contentDescription=e.label; logoBounds=e.logoBounds; art=e.bitmap; register(this,key)
         appCards.getOrPut(e.key){ArrayList()}.add(this)
         setOnClickListener { launch(e) }; setOnLongClickListener { appMenu(e,key); true }
@@ -680,7 +680,7 @@ class MainActivity : Activity() {
         }
         horizontalRows["your-apps"]=scroll
         entries.forEachIndexed { i,e ->
-            strip.addView(appCard(e,"favorite-${e.key}"),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<entries.lastIndex)rightMargin=px(18) })
+            strip.addView(appCard(e,"favorite-${e.key}",22f),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<entries.lastIndex)rightMargin=px(12) })
         }
         if(firstCard?.tag=="feature")firstCard?.nextFocusDownId=strip.getChildAt(0).id
         constrainRow(strip)

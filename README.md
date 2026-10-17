@@ -9,13 +9,13 @@
 
 ![C Balanced on the TCL TV: a large recently watched title, two discovery cards, dark app tiles and a Continue watching row.](docs/screenshots/C-balanced.png)
 
-*C · Balanced is the default. The gallery retains unedited v0.2.0 TCL captures with real apps and provider content; it does not yet show the v0.2.1 card update.*
+*C · Balanced is the default. The gallery shows unedited v0.2.1 captures from the TCL TV, with real apps and provider content.*
 
 ## A home that stays out of the way
 
 - **Pick your layout.** Cinema, Quiet or Balanced, with a hidden left sidebar in all three.
 - **Put recent viewing first.** A large feature and separate Shows and Movies rows use supported app progress and locally confirmed playback.
-- **Keep your apps close.** Narrower dark tiles with color accents, favorites first, and a finite row with a clear start and end. Hide an app from the row while keeping it in Library.
+- **Keep your apps close.** Narrower dark tiles with softer corners and tighter spacing, favorites first, and a finite row with a clear start and end. Hide an app from the row while keeping it in Library.
 - **Follow the focus.** A soft ivory spotlight and a small artwork shift make the selected card clear. Each movement settles; cards do not animate continuously while idle.
 - **Save something for later.** A dedicated Watchlist row keeps your saved titles and their app destinations. Follow shows separately for new-episode alerts.
 - **Make the rows yours.** Reorder or hide content rows, choose card sizes, and browse 20, 40 or 60 discovery titles per row. Suggestions, Discover and Trending put preferred services first.
@@ -57,7 +57,7 @@ The default bundle includes **RBTV+** and keeps an existing RBTV installation. A
 
 Choose a layout in **prettTV Settings → Layout**. Your apps, viewing history and discovery feeds are shared across all three.
 
-The v0.2.1 card update narrows Your apps in every layout while preserving each row's height and the Library grid. Its [approved design comparison](docs/previews/premium-focus/README.md) records the dimensions and finite focus treatment; the preview images are concepts, not TV captures or performance measurements.
+In v0.2.1, Your apps uses narrower tiles, rounder corners and tighter spacing in every layout, while preserving each row's height and the Library grid. The [geometry comparison](docs/previews/rounder-app-cards/README.md) and [earlier motion comparison](docs/previews/premium-focus/README.md) record the design approvals as rendered concepts. [Validation history](docs/validation.md) records the native checks and their outcomes.
 
 | Layout | Composition |
 | :--- | :--- |

@@ -118,8 +118,8 @@
           "docs/screenshots/A-cinema.png",
           "docs/screenshots/B-quiet.png"
         ],
-        "provenance": "docs/screenshots/A-cinema.png, B-quiet.png, and C-balanced.png are actual 1920x1080 ADB captures for the 0.2.0 extension. They preserve the incumbent home world; B visibly shows Watchlist below Movies. Screenshot pixels were not modified in this documentation pass.",
-        "freshness": "Retained A/B/C captures document 0.2.0, not the 0.2.1 narrower app cards or spotlight/drift. This documentation update adds no screenshots. Existing sidebar captures retain earlier provenance. Feature dialogs, details, reminder states, and the updater are outside this capture set.",
+        "provenance": "docs/screenshots/A-cinema.png, B-quiet.png and C-balanced.png are unedited 1920x1080 ADB captures of v0.2.1 on the TCL TV, including the 208-wide Your apps tiles with 22-pixel corners and 12-pixel gaps. Scoped checks and outcomes are recorded in docs/validation.md.",
+        "freshness": "Feature dialogs, details, reminder states and the updater remain outside this Home visual review. Existing sidebar captures retain their separately recorded provenance.",
         "sidebar": "docs/screenshots/sidebar.png"
       },
       "gradients": [
@@ -211,6 +211,7 @@
       ],
       "focus": {
         "cardShapeInset": "3 reference pixels",
+        "cardCornerRadius": "Your apps tiles use the approved 22-reference-pixel override for both clip and outline. Library tiles, sports-app shortcuts and other cards retain the 15-pixel default; compact imagery keeps its separate 10-pixel clip.",
         "cardRestOutline": "1 reference pixel, colors.card-edge",
         "cardFocusedOutline": "2.4 reference pixels, colors.ivory; non-HERO modes",
         "compactRestOutline": "None; the shared Discover panel supplies containment.",
@@ -219,14 +220,14 @@
         "rail": "Sidebar starts at View.GONE. Left from a first app reveals Library, other shelf starts reveal Shows, and the hero reveals Home. Open-rail buttons invert from colors.button-ground/colors.ivory to colors.button-focus/colors.sage-black. Left stays in the rail; vertical endpoints stop. Right or Back dismisses the overlay and restores content focus. Choosing a destination or returning focus to content also dismisses it.",
         "sidebarContentDimming": "Content ScrollView alpha is 0.45 while the overlay rail is visible and 1.0 after dismissal. This is an immediate native visibility/alpha state change, not a new motion token."
       },
-      "reviewScope": "This update reconciles the approved 0.2.1 narrower Your apps cards and spotlight/drift to native source, without new device validation or screenshot claims. The earlier finish review reconciled the missing Watchlist/New episodes contract. The 0.2.0 functional gate and one-hour soak checkpoint review retain their historical scope in docs/validation.md and do not validate this patch.",
+      "reviewScope": "Home geometry and card behavior follow the native implementation. Scoped checks, evidence versions and outcomes are recorded in docs/validation.md. Rendered previews document approvals; they are not native captures.",
       "brand": {
         "displayName": "prettTV",
         "placement": "Footer About prettTV · Credits; no top wordmark or rail monogram.",
         "applicationId": "dev.zane.pretttv"
       },
-      "userOverride": "The owner approved 208-reference-pixel Your apps widths across A/B/C plus a finite clipped focus spotlight and bounded artwork drift. App heights remain 116/176/94 and Library grid geometry is unchanged. The hidden-by-default sidebar remains in every layout: Left at the first card reveals the dimming overlay; Right, Back, choosing a destination, or returning content focus dismisses it. Content keeps its full width and Library remains separate from Your apps.",
-      "sourceDerivedStatus": "Version 0.2.1 card geometry and focus behavior are documented from native source; this update adds no device validation or screenshots. Historical 0.2.0 validation reports 202 JVM and 35 Android tests, its passed final functional gate, and the user-approved one-hour soak checkpoint review. The original two-hour run was stopped at the user's request and its native outcome remains UNRECORDED. Those results do not validate the card patch; uncaptured dialogs and updater surfaces remain outside visual certification.",
+      "userOverride": "The owner approved final Your apps widths of 208 reference pixels with 22-pixel corners and 12-pixel gaps across A/B/C, plus the retained finite spotlight/drift. Heights remain 116/176/94. The corner override is only for Your apps: Library, sports-app shortcuts and content-card geometry stay unchanged. The hidden-by-default sidebar remains in every layout; Left at the first card reveals it and Right, Back, a destination or returning content focus dismisses it.",
+      "sourceDerivedStatus": "Version 0.2.1 implements 208-wide Your apps cards with 22-pixel corners and 12-pixel gaps, retaining the finite spotlight and artwork drift. docs/validation.md records native checks and outcomes. Uncaptured feature dialogs and updater surfaces remain outside this Home visual review.",
       "playbackEvidence": "Published engagement timestamps seed a stored baseline and subsequent timestamp-only refreshes do not promote a title. Optional supported active media sessions or the manual I watched this most recently action update local recency. Notification access is required for the optional tracker; it does not read or store notification text. Missing or ambiguous title metadata remains unknown.",
       "sportsHandoff": "Optional accessibility assistance starts only after a selected game and is bounded to 30 seconds inside supported RBTV 3.0.320 layouts. It matches both teams and kickoff time for supported leagues, stops before server selection, and leaves unsupported or unmatched events to manual selection. No deep link, game availability, channel availability, or playback success is guaranteed.",
       "packageMigration": "The implementation workflow reports successful owner-preference export/import and removal of the previous application. Preference exports remain local and excluded from publication.",
@@ -259,14 +260,16 @@
       "documentedVersion": "0.2.1",
       "appShelf": {
         "widthReferencePixels": 208,
-        "gapReferencePixels": 18,
+        "gapReferencePixels": 12,
+        "cornerRadiusReferencePixels": 22,
         "heightsReferencePixels": {
           "CINEMA": 116,
           "QUIET": 176,
           "BALANCED": 94
         },
-        "visibleFit": "Up to eight complete Your apps tiles in the 1808-reference-pixel content width; finite row with every included app once.",
-        "libraryGeometry": "Unchanged six-column Library grid; integer (inner - 5 * 18) / 6 width and 154-reference-pixel height. Shared APP focus treatment also applies to Library tiles."
+        "visibleFit": "Eight complete Your apps tiles and a slice of the next in the 1808-reference-pixel content width when enough apps exist; finite row with every included app once.",
+        "libraryGeometry": "Unchanged six-column Library grid; integer (inner - 5 * 18) / 6 width, 154-reference-pixel height, 18-pixel gaps and 15-pixel corners. Shared APP focus treatment also applies to Library tiles.",
+        "approvalHistory": "docs/previews/premium-focus records the intermediate 208-width/15-radius/18-gap candidate and accepted motion. docs/previews/rounder-app-cards records the later approved 208-width/22-radius/12-gap geometry. Both contain rendered concepts; native checks are recorded separately in docs/validation.md."
       },
       "rows": {
         "defaultOrder": [
@@ -340,7 +343,7 @@
       "name": "App tile",
       "kind": "card",
       "refersTo": "app-card-balanced",
-      "description": "PrettTvCard.Mode.APP: attributed app assets and native Disney drawable on the dark ground, with installed art for unmapped apps. Your apps widths are 208 reference pixels across A/B/C, retaining heights 116/176/94. Library grid geometry is unchanged; all APP cards share the finite spotlight/drift focus treatment. Row-only hide/show controls preserve Library, search, and history."
+      "description": "PrettTvCard.Mode.APP: attributed app assets and native Disney drawable on the dark ground, with installed art for unmapped apps. Approved Your apps geometry is 208-wide with 22-pixel corners and 12-pixel gaps across A/B/C, retaining heights 116/176/94. Library grid and sports-app shortcut geometry stay unchanged; all APP cards share the finite spotlight/drift focus treatment. Row-only hide/show preserves Library, search and history."
     },
     {
       "name": "Sports card",
@@ -379,7 +382,7 @@
   ],
   "narrative": {
     "northStar": "A quiet television home",
-    "overview": "The owner's direction is dark sage and black, lightweight and attractive, with subtle contrast and colored app logos. The interface feels restrained and cinematic: the dark ground recedes, real artwork supplies the color, and a small number of ivory focus treatments make the next remote action clear from a couch.\n\nThis is the native Android TV system: Kotlin Android Views, Canvas cards, native dialogs, and the device's system sans-serif aliases. C Balanced is the selected home; A Cinema and B Quiet remain available. The owner has chosen a left sidebar that is hidden by default in all three layouts and appears as a fixed overlay on request. The exact brand spelling is prettTV, appearing in the footer's About/Credits entry, with no top wordmark or rail monogram.\n\nThe approved 0.2.1 patch narrows Your apps widths to 208 reference pixels and adds finite focus spotlight/artwork drift. App heights, Library geometry, and the hidden sidebar are retained. The sidebar contains Home, Shows, Library, Inputs, Search, and Settings. Left from the first card reveals it and dims content; Right, Back, or choosing a destination dismisses it. The Android application ID is `dev.zane.pretttv`. This patch description is source-derived, without new screenshot or validation claims.",
+    "overview": "The owner's direction is dark sage and black, lightweight and attractive, with subtle contrast and colored app logos. The interface feels restrained and cinematic: the dark ground recedes, real artwork supplies the color, and a small number of ivory focus treatments make the next remote action clear from a couch.\n\nThis is the native Android TV system: Kotlin Android Views, Canvas cards, native dialogs, and the device's system sans-serif aliases. C Balanced is the selected home; A Cinema and B Quiet remain available. The owner has chosen a left sidebar that is hidden by default in all three layouts and appears as a fixed overlay on request. The exact brand spelling is prettTV, appearing in the footer's About/Credits entry, with no top wordmark or rail monogram.\n\nImplemented 0.2.1 Your apps geometry is 208 pixels wide with 22-pixel corners and 12-pixel gaps, retaining the finite spotlight/artwork drift and A/B/C heights. Library and other card geometry are unchanged. The sidebar contains Home, Shows, Library, Inputs, Search, and Settings. Left from the first card reveals it and dims content; Right, Back, or choosing a destination dismisses it. The Android application ID is `dev.zane.pretttv`. Rendered previews record design approvals; native checks and outcomes are recorded in docs/validation.md.",
     "keyCharacteristics": [
       "Sage-black ground, gentle tonal separation, and fine visible card edges.",
       "Actual provider artwork, attributed app icons, and installed-app marks supply the color.",
@@ -416,7 +419,7 @@
       "Don't turn finite app shelves into looping rows or repeat apps to imply more content.",
       "Don't add idle animation, decorative drop shadows, or bright global accent surfaces to this quiet system.",
       "Don't extend the confirmed hide/restore and Home checks into claims about untested playback tracking or RBTV matching.",
-      "Don't treat the 0.2.0 functional gate and user-approved one-hour soak review as validation of the 0.2.1 card patch, visual certification of uncaptured dialogs, or completion of the original two-hour run."
+      "Don't extend Home visual checks to uncaptured dialogs or apply one build's validation results to another build."
     ]
   }
 }

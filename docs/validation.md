@@ -6,7 +6,7 @@ Recorded results for each release, newest first. Device observations apply to th
 
 | Release | Scope | Recorded |
 | :--- | :--- | :--- |
-| [0.2.1 candidate](#pretttv-021-card-focus-candidate--2026-10-17) | Narrower app cards and finite focus treatment; interim checks | 2026-10-17 |
+| [0.2.1](#pretttv-021-refined-app-cards-and-focus--2026-10-17) | Narrower, rounder app cards and finite focus treatment | 2026-10-17 |
 | [0.2.0](#pretttv-020-personal-rows-and-release-hardening--2026-10-17) | Personal rows and release hardening | 2026-10-17 |
 | [0.1.10](#pretttv-0110-stock-troubleshooting-recovery--2026-10-17) | Stock troubleshooting recovery | 2026-10-17 |
 | [0.1.9](#pretttv-019-scrolling-and-row-navigation--2026-10-17) | Scrolling and row navigation | 2026-10-17 |
@@ -19,17 +19,33 @@ Recorded results for each release, newest first. Device observations apply to th
 | [0.1.2](#pretttv-012-dark-tile-correction--2026-10-17) | Dark-tile correction | 2026-10-17 |
 | [0.1.1](#pretttv-011-validation--2026-10-17) | Validation | 2026-10-17 |
 
-## prettTV 0.2.1 card-focus candidate — 2026-10-17
+## prettTV 0.2.1 refined app cards and focus — 2026-10-17
+
+The final approved Your apps row uses **208-reference-pixel widths, 22-pixel corners and 12-pixel gaps** in all three layouts. A/B/C retain their respective 116/176/94 heights. Library, sports shortcuts and other content cards retain their existing geometry. The selected card has a clipped ivory spotlight and up to six reference pixels of artwork movement over 180 ms, with the existing 140 ms focus scale. Both transitions settle and cancel on visibility loss or detachment. The approved [rounder-card comparison](previews/rounder-app-cards/README.md) remains labeled as a rendered concept.
+
+The signed final APK is version **0.2.1 / code 13**, SHA-256 `b64ae37734818bfcc4ade924957a43e6a18fe1c2188647b1b912f852c75959d4`. Its certificate SHA-256 is `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`, retaining the established release identity. It installed in place without uninstalling prettTV or clearing app data.
+
+The final build passed **202 JVM tests and all 40 Android fault/UI checks**. Lint reports zero errors and 31 existing warnings. The card fixtures now use the approved 22-pixel radius. They exercise rapid focus reversal, cancellation and reattachment, immediate unattached focus, fixed text/progress/outlines, landscape edge coverage and contained portrait bounds. These checks run in the isolated stability package. Card raster stability does not establish zero idle frames across Home, and the tests do not toggle global system animation settings.
+
+Each final layout passed one navigation cycle, one forced cold start and one real app-return cycle: **141 guarded navigation inputs, three cold starts and three returns**. Cold-start readiness was 644 ms for A, 530 ms for B and 564 ms for C, including ADB overhead rather than fully loaded artwork. All three return cycles strictly preserved the selected card, viewport and Home process with unchanged content. C also passed reversal across nine app cards, held-Left containment, intentional sidebar entry and return. Fresh, unedited [A](screenshots/A-cinema.png), [B](screenshots/B-quiet.png) and [C](screenshots/C-balanced.png) captures were visually checked and replace the public gallery.
+
+The final warmed C route produced 201 rendered frames, 52 janky frames (25.87%), a 17 ms median and 29 ms p90/p95/p99, with zero slow UI-thread frames and the same process throughout. The earlier 0.2.0 baseline below reported 27.0% jank and a 16 ms median. The different card spacing changes the route's visible content, and these short samples do not establish a performance improvement or sustained 60 fps.
+
+The installed APK was pulled back and matched the final hash. All exported Home, app, playback and personalization preferences matched before installation. The crash buffer was unchanged and retained exit records contained no CRASH or ANR reasons. Temporary test packages were removed. C Balanced, its initial feature focus and prettTV's default-Home resolver were restored; read-only recovery status remained configured, unpaused and IDLE. No stock restore was performed. Release inspection confirms a non-debuggable APK without instrumentation, test fixtures or runner classes.
+
+These final checks are scoped to the card refinement. **The one-hour soak was not repeated for 0.2.1.** The earlier candidate and 0.2.0 checks below retain their own artifact and coverage limits. Raw device dumps, account data and settings exports remain private.
+
+### Earlier 15-pixel / 18-pixel candidate
 
 These interim results apply to the implemented candidate with **208-reference-pixel Your apps widths**, existing A/B/C heights of **116/176/94**, **15-pixel corners** and **18-pixel app gaps**. Library grid geometry is unchanged. A clipped ivory spotlight reaches approximately 18% opacity while artwork moves up to six reference pixels over a finite 180 ms focus transition. The existing 140 ms focus scale remains. Hidden or detached cards cancel and settle their focus motion; disabled animations apply final states immediately.
 
-The owner subsequently requested rounder app cards and less space between them. That revision is awaiting mockup review. The results below do not validate the proposed 22-pixel corners or 12-pixel gaps, and publication remains on hold.
+The owner subsequently requested and approved rounder app cards and less space between them. The following historical results apply only to the earlier 15-pixel corners and 18-pixel gaps; they are not substituted for the final build's checks above.
 
 The tested candidate is versionCode 13. Candidate APK SHA-256: `35fa2d0375159353ceb83346ebdf2929a132f68de73891ad6e576b5259f8cffa`. Its verified signing-certificate SHA-256 is `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`, matching the established release identity. The installed APK was pulled back from the TV and matched the candidate hash.
 
 **202 JVM tests and 40 Android fault/UI checks passed.** Android lint reports zero errors and 31 existing warnings. The five additional isolated card checks cover interrupted focus transitions, settling, hidden/detached cards and reattachment, immediate unattached focus state, fixed overlays, landscape edge coverage and contained portrait bounds. Raster stability demonstrates that tested card pixels settle; it is not a measurement of zero idle frames throughout Home. These tests do not directly toggle the TV's system animation setting.
 
-### Completed device checks
+#### Completed device checks
 
 All three layouts passed three navigation cycles each: **423 guarded inputs, six forced cold starts and nine leave-and-return cycles** in total.
 
@@ -41,11 +57,11 @@ All three layouts passed three navigation cycles each: **423 guarded inputs, six
 
 Cold-start times of **510–697 ms** include ADB overhead and measure a focusable Home, not completed network artwork or playback readiness. All nine lifecycle cycles preserved Home process continuity and usable focus. Seven cycles also verified the same focus and viewport against unchanged content. Content signatures changed during the first A and first C cycle, so those two runs do not claim strict position equivalence.
 
-The separate C row-navigation check passed reversal across nine app cards, held-Left containment, intentional sidebar entry and return to the original card. Actual A/B/C native Home captures were recorded and visually reviewed for this candidate. They remain private pending the rounder-card/tighter-spacing design decision; the public gallery still shows the earlier release.
+The separate C row-navigation check passed reversal across nine app cards, held-Left containment, intentional sidebar entry and return to the original card. Actual A/B/C native Home captures were recorded and visually reviewed for this intermediate candidate. Those superseded captures remain private; final-release gallery captures are recorded separately.
 
 An initial A setup used taps at observed control bounds to select the layout, leaving Android in touch mode. The stress harness failed its focus-readiness precondition before sending any test inputs (`inputActions: 0`). Returning to remote navigation restored the expected focus, and the subsequent A run passed. No app-code change was required for that setup failure; the initial result remains a failed precondition rather than a passed test.
 
-### Bounded C motion comparison
+#### Bounded C motion comparison
 
 The same warmed C navigation route was measured before and after the card update:
 
