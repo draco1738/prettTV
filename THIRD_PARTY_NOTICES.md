@@ -1,5 +1,7 @@
 # Credits and third-party notices
 
+[← prettTV](README.md) · [Documentation](docs/README.md) · [MIT license](LICENSE)
+
 ## Rivi — Jommi
 
 prettTV is derived from **[Rivi](https://github.com/jommi9/rivi)** by Jommi, version **0.15**, commit **e4ca2ea9be442e17aa54b94b96bca4762d9607c1**.

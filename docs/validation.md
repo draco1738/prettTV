@@ -1,4 +1,23 @@
-# prettTV 0.1.10 stock troubleshooting recovery — 2026-10-17
+# Validation history
+
+[← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
+
+Recorded results for each release, newest first. Device observations apply to the named build and session; they are not guarantees for every TV. Historical measurements and unverified paths are retained with their original limits.
+
+| Release | Scope | Recorded |
+| :--- | :--- | :--- |
+| [0.1.10](#pretttv-0110-stock-troubleshooting-recovery--2026-10-17) | Stock troubleshooting recovery | 2026-10-17 |
+| [0.1.9](#pretttv-019-scrolling-and-row-navigation--2026-10-17) | Scrolling and row navigation | 2026-10-17 |
+| [0.1.8](#pretttv-018-stability-and-failure-recovery--2026-10-17) | Stability and failure recovery | 2026-10-17 |
+| [0.1.7](#pretttv-017-stability-fixes--2026-10-17) | Stability fixes | 2026-10-17 |
+| [0.1.6](#pretttv-016-pluto-recommendation-priority--2026-10-17) | Pluto recommendation priority | 2026-10-17 |
+| [0.1.5](#pretttv-015-app-hide-focus-fix--2026-10-17) | App-hide focus fix | 2026-10-17 |
+| [0.1.4](#pretttv-014-service-first-discovery--2026-10-17) | Service-first discovery | 2026-10-17 |
+| [0.1.3](#pretttv-013-discover-row--2026-10-17) | Discover row | 2026-10-17 |
+| [0.1.2](#pretttv-012-dark-tile-correction--2026-10-17) | Dark-tile correction | 2026-10-17 |
+| [0.1.1](#pretttv-011-validation--2026-10-17) | Validation | 2026-10-17 |
+
+## prettTV 0.1.10 stock troubleshooting recovery — 2026-10-17
 
 The final Settings item now opens two separate confirmation screens. Both initially focus Cancel and consume held/repeated OK input. A read-only connection check separates them; the final confirmation expires after two minutes. Restoration repeats the checks before writing. The saved baseline and newly generated RSA key stay in private TV storage and are excluded from backups and releases. No external intent or diagnostic command can execute the restore.
 
@@ -10,7 +29,7 @@ On the actual TV, the private original setup record was imported and the owner's
 
 After cancellation, the disabled package list, AdGuard DNS and prettTV default Home were unchanged. The full exported home/app/playback preferences matched before the update, including C Balanced. Temporary test packages were removed. **The full restore was deliberately not executed on the owner's TV.** System-changing success and interruption paths were exercised with fake shell state; live testing covered authorization, preflight and cancellation. This button requires prettTV to run and authorized TCP debugging to remain available; it is not recovery for a device that cannot boot.
 
-# prettTV 0.1.9 scrolling and row navigation — 2026-10-17
+## prettTV 0.1.9 scrolling and row navigation — 2026-10-17
 
 Scroll events now coalesce artwork visibility work into at most one scan every 80 ms, with a trailing scan for the settled viewport. Stop and rebuild cancel pending scans. Assigning an unchanged bitmap no longer invalidates a card, and offscreen cards are cleared only when they actually hold artwork. Canvas drawing reuses geometry and cached typefaces. The existing 140 ms focus animation and visual design are preserved.
 
@@ -37,7 +56,7 @@ These are bounded hardware samples with the same scripted input and existing dev
 
 Final diagnostics reported C Balanced, 36 apps, 21 watching records, 60 entries per discovery/catalog row and no feed/app refresh errors. The retained crash buffer contains no prettTV crash; retained exit reasons show package updates and requested force stops, with no crash or ANR reasons. The default Home resolver remains prettTV, and no temporary test packages remain. Every exported app and playback preference matched the pre-test export; Home preferences differed only in transient focus.
 
-# prettTV 0.1.8 stability and failure recovery — 2026-10-17
+## prettTV 0.1.8 stability and failure recovery — 2026-10-17
 
 Failed shared TV-provider reads retain the last successful watching, preview and channel snapshots; valid empty results still clear them. Retained content is filtered against currently installed apps, and cancelled refreshes cannot replace the snapshot. Diagnostics distinguish failed shared-provider reads from an empty feed. App discovery failures retain existing apps and retry while Home is visible. Individual label/icon failures no longer abort the remaining app worker, and cached app-tile dimensions and file size are checked before bitmap allocation.
 
@@ -51,7 +70,7 @@ Final diagnostics show C Balanced, 36 apps, 21 watching records, 60 entries in e
 
 See [repeatable stability checks](stability-testing.md) for the fault, navigation and lifecycle scripts. Raw device dumps remain local because they may contain viewing history and installed-app identities.
 
-# prettTV 0.1.7 stability fixes — 2026-10-17
+## prettTV 0.1.7 stability fixes — 2026-10-17
 
 Catalog refreshes reuse the last successful results instead of briefly removing catalog cards before loading them again. Failed catalog requests retain previous results; a valid empty response clears them. Disabled, hidden and uninstalled sources remain filtered, and retained new releases still age out. Cancelled refreshes cannot deliver obsolete results; unexpected refresh exceptions are recorded by class name and leave the next refresh scheduled.
 
@@ -63,23 +82,23 @@ Remote-navigation verification hid Prime Video from Your apps, moved focus to it
 
 A 135-second on-device sample crossed an automatic refresh (completed count 2 → 3). All four discovery/catalog rows retained 60 cards; the selected New releases identity, vertical offset 2186 and horizontal offset 1692 were unchanged in every sample. C subsequently returned to Home with artwork populated. Additional navigation occurred during the Settings-return probe, so that probe does not establish an isolated stop/resume artwork test; cancellation and retry are covered by the regression tests. No prettTV crash was found in the retained crash buffer. These are bounded checks, not a sustained frame-rate or long-duration reliability claim.
 
-## Debugging a future regression
+### Debugging a future regression
 
 With an authorized ADB connection, `adb shell dumpsys activity dev.zane.pretttv --feed-diagnostics --viewport-diagnostics` reports layout, card counts, focused identity, row offsets, loaded artwork count and completed refresh count. `REFRESH error` identifies unexpected refresh exceptions; provider/network fallbacks can still occur without an unexpected exception. Capture a before/after pair around the failing interaction. For an app crash, inspect `adb logcat -b crash -d` for the prettTV process. Unit-test and lint reports are under `launcher/app/build/reports/` after the README build command.
 
-# prettTV 0.1.6 Pluto recommendation priority — 2026-10-17
+## prettTV 0.1.6 Pluto recommendation priority — 2026-10-17
 
 Pluto TV now has a separate fallback tier in Suggestions and Discover, after other app/catalog sources and before Stremio. The tier applies before deduplication, allocation and the 60-title limits, and is not overridden by launch recency or a selected-service entry. Trending, app availability and personal viewing-history rules are unchanged.
 
 70 JVM tests pass. Two new regressions cover a large Pluto feed that must not displace other apps, and sparse rows where Pluto remains available after other sources but before Stremio. The signed v0.1.6 APK installed in place on the TCL.
 
-# prettTV 0.1.5 app-hide focus fix — 2026-10-17
+## prettTV 0.1.5 app-hide focus fix — 2026-10-17
 
 Hiding a focused Your apps tile now selects the next surviving neighbor, the previous neighbor at the end, or the empty-row chooser when none remain. Library and sports shortcuts keep their own focus identity because hiding affects only Your apps. Favorite rearrangement follows the same app. The app menu captures its originating focus and scroll positions and applies its action after dismissal. Screen rebuilds restore saved horizontal positions after layout; a pending restoration survives another feed-triggered rebuild. Local app arrangement no longer restarts recommendation fetching.
 
 68 JVM tests pass, including three new focus-policy regressions for middle/first/last removal, multiple missing neighbors, an empty row and reordered apps. The signed update installed in place on the TCL. Navigation reached a scrolled app row and the app options menu, but the hide operation did not apply before unrelated TV navigation resumed. The TV subsequently entered Stremio; remote input was stopped. The hidden-app set remained unchanged at 24 entries. This pass does not claim a completed on-device hide/restore or Library-focus check. Earlier visual captures still describe the unchanged design.
 
-# prettTV 0.1.4 service-first discovery — 2026-10-17
+## prettTV 0.1.4 service-first discovery — 2026-10-17
 
 65 JVM tests pass. Eleven new policy tests cover large early free feeds, allocating multiple providers to both Suggestions and Discover, explicit service priority, conservative viewing-activity inference, app intent preservation, unknown/ambiguous popularity matches, cross-row exclusions, 60-title bounds and empty input. The signed v0.1.4 update installed in place on the TCL; C Balanced, the local hero and dark icons were retained.
 
@@ -89,19 +108,19 @@ The native service selector displays the inferred choices and supports a local e
 
 The shared-provider scan remains bounded at 5,000 scanned records, 2,000 accepted cards and 300 per app, with 60 visible entries per row. Public channel labels and weights are read; opaque provider-internal identifiers are no longer decoded. Existing cached catalogs are reused. Optional Android special-access settings and viewing-history ordering were not changed.
 
-# prettTV 0.1.3 Discover row — 2026-10-17
+## prettTV 0.1.3 Discover row — 2026-10-17
 
 Added Discover immediately below Suggestions and above Trending through the shared row builder used by A/B/C. The row reuses the current cards, D-pad behavior, horizontal scrolling and artwork limits. It selects up to 60 additional titles from already-fetched provider/catalog data, excluding normalized titles in watching, Suggestions, Trending and New releases. Preferred app sources precede Stremio; duplicate titles retain the preferred source. No additional network endpoint or request was added.
 
 54 JVM tests pass, including cross-source duplicate/exclusion behavior and applying the row limit after exclusions. The signed update installed in place. The TV supplied 60 Discover entries; UI hierarchy checks verified Suggestions → Discover → Trending in all three layouts. Moving six cards right in Discover reached an additional title and scrolled the row. C and the Home position were restored afterward. The new screenshot is docs/screenshots/discover-row.png. Dark app icons, viewing-history behavior and special-access settings were unchanged.
 
-# prettTV 0.1.2 dark-tile correction — 2026-10-17
+## prettTV 0.1.2 dark-tile correction — 2026-10-17
 
 The reported rollback was checked against the installed package: v0.1.1 and C Balanced were still selected. The certificate reinstall had removed cached artwork; unmapped Disney+ and HBO then rendered their installed bright/gradient banners. Version 0.1.2 uses an attributed Disney+ foreground vector on the common dark ground and an unmodified bundled white HBO logo. Cache generation icons4 invalidates the former tiles. Neither mapped app now depends on installed artwork.
 
 The signed v0.1.2 update installed in place without uninstalling or resetting preferences. The new cache generation rendered dark tiles on the TV; A/B/C captures were refreshed, with C restored and The Night Agent still the hero. The same 52 JVM tests pass. An additional Android cache-only clear command did not return, so its client was stopped; explicit completion of that command is not claimed. Source-level cache independence and the new-generation TV renders are the evidence. No launcher behavior, viewing-history policy or special-access state changed.
 
-# prettTV 0.1.1 validation — 2026-10-17
+## prettTV 0.1.1 validation — 2026-10-17
 
 Signed release built with JDK 17, Android SDK 34 and build-tools 35.0.0. All 52 JVM tests pass: 16 app-model, 14 content-policy, 7 sports-policy, 7 playback-policy and 8 RBTV match-policy tests. The PowerShell and Bash installers passed eight isolated checks: fresh installs include both APKs; existing RBTV is preserved; launcher-only installs one APK; a bad companion checksum installs neither. The restore script passed syntax checks but was not run against the configured Home.
 
@@ -115,7 +134,7 @@ Optional Notification access for identifiable active media sessions and Accessib
 
 The screenshots in docs/screenshots are fresh, unedited captures of A, B, C and the expanded sidebar, explicitly authorized for public publication. Private settings exports, device dumps, signing keys and raw traces remain outside Git. Source art and provider content retain their owners' rights.
 
-## Performance evidence limits
+### Performance evidence limits
 
 The panel is 60 Hz; sustained 60 fps is not claimed. A historical 0.1.0 navigation sample rendered 262 frames with 13 janky frames (4.96%), median 25 ms, p95 36 ms and p99 42 ms. That single scripted sample is not a benchmark of 0.1.1. No new performance claim is inferred from the UI screenshots or unit tests. The native renderer retains bounded artwork workers/caches and avoids a web UI or continuous animation.
 

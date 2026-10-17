@@ -1,5 +1,10 @@
 # Native design evidence and exceptions
 
+[← prettTV](../README.md) · [Documentation](README.md) · [Release validation](validation.md)
+
+> [!NOTE]
+> Historical design record from the v0.1.1 implementation and review. References below to pending work, publication plans or active validation describe that earlier session. See the release validation history for later results and the README for current installation guidance.
+
 C Balanced remains the selected design, with A Cinema and B Quiet retained. The original selection used seed 2a08e375. The owner accepted the rebuilt C and then supplied explicit changes: dark app tiles with color accents, real personal media, separate Shows and Movies rows, local title hiding, long discovery shelves, a finite app row, and Live sports below Movies. The two small side-panel cards remain discovery.
 
 ## Current owner override and source evidence

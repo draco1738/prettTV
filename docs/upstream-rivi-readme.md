@@ -1,6 +1,9 @@
+> [!NOTE]
+> **Rivi v0.15 archive.** The upstream README below describes Rivi, including its measurements, Home service and installation steps. For current prettTV, use the [project overview](../README.md) and [documentation](README.md). Original wording is retained; relative links and image paths are adjusted for this archived location.
+
 <div align="center">
 
-<img src="docs/icon.svg" width="96" alt="Rivi icon">
+<img src="icon.svg" width="96" alt="Rivi icon">
 
 # Rivi
 
@@ -10,13 +13,13 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/jommi9/rivi/build.yml?style=flat-square&label=build)](https://github.com/jommi9/rivi/actions)
 ![APK size](https://img.shields.io/badge/APK-68%20KB-2ea44f?style=flat-square)
 ![Android](https://img.shields.io/badge/Android%20TV-8.0%2B-3ddc84?style=flat-square&logo=android&logoColor=white)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](../LICENSE)
 
 [Why](#-why) • [Features](#-features) • [Install](#-install) • [Controls](#-controls) • [Undo](#-undo) • [Build](#-build-from-source)
 
-<img src="docs/screenshot.png" width="860" alt="Rivi home screen: a favourites row above a grid of all apps">
+<img src="screenshot.png" width="860" alt="Rivi home screen: a favourites row above a grid of all apps">
 
-<img src="docs/screenshot-cinema.png" width="426" alt="The Cinema theme: true black, with every app except the focused one at half brightness"> <img src="docs/screenshot-menu.png" width="426" alt="The menu sliding in from the right over a dimmed home screen">
+<img src="screenshot-cinema.png" width="426" alt="The Cinema theme: true black, with every app except the focused one at half brightness"> <img src="screenshot-menu.png" width="426" alt="The menu sliding in from the right over a dimmed home screen">
 
 <sub>Above: the default look. Below: the Cinema theme for dark rooms, and the menu.</sub>
 
@@ -47,14 +50,14 @@ idle for five minutes:
 | YouTube cold start to first frame | 1262 ms | **965 ms** |
 
 The stock home screen redraws 60 times a second whether or not anything moves. That is where the
-CPU goes. Full numbers, method and caveats: [docs/RESULTS.md](docs/RESULTS.md).
+CPU goes. Full numbers, method and caveats: [docs/RESULTS.md](RESULTS.md).
 
 > [!NOTE]
 > **Tested on one device so far: the JMGO N1S.** It should work on other Google TV and Android TV
 > devices running Android 8 or newer. Fire TV is not supported.
 >
 > **Have a different device? Please send your numbers.** Run the benchmark and open a pull request
-> that adds a row to the [tested devices table](docs/RESULTS.md#tested-devices). Even a plain
+> that adds a row to the [tested devices table](RESULTS.md#tested-devices). Even a plain
 > "works / does not work on my device" issue helps.
 > ```bash
 > export TV=<tv-ip>:5555
@@ -72,7 +75,7 @@ CPU goes. Full numbers, method and caveats: [docs/RESULTS.md](docs/RESULTS.md).
   Max and Spotify are installed. Add, remove and reorder with the remote.
 - **Quiet motion.** The focused tile settles with a slight overshoot over a soft shadow, the
   label fades in, and menus slide in from the side. Nothing moves at rest. Tried out first in
-  the [motion study](tools/motion-study/README.md).
+  the [motion study](../tools/motion-study/README.md).
 - **Cinema theme for projectors.** True black, with every app except the focused one at half
   brightness: `adb shell am start -n fi.jommi.rivi/.MainActivity --es theme cinema`.
 - **All apps, most recent first.** Every TV app on the device, with the ones you opened last at
@@ -118,7 +121,7 @@ The usual workaround is to disable Google's launcher and setup packages over adb
 away the quick-settings panel and parts of system update and account sign-in.
 
 Rivi does not do that. Its service only sees the Home key and when the Google home screen appears.
-It cannot read what is on screen. Details: [docs/HOME_BUTTON.md](docs/HOME_BUTTON.md).
+It cannot read what is on screen. Details: [docs/HOME_BUTTON.md](HOME_BUTTON.md).
 
 </details>
 
@@ -175,7 +178,7 @@ keyAlias=...
 
 `./install.sh` builds and installs in one step. `tests/ui_test.sh` runs about 50 on-device checks
 with real key events. `bench/benchmark.sh` reproduces the measurements, see
-[docs/METHODOLOGY.md](docs/METHODOLOGY.md).
+[docs/METHODOLOGY.md](METHODOLOGY.md).
 
 <details>
 <summary><b>Repository layout</b></summary>
@@ -189,8 +192,8 @@ with real key events. `bench/benchmark.sh` reproduces the measurements, see
 | `tests/` | `ui_test.sh` (on-device UI tests), `launch_streaming.sh` |
 | `bench/` | Benchmark suite and analysis |
 | `adb/` | Device profiling and shared helpers |
-| `tools/motion-study` | [Browser simulation](tools/motion-study/README.md) of the home screen for trying motion, themes and sounds before building them |
-| `docs/` | [Results](docs/RESULTS.md), [method](docs/METHODOLOGY.md), [architecture](docs/ARCHITECTURE.md), [Home button](docs/HOME_BUTTON.md), [roadmap](docs/ROADMAP.md) |
+| `tools/motion-study` | [Browser simulation](../tools/motion-study/README.md) of the home screen for trying motion, themes and sounds before building them |
+| `docs/` | [Results](RESULTS.md), [method](METHODOLOGY.md), [architecture](ARCHITECTURE.md), [Home button](HOME_BUTTON.md), [roadmap](ROADMAP.md) |
 
 </details>
 
@@ -199,9 +202,9 @@ with real key events. `bench/benchmark.sh` reproduces the measurements, see
 The idle-measurement method and device-side sampler are adapted from
 [just-a-launcher](https://github.com/hungmi/just-a-launcher) by hungmi (MIT), which is the closest
 relative of this project and even smaller. See
-[docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md).
+[docs/THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 ## 📄 License
 
-[MIT](LICENSE). Not affiliated with Google, JMGO or any streaming service. App artwork shown on
+[MIT](../LICENSE). Not affiliated with Google, JMGO or any streaming service. App artwork shown on
 the home screen is read at runtime from the apps installed on your device.
