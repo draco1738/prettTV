@@ -1,3 +1,5 @@
+> Upstream Rivi reference, retained for provenance. This describes Rivi v0.15, not the modified Luma implementation. See the root README, THIRD_PARTY_NOTICES.md and docs/validation.md for Luma.
+
 # Benchmark methodology
 
 All measurements are taken over network adb on a real device, no root. The published numbers are

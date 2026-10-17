@@ -27,6 +27,7 @@ class AppEntry(
     val versionCode: Long,
 ) {
     @Volatile var bitmap: Bitmap? = null
+    @Volatile var logoBounds: Rect? = null
 }
 
 /** Persisted user configuration. Tiny; plain SharedPreferences. */
@@ -76,6 +77,7 @@ class AppRepository(private val context: Context) {
         "com.google.android.apps.tv.launcherx",
         "com.google.android.tvlauncher",
         "com.google.android.tungsten.setupwraith",
+        "com.spocky.projengmenu",
     )
 
     val defaultFavouritePackages = listOf(
@@ -91,13 +93,14 @@ class AppRepository(private val context: Context) {
     fun discover(): List<AppEntry> {
         val q = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
         val leanback = pm.queryIntentActivities(q, 0)
+        val phone = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),0)
         val seen = HashSet<String>()
         val out = ArrayList<AppEntry>()
-        for (ri in leanback) {
+        for (ri in leanback+phone) {
             val ai = ri.activityInfo
-            if (ai.packageName in excluded || !seen.add(ai.packageName)) continue
+            if (ai.packageName in excluded || ai.packageName.startsWith("com.leanbitlab.ltv",ignoreCase=true) || !seen.add(ai.packageName)) continue
             val cn = ComponentName(ai.packageName, ai.name)
-            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(if(ri in leanback)Intent.CATEGORY_LEANBACK_LAUNCHER else Intent.CATEGORY_LAUNCHER)
                 .setComponent(cn)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
             val vc = try { pm.getPackageInfo(ai.packageName, 0).let { if (android.os.Build.VERSION.SDK_INT >= 28) it.longVersionCode else it.versionCode.toLong() } } catch (e: Exception) { 0L }
@@ -112,15 +115,78 @@ class AppRepository(private val context: Context) {
         val f = File(cacheDir, cacheName(e, w, h, r))
         if (f.exists()) {
             val opts = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
-            BitmapFactory.decodeFile(f.path, opts)?.let { if (it.width == w && it.height == h) return it else it.recycle() }
+            BitmapFactory.decodeFile(f.path, opts)?.let { if (it.width == w && it.height == h) { e.logoBounds=logoBounds(it); return it } else it.recycle() }
         }
         val raw = render(e, w, h) ?: return null
+        darkTile(e,raw)
         val bmp = rounded(raw, r); raw.recycle()
+        e.logoBounds=logoBounds(bmp)
         try { FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) } } catch (_: Exception) {}
         return bmp
     }
 
-    fun cacheName(e: AppEntry, w: Int, h: Int, r: Float) = "${e.key.replace('/', '_')}_${e.versionCode}_${w}x${h}r${r.toInt()}.png"
+    fun cacheName(e: AppEntry, w: Int, h: Int, r: Float) = "luma-dark2_${e.key.replace('/', '_')}_${e.versionCode}_${w}x${h}r${r.toInt()}.png"
+
+    /** Owner-requested dark tiles, derived locally from installed-app banners; no copied logo assets. */
+    private fun darkTile(e: AppEntry,b: Bitmap) {
+        val youtube=e.packageName=="com.google.android.youtube.tv"
+        val netflix=e.packageName=="com.netflix.ninja"
+        val prime=e.packageName=="com.amazon.amazonvideo.livingroom"
+        if(!youtube && !netflix && !prime)return
+        val w=b.width; val h=b.height; val pixels=IntArray(w*h)
+        b.getPixels(pixels,0,w,0,0,w,h)
+        val edge=pixels[(h/2)*w+2]
+        // Leave materially changed artwork untouched instead of applying a stale brand-specific transform.
+        if(!prime && minOf(Color.red(edge),Color.green(edge),Color.blue(edge))<210)return
+        if(prime && !(Color.blue(edge)>160 && Color.red(edge)<80))return
+        var redLeft=w; var redRight=0; var redTop=h; var redBottom=0
+        if(youtube)for(y in 0 until h)for(x in 0 until w) {
+            val p=pixels[y*w+x]
+            if(Color.red(p)>170 && Color.green(p)<90 && Color.blue(p)<90) {
+                redLeft=minOf(redLeft,x); redRight=maxOf(redRight,x); redTop=minOf(redTop,y); redBottom=maxOf(redBottom,y)
+            }
+        }
+        for(y in 0 until h)for(x in 0 until w) {
+            val index=y*w+x; val p=pixels[index]
+            val r=Color.red(p); val g=Color.green(p); val blue=Color.blue(p)
+            if(prime) {
+                val alpha=(r/255f).coerceIn(0f,1f)
+                pixels[index]=Color.rgb((12+231*alpha).toInt(),(31+211*alpha).toInt(),(51+186*alpha).toInt())
+            } else if(youtube && x in redLeft..redRight && y in redTop..redBottom) {
+                // Preserve the white play triangle enclosed by the red mark.
+                pixels[index]=p
+            } else if(maxOf(r,g,blue)-minOf(r,g,blue)<35) {
+                val alpha=if(youtube)1-minOf(r,g,blue)/255f else 0f
+                pixels[index]=Color.rgb((19+225*alpha).toInt(),(27+214*alpha).toInt(),(22+211*alpha).toInt())
+            } else {
+                val background=minOf(r,g,blue)/255f
+                pixels[index]=Color.rgb((r-236*background).toInt().coerceIn(0,255),(g-228*background).toInt().coerceIn(0,255),(blue-233*background).toInt().coerceIn(0,255))
+            }
+        }
+        b.setPixels(pixels,0,w,0,0,w,h)
+    }
+
+    /** Find a logo on a quiet banner, off the UI thread. Photographic banners keep their full framing. */
+    private fun logoBounds(b: Bitmap): Rect? {
+        val w=b.width; val h=b.height; val pixels=IntArray(w*h)
+        b.getPixels(pixels,0,w,0,0,w,h)
+        var left=w; var top=h; var right=0; var bottom=0; var ink=0
+        for(y in 4 until h-4) {
+            val a=pixels[y*w+4]; val z=pixels[y*w+w-5]
+            for(x in 5 until w-5) {
+                val t=x.toFloat()/(w-1); val p=pixels[y*w+x]
+                val dr=kotlin.math.abs(Color.red(p)-(Color.red(a)*(1-t)+Color.red(z)*t))
+                val dg=kotlin.math.abs(Color.green(p)-(Color.green(a)*(1-t)+Color.green(z)*t))
+                val db=kotlin.math.abs(Color.blue(p)-(Color.blue(a)*(1-t)+Color.blue(z)*t))
+                if(maxOf(dr,dg,db)>58f) {
+                    left=minOf(left,x); right=maxOf(right,x); top=minOf(top,y); bottom=maxOf(bottom,y); ink++
+                }
+            }
+        }
+        val fraction=ink.toFloat()/(w*h)
+        if(fraction !in .025f.. .45f || left<8 || top<8 || right>w-9 || bottom>h-9 || right<=left || bottom<=top)return null
+        return Rect(left-2,top-2,right+3,bottom+3)
+    }
 
     /** Delete cached tiles that are not in [wanted] (uninstalled apps, old versions, old sizes). */
     fun pruneCache(wanted: Set<String>) {

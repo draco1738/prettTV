@@ -1,0 +1,13 @@
+# Native design evidence and exceptions
+
+The selected design is C (seed2a08e375), with A and B retained. The first installed C was rejected by the owner; its replacement was positively received. Subsequent explicit requests changed the original comp: dark app tiles, actual watch history, Shows/Movies Continue watching rows, newest-first chronology and globally latest-watched hero, local title hiding, horizontal60-title discovery rows, a finite all-app row, and Live sports below Movies. The two small side cards remain discovery.
+
+The original generated PNGs illustrate layout with fictional content. Flattening those scenes into the TV interface would contradict the later request for actual personal media. Runtime provider imagery and installed-app logos are therefore intentional native substitutions. System sans is the implemented TV typeface; the automated browser-font guess of Salsa is not an accepted specification. The native screenshot diff remains a drift report, not a passed pixel-fidelity gate.
+
+The local build-phase tool closed comps and spec but remains at plates; later automated phases are pending. The original static-plate/font prescriptions are not an authoritative description of this native implementation. No native HTML/CSS detector was run. These limitations are recorded rather than marking unrun gates passed.
+
+The fresh independent review accepted C's composition, header, feature adaptation, shared side panel, app geometry, ground, native typography, focus and hide menu. It requested a darker SHOW-card metadata scrim and this evidence record. The scrim now reaches90%dark opacity before the text band (58% of card height) and95% at the bottom; this bounds even white artwork to a dark ground throughout ordinary-size metadata. The independent verdict scored both fixes resolved (ship at that scope); see validation notes.
+
+The owner explicitly requested replacing the generated preview PNGs with actual A/B/C screenshots from this TV. Only those selected launcher screenshots are published to the private repository; device dumps, other-app screens and account data remain excluded. Original comp references and prompts are retained locally for the review record. DESIGN.md documents the built native system, not the obsolete automated font guess or fictional shows.
+
+Latest owner adjustments: subtle card-edge contrast, no top Luma wordmark or rail monogram, brand/credits only at the bottom. Live sports includes ESPN schedules and broadcast logos; the installed RBTV+ exposes no verified per-game link, so a game opens the chosen app with channel guidance. SportioTV and HD Streamz are uninstalled; RBTV+ remains. C stays selected on the TV.

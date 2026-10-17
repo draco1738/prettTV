@@ -1,435 +1,591 @@
 package fi.jommi.rivi
 
+// Built on Rivi v0.15, Copyright (c) 2026 Jommi, MIT. See assets/rivi-license.txt.
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.content.*
+import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.Typeface
-import android.os.Build
-import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
-import android.os.Looper
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.os.*
+import android.text.TextUtils
 import android.util.TypedValue
-import android.view.Gravity
-import android.view.KeyEvent
-import android.view.View
-import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
-import android.widget.Toast
-import java.text.SimpleDateFormat
+import android.view.*
+import android.widget.*
 import java.util.Date
-import java.util.Locale
 
-/**
- * Rivi home screen. One Activity, native Views, no AndroidX.
- *
- * Layout (designed on a 1920×1080 grid, scaled to the real display):
- *   clock (top right)
- *   FAVOURITES  – large 16:9 tiles in a horizontal strip
- *   ALL APPS    – smaller tiles, 6 per row
- * Nothing redraws at idle except the clock once a minute.
- */
+/** Three native compositions sharing Rivi's app discovery, preferences and arrangement model. */
 class MainActivity : Activity() {
-
     private lateinit var prefs: Prefs
     private lateinit var repo: AppRepository
+    private lateinit var contentRepo: ContentRepository
+    private lateinit var artwork: ArtworkLoader
+    private val settings by lazy { getSharedPreferences("luma", MODE_PRIVATE) }
+    private var layout = HomeLayout.BALANCED
+    private var content = HomeContent()
+    private var apps = emptyList<AppEntry>()
+    private var inputs: AppEntry? = null
+    private var visible = false
+    private var dirty = true
+    private var generation = 0
+    private var scale = 1f
+    private var ready = false
+    private var homeRequested=false
     private lateinit var root: ScrollView
     private lateinit var page: LinearLayout
-    private lateinit var favRow: LinearLayout
-    private lateinit var favScroll: HorizontalScrollView
-    private lateinit var grid: LinearLayout
     private lateinit var clock: TextView
-    private var motion = Motion.DEFAULT
-    private var theme = Theme.MIDNIGHT
-    private var shadow: ShadowView? = null      // only with Motion.shadow
-    private var menu: SideMenu? = null          // created the first time a menu is opened
-
-    private var apps: List<AppEntry> = emptyList()
-    private var inputs: AppEntry? = null
-    private var lastArranged: HomeModel.Arranged? = null
-    private var reloads = 0
-    private val tiles = HashMap<String, TileView>()
-    private var scale = 1f          // design px (1920 wide) -> real px
-    private var gen = 0             // discovery generation, drops stale results
-
-    private val worker = HandlerThread("rivi-loader").apply { start() }
-    private val bg = Handler(worker.looper)
+    private var firstCard: View? = null
+    private var appAnchor: View? = null
+    private var showAnchor: View? = null
+    private val focusables = LinkedHashMap<String, View>()
+    private val appCards = HashMap<String, MutableList<LumaCard>>()
+    private data class CardArt(val card:LumaCard,val url:String,val w:Int,val h:Int,var requested:Boolean=false)
+    private val cardArt=ArrayList<CardArt>()
     private val ui = Handler(Looper.getMainLooper())
-
-    // Registered for the whole activity lifetime so installs/removals that happen while a streaming
-    // app is in front are not missed. While we are not visible we only set a flag (no work).
-    private var started = false
-    private var packagesDirty = false
+    private val loader = HandlerThread("luma-apps").apply { start() }
+    private val background = Handler(loader.looper)
     private val packageReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) { if (started) reload() else packagesDirty = true }
+        override fun onReceive(c: Context, i: Intent) { dirty=true; if(visible)reload() }
     }
     private val tickReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = updateClock()
+        override fun onReceive(c: Context, i: Intent) { updateClock() }
     }
-    private val clockFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private val ink = 0xFFF4F1E9.toInt()
+    private val muted = 0xFFB2C0B5.toInt()
+    private val bgColor = 0xFF0F1510.toInt()
+    private fun px(n:Int) = (n*scale+.5f).toInt()
+    private val wide get() = layout==HomeLayout.BALANCED
+    private val inner get() = if(wide)1808 else 1660
+    private val discovery get() = settings.getBoolean("discovery",true)
+    private val sportsPackages get() = settings.getStringSet("sportsPackages",setOf("com.rblive.app")).orEmpty().toSet()
 
-    // ---- design units -------------------------------------------------------------------------
-    private fun px(design: Int) = (design * scale + 0.5f).toInt()
-    private val favW get() = px(400); private val favH get() = px(225)
-    private val gridW get() = px(256); private val gridH get() = px(144)
-    private val labelH get() = px(56)
-    private val gap get() = px(28)
-    private val marginX get() = px(96)
-    private val favR get() = px(18).toFloat(); private val gridR get() = px(14).toFloat()
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        prefs = Prefs(this)
-        repo = AppRepository(this)
-        if (savedInstanceState == null) {
-            intent?.getStringExtra(EXTRA_MOTION)?.let { prefs.motion = it; intent.removeExtra(EXTRA_MOTION) }
-            intent?.getStringExtra(EXTRA_THEME)?.let { prefs.theme = it; intent.removeExtra(EXTRA_THEME) }
+    override fun onCreate(state:Bundle?) {
+        super.onCreate(state)
+        prefs=Prefs(this); repo=AppRepository(this); artwork=ArtworkLoader(this)
+        layout=HomeLayout.parse(settings.getString("layout",null))
+        applyIntent(intent)
+        scale=resources.displayMetrics.widthPixels/1920f
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bgColor))
+        window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        contentRepo=ContentRepository(this) { value ->
+            val filtered=withTitlePreferences(value)
+            if(filtered!=content) { content=filtered; render() }
         }
-        motion = Motion.parse(prefs.motion)
-        theme = Theme.parse(prefs.theme)
-        // the manifest theme paints Midnight; other themes replace the window background here
-        if (theme !== Theme.MIDNIGHT) window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(theme.background))
-        val dm = resources.displayMetrics
-        scale = dm.widthPixels / 1920f
-        buildChrome()
-        setContentView(root)
-        val f = IntentFilter().apply {
-            addAction(Intent.ACTION_PACKAGE_ADDED); addAction(Intent.ACTION_PACKAGE_REMOVED); addAction(Intent.ACTION_PACKAGE_CHANGED)
-            addDataScheme("package")
+        render(reset=true)
+        if(checkSelfPermission("android.permission.READ_TV_LISTINGS")!=android.content.pm.PackageManager.PERMISSION_GRANTED && !settings.getBoolean("tvPermissionAsked",false)) {
+            settings.edit().putBoolean("tvPermissionAsked",true).apply()
+            requestPermissions(arrayOf("android.permission.READ_TV_LISTINGS"),41)
         }
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(packageReceiver, f, Context.RECEIVER_NOT_EXPORTED) else registerReceiver(packageReceiver, f)
-        reload()
+        val filter=IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED); addAction(Intent.ACTION_PACKAGE_REMOVED); addAction(Intent.ACTION_PACKAGE_CHANGED); addDataScheme("package")
+        }
+        if(Build.VERSION.SDK_INT>=33)registerReceiver(packageReceiver,filter,Context.RECEIVER_NOT_EXPORTED) else registerReceiver(packageReceiver,filter)
     }
-
-    private fun buildChrome() {
-        root = ScrollView(this).apply {
-            isFillViewport = true; overScrollMode = View.OVER_SCROLL_NEVER; isVerticalScrollBarEnabled = false
-            clipChildren = false; clipToPadding = false
-            isSmoothScrollingEnabled = true
-        }
-        page = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false
-            setPadding(marginX - px(10), px(56), marginX - px(10), px(96))
-        }
-        // The shadow lives in its own view underneath the page, so it is behind every tile.
-        val stage = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
-        // (a black shadow on a black background would be work for nothing)
-        if (motion.shadow && theme.background != Color.BLACK) shadow = ShadowView(this).also {
-            val (w, h) = it.sizeFor(favW, favH)
-            stage.addView(it, FrameLayout.LayoutParams(w, h, Gravity.TOP or Gravity.START))
-        }
-        stage.addView(page, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        root.addView(stage, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-
-        // Header: wordmark left, clock right
-        val header = FrameLayout(this).apply { setPadding(px(10), 0, px(10), 0) }
-        header.addView(TextView(this).apply {
-            text = "Rivi"; setTextColor(theme.wordmark); letterSpacing = 0.08f
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, px(26).toFloat()); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.START or Gravity.CENTER_VERTICAL))
-        clock = TextView(this).apply {
-            setTextColor(theme.wordmark); setTextSize(TypedValue.COMPLEX_UNIT_PX, px(30).toFloat())
-            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-        }
-        header.addView(clock, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL))
-        page.addView(header, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = px(48) })
-
-        page.addView(sectionTitle(getString(R.string.favourites)))
-        favScroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER
-            clipChildren = false; clipToPadding = false
-        }
-        favRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false; clipToPadding = false; setPadding(0, px(8), 0, 0) }
-        shadow?.let { sh ->
-            // keep the shadow under its tile while the favourites row scrolls, and after any layout pass
-            favScroll.setOnScrollChangeListener { _, _, _, _, _ -> sh.place() }
-            root.viewTreeObserver.addOnGlobalLayoutListener { sh.place() }
-        }
-        favScroll.addView(favRow, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        page.addView(favScroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = px(40) })
-
-        page.addView(sectionTitle(getString(R.string.all_apps)))
-        grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false; setPadding(0, px(16), 0, 0) }
-        page.addView(grid, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-    }
-
-    private fun sectionTitle(t: String) = TextView(this).apply {
-        text = t.uppercase(); setPadding(px(10), 0, 0, 0); setTextColor(theme.section); letterSpacing = 0.14f
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, px(22).toFloat()); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    }
-
-    // ---- lifecycle ------------------------------------------------------------------------------
     override fun onStart() {
-        super.onStart()
-        started = true
-        if (packagesDirty) { packagesDirty = false; reload() }
-        else if (apps.isNotEmpty()) {
-            // Coming back from an app: put the most recently opened apps first in the grid.
-            val a = arrange(apps, inputs); val l = lastArranged
-            if (l == null || a.rest != l.rest || a.favourites != l.favourites) rebuild()
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // the minute tick, plus the clock or the time zone being changed in Settings
-        registerReceiver(tickReceiver, IntentFilter(Intent.ACTION_TIME_TICK).apply { addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED) })
+        super.onStart(); visible=true
+        registerReceiver(tickReceiver,IntentFilter(Intent.ACTION_TIME_TICK).apply { addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED) })
         updateClock()
+        if(dirty || apps.isEmpty())reload() else startContent()
     }
-
-    override fun onPause() {
-        unregisterReceiver(tickReceiver)
-        currentFocus?.let { v -> if (v is TileView) prefs.lastFocus = v.entryKey }
-        super.onPause()
-    }
-
     override fun onStop() {
-        started = false
-        menu?.close(animate = false)
+        visible=false; contentRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
+        (currentFocus?.tag as? String)?.let { settings.edit().putString("focus",it).apply() }
         super.onStop()
     }
-
-    override fun onDestroy() {
-        unregisterReceiver(packageReceiver)
-        worker.quitSafely()
-        super.onDestroy()
+    override fun onDestroy() { generation++; unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); artwork.close(); super.onDestroy() }
+    override fun onConfigurationChanged(newConfig:Configuration) { super.onConfigurationChanged(newConfig); scale=resources.displayMetrics.widthPixels/1920f; render() }
+    override fun onNewIntent(i:Intent?) { super.onNewIntent(i); applyIntent(i); render(reset=true) }
+    override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray) {
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults)
+        if(requestCode==41 && visible)startContent()
     }
-
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        val m = intent?.getStringExtra(EXTRA_MOTION); val th = intent?.getStringExtra(EXTRA_THEME)
-        val newMotion = m != null && Motion.parse(m) != motion; val newTheme = th != null && Theme.parse(th) !== theme
-        if (newMotion) prefs.motion = m
-        if (newTheme) prefs.theme = th
-        if (newMotion || newTheme) { recreate(); return }
-        // HOME pressed while we are already alive: close any menu and make sure a tile has focus.
-        menu?.close()
-        if (currentFocus !is TileView) restoreFocus()
+    private fun applyIntent(i:Intent?) {
+        i?.getStringExtra("layout")?.let { value -> layout=HomeLayout.parse(value.uppercase(java.util.Locale.ROOT)); settings.edit().putString("layout",layout.name).apply(); i.removeExtra("layout") }
     }
-
-    // While the side menu is open it takes the remote's keys; the tile underneath keeps the focus.
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        val m = menu
-        if (m != null && m.isOpen && m.handleKey(event)) return true
-        return super.dispatchKeyEvent(event)
-    }
-
     @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        // Home cannot be closed. BACK jumps to the first favourite.
-        favRow.getChildAt(0)?.requestFocus()
-    }
+    override fun onBackPressed() { firstCard?.requestFocus(); root.smoothScrollTo(0,0) }
+    override fun onKeyDown(key:Int,event:KeyEvent):Boolean { if(key==KeyEvent.KEYCODE_MENU) { menu(); return true }; return super.onKeyDown(key,event) }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_MENU) { showMenu(); return true }
-        return super.onKeyDown(keyCode, event)
+    private fun text(value:String,size:Int,color:Int=ink,bold:Boolean=false)=TextView(this).apply {
+        text=value; setTextColor(color); setTextSize(TypedValue.COMPLEX_UNIT_PX,px(size)*resources.configuration.fontScale)
+        typeface=Typeface.create(if(bold)"sans-serif-medium" else "sans-serif",Typeface.NORMAL)
+        maxLines=1; ellipsize=TextUtils.TruncateAt.END; gravity=Gravity.CENTER_VERTICAL; includeFontPadding=false
     }
-
-    private fun updateClock() {
-        clockFormat.timeZone = java.util.TimeZone.getDefault()   // a formatter keeps the zone it was created in
-        clock.text = clockFormat.format(Date())
+    private fun column()=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; clipChildren=false; clipToPadding=false }
+    private fun row()=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; clipChildren=false; clipToPadding=false }
+    private fun round(color:Int,stroke:Int=0)=GradientDrawable().apply { setColor(color); cornerRadius=px(15).toFloat(); if(stroke!=0)setStroke(px(2),stroke) }
+    private fun register(v:View,key:String) { v.tag=key; v.id=View.generateViewId(); focusables[key]=v }
+    private fun button(label:String,key:String,action:()->Unit):TextView=text(label,26).apply {
+        isFocusable=true; isClickable=true; gravity=Gravity.CENTER; setPadding(px(17),0,px(17),0)
+        background=round(0xFF1B2922.toInt()); register(this,key)
+        setOnFocusChangeListener { _,focus -> background=round(if(focus)0xFFCDD9C7.toInt() else 0xFF1B2922.toInt()); setTextColor(if(focus)bgColor else ink) }
+        setOnClickListener { action() }
     }
-
-    /** `adb shell dumpsys activity fi.jommi.rivi` prints this; used by tests/ui_test.sh. Costs nothing at runtime. */
-    override fun dump(prefix: String, fd: java.io.FileDescriptor?, w: java.io.PrintWriter, args: Array<out String>?) {
-        super.dump(prefix, fd, w, args)
-        val a = lastArranged
-        w.println("RIVI version=${try { packageManager.getPackageInfo(packageName, 0).versionName } catch (_: Exception) { "?" }} reloads=$reloads started=$started")
-        w.println("RIVI favourites=${a?.favourites?.joinToString(",") ?: ""}")
-        w.println("RIVI rest=${a?.rest?.joinToString(",") ?: ""}")
-        w.println("RIVI hidden=${prefs.hidden.sorted().joinToString(",")}")
-        w.println("RIVI focus=${(currentFocus as? TileView)?.entryKey ?: "none"}")
-        w.println("RIVI tiles=${tiles.size} withBitmap=${tiles.values.count { it.bitmap != null }}")
-        w.println("RIVI motion=${motion.names.joinToString(",").ifEmpty { "none" }} theme=${theme.name} menu=${if (menu?.isOpen == true) "open" else "closed"}")
-        w.println("RIVI homeService=${HomeKeyService.connected} homeKeys=${HomeKeyService.homeKeyPresses} redirects=${HomeKeyService.redirects} keysSeen=${HomeKeyService.keysSeen}")
+    private fun section(title:String,extra:String=""):View=row().apply {
+        addView(text(title,24,ink),LinearLayout.LayoutParams(0,px(44),1f))
+        if(extra.isNotEmpty())addView(text(extra,19,muted),LinearLayout.LayoutParams(-2,px(44)))
     }
+    private fun gap(n:Int) { page.addView(View(this),LinearLayout.LayoutParams(1,px(n))) }
+    private fun updateClock() { if(::clock.isInitialized)clock.text=android.text.format.DateFormat.getTimeFormat(this).format(Date()) }
 
-    // ---- data -----------------------------------------------------------------------------------
-    private fun reload() {
-        val g = ++gen; reloads++
-        bg.post {
-            val found = repo.discover()
-            val inp = repo.inputsEntry()
-            ui.post { if (g == gen) { inp?.bitmap = inputs?.bitmap; inputs = inp; onDiscovered(found) } }
-            // Artwork: favourites first (large), then grid tiles. Each result is posted individually
-            // so the screen fills progressively on first run and in one burst from the disk cache later.
-            val favs = resolveFavourites(found, inp)
-            val favSet = favs.map { it.key }.toHashSet()
-            for (e in favs) loadInto(e, favW, favH, g)
-            for (e in found) if (e.key !in favSet) loadInto(e, gridW, gridH, g)
-            inp?.let { if (it.key !in favSet) loadInto(it, gridW, gridH, g) }
-            if (g == gen) repo.pruneCache(
-                (favs.map { repo.cacheName(it, favW, favH, favR) } +
-                 (found + listOfNotNull(inp)).filter { it.key !in favSet }.map { repo.cacheName(it, gridW, gridH, gridR) }).toHashSet())
+    private fun render(reset:Boolean=false) {
+        if(isFinishing)return
+        if(reset)homeRequested=true
+        val focus=if(homeRequested)null else (currentFocus?.tag as? String) ?: settings.getString("focus",null)
+        val oldScroll=if(ready && !homeRequested)root.scrollY else 0
+        artwork.cancel(); cardArt.clear(); focusables.clear(); appCards.clear(); firstCard=null; appAnchor=null; showAnchor=null
+        root=ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER; clipChildren=false; clipToPadding=false }
+        page=column().apply { setPadding(px(if(wide)56 else 204),px(30),px(56),px(40)) }
+        val stage=FrameLayout(this).apply { setBackgroundColor(bgColor); clipChildren=false; clipToPadding=false }
+        stage.addView(page,FrameLayout.LayoutParams(-1,-2)); root.addView(stage,ViewGroup.LayoutParams(-1,-2))
+        if(!wide)buildRail(stage)
+        buildHeader(); gap(if(wide)18 else 24)
+        when(layout) {
+            HomeLayout.BALANCED -> buildBalanced()
+            HomeLayout.CINEMA -> buildCinema()
+            HomeLayout.QUIET -> buildQuiet()
+        }
+        gap(if(wide)56 else 66); buildAllApps()
+        gap(28)
+        val foot=button("About Luma · Credits","credits") { credits() }
+        page.addView(text("Hold OK on an app to arrange it.  •  Menu for layout and discovery settings.",21,muted),LinearLayout.LayoutParams(-1,px(48)))
+        page.addView(foot,LinearLayout.LayoutParams(px(330),px(54)))
+        setContentView(root); ready=true; updateClock()
+        root.viewTreeObserver.addOnScrollChangedListener { loadVisibleArt() }
+        val renderedRoot=root
+        root.post {
+            if(root!==renderedRoot)return@post
+            (focusables[focus] ?: firstCard ?: focusables.values.firstOrNull())?.requestFocus()
+            root.scrollTo(0,oldScroll)
+            loadVisibleArt()
+            homeRequested=false
         }
     }
-
-    private fun loadInto(e: AppEntry, w: Int, h: Int, g: Int) {
-        val b = repo.loadTile(e, w, h, if (w == favW) favR else gridR) ?: return
-        e.bitmap = b
-        ui.post { if (g == gen) tiles[e.key]?.bitmap = b }
-    }
-
-    private fun items(found: List<AppEntry>) = found.map { HomeModel.Item(it.key, it.packageName, it.label) }
-
-    private fun arrange(found: List<AppEntry>, inp: AppEntry?): HomeModel.Arranged {
-        if (!prefs.favouritesInitialised && found.isNotEmpty()) {
-            prefs.favourites = HomeModel.initialFavourites(repo.defaultFavouritePackages, items(found)); prefs.favouritesInitialised = true
-        }
-        return HomeModel.arrange(items(found), prefs.favourites, prefs.hidden, prefs.recentOrder(), if (inp != null) listOf(inp.key) else emptyList())
-    }
-
-    private fun resolveFavourites(found: List<AppEntry>, inp: AppEntry?): List<AppEntry> {
-        val byKey = (found + listOfNotNull(inp)).associateBy { it.key }
-        return arrange(found, inp).favourites.mapNotNull { byKey[it] }
-    }
-
-    private fun onDiscovered(found: List<AppEntry>) {
-        // keep already-decoded bitmaps when re-discovering
-        val old = apps.associateBy { it.key }
-        for (e in found) if (e.bitmap == null) e.bitmap = old[e.key]?.bitmap
-        apps = found
-        rebuild()
-    }
-
-    private fun rebuild() {
-        val focusedKey = (currentFocus as? TileView)?.entryKey ?: prefs.lastFocus
-        tiles.clear(); favRow.removeAllViews(); grid.removeAllViews()
-        val byKey = (apps + listOfNotNull(inputs)).associateBy { it.key }
-        val arranged = arrange(apps, inputs)
-        val favs = arranged.favourites.mapNotNull { byKey[it] }
-        val rest = arranged.rest.mapNotNull { byKey[it] }
-        lastArranged = arranged
-
-        val r = favR
-        for (e in favs) {
-            val t = TileView(this, favW, favH, labelH, r, motion, theme).apply { label = e.label; entryKey = e.key; bitmap = e.bitmap }
-            wire(t, e)
-            favRow.addView(t, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = gap - 2 * t.pad })
-        }
-        val cols = 6
-        var row: LinearLayout? = null
-        rest.forEachIndexed { i, e ->
-            if (i % cols == 0) {
-                row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false; clipToPadding = false; setPadding(0, 0, 0, 0) }
-                grid.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    private fun buildHeader() {
+        val header=row()
+        if(!wide)header.addView(text("Home",36,0xFFADC1B6.toInt(),true),LinearLayout.LayoutParams(px(260),px(56)))
+        if(wide) {
+            for((label,key,action) in listOf(Triple("Home","nav-home",{ render(reset=true) }),Triple("Shows","nav-shows",{ showAnchor?.requestFocus() }),Triple("Apps","nav-apps",{ appAnchor?.requestFocus() }),Triple("Inputs","nav-inputs",{ openInputs() }))) {
+                val selected=key=="nav-home"
+                val nav=button(label,key) { action(); Unit }
+                nav.setPadding(px(8),0,px(8),0)
+                fun style(focused:Boolean) {
+                    nav.background=round(if(selected)ink else if(focused)0xFF313C31.toInt() else android.graphics.Color.TRANSPARENT,if(focused)ink else 0).apply { cornerRadius=px(30).toFloat() }
+                    nav.setTextColor(if(selected)bgColor else 0xFFBCC3BA.toInt())
+                }
+                style(false); nav.setOnFocusChangeListener { _,f -> style(f) }
+                header.addView(nav,LinearLayout.LayoutParams(px(128),px(56)).apply { rightMargin=px(12) })
             }
-            val t = TileView(this, gridW, gridH, labelH, gridR, motion, theme).apply { label = e.label; entryKey = e.key; bitmap = e.bitmap }
-            wire(t, e)
-            row!!.addView(t, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = gap - 2 * t.pad })
         }
-        // Grid rows: left/right at the edge should not wrap to another row.
-        for (i in 0 until grid.childCount) {
-            val rl = grid.getChildAt(i) as LinearLayout
-            val first = rl.getChildAt(0); val last = rl.getChildAt(rl.childCount - 1)
-            first.nextFocusLeftId = first.id.takeIf { it != View.NO_ID } ?: run { first.id = View.generateViewId(); first.id }
-            last.nextFocusRightId = last.id.takeIf { it != View.NO_ID } ?: run { last.id = View.generateViewId(); last.id }
+        header.addView(View(this),LinearLayout.LayoutParams(0,1,1f))
+        val search=NavIcon(this,false).apply { register(this,"search"); setOnClickListener { search() } }
+        val options=NavIcon(this,true).apply { register(this,"settings"); setOnClickListener { menu() } }
+        header.addView(search,LinearLayout.LayoutParams(px(64),px(56)).apply { rightMargin=px(24) })
+        header.addView(options,LinearLayout.LayoutParams(px(64),px(56)).apply { rightMargin=px(30) })
+        clock=text("",26,ink).apply { gravity=Gravity.CENTER_VERTICAL or Gravity.END }
+        header.addView(clock,LinearLayout.LayoutParams(px(146),px(56)))
+        page.addView(header,LinearLayout.LayoutParams(-1,px(56)))
+    }
+    private fun buildRail(stage:FrameLayout) {
+        val rail=column().apply { setPadding(px(18),px(35),px(18),px(30)); background=round(0xFF15221B.toInt()) }
+        rail.addView(View(this),LinearLayout.LayoutParams(1,px(100)))
+        val entries=listOf(Triple("Home","rail-home",{ render(reset=true) }),Triple("Shows","rail-shows",{ showAnchor?.requestFocus() }),Triple("Apps","rail-apps",{ appAnchor?.requestFocus() }),Triple("Inputs","rail-inputs",{ openInputs() }))
+        for((label,key,action) in entries)rail.addView(button(label,key) { action(); Unit }.apply { setTextSize(TypedValue.COMPLEX_UNIT_PX,px(23)*resources.configuration.fontScale) },LinearLayout.LayoutParams(-1,px(70)).apply { bottomMargin=px(20) })
+        stage.addView(rail,FrameLayout.LayoutParams(px(150),px(970)).apply { leftMargin=px(24); topMargin=px(24) })
+    }
+    private fun buildBalanced() {
+        val upper=row()
+        val hero=programCard(content.feature,LumaCard.Mode.HERO,"feature",1132,486)
+        upper.addView(hero,LinearLayout.LayoutParams(px(1132),px(486)).apply { rightMargin=px(20) })
+        firstCard=hero
+        val side=column().apply {
+            setPadding(px(24),px(13),px(24),px(16))
+            background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(0xFF1D251E.toInt(),0xFF161E17.toInt())).apply { cornerRadius=px(16).toFloat(); setStroke(px(1),0xFF4B584B.toInt()) }
         }
-        if (favRow.childCount > 0) {
-            val first = favRow.getChildAt(0); val last = favRow.getChildAt(favRow.childCount - 1)
-            if (first.id == View.NO_ID) first.id = View.generateViewId(); first.nextFocusLeftId = first.id
-            if (last.id == View.NO_ID) last.id = View.generateViewId(); last.nextFocusRightId = last.id
+        val next=content.suggestions.filter { it.id!=content.feature?.id }
+        side.addView(text("Discover",26,ink),LinearLayout.LayoutParams(-1,px(49)))
+        for(i in 0..1) {
+            side.addView(programCard(next.getOrNull(i),LumaCard.Mode.COMPACT,"next-$i",608,184),LinearLayout.LayoutParams(-1,px(184)))
+            if(i==0)side.addView(View(this).apply { setBackgroundColor(0xFF354032.toInt()) },LinearLayout.LayoutParams(-1,px(1)).apply { topMargin=px(14); bottomMargin=px(14) })
         }
-        if (tiles.isEmpty()) shadow?.follow(null)
-        restoreFocus(HomeModel.focusTarget(focusedKey, arranged))
+        upper.addView(side,LinearLayout.LayoutParams(px(656),px(486)))
+        page.addView(upper); gap(20); buildApps(94); gap(20)
+        buildContentRows()
     }
-
-    private fun wire(t: TileView, e: AppEntry) {
-        tiles[e.key] = t
-        t.setOnClickListener { launch(e) }
-        t.setOnLongClickListener { showTileMenu(e); true }
-        shadow?.let { sh -> t.onFocused = { sh.follow(it) } }
+    private fun buildCinema() {
+        val hero=programCard(content.feature,LumaCard.Mode.HERO,"feature",inner,470)
+        firstCard=hero; page.addView(hero,LinearLayout.LayoutParams(-1,px(470))); gap(18)
+        buildApps(116); gap(15)
+        buildContentRows()
     }
-
-    private fun restoreFocus(key: String? = prefs.lastFocus) {
-        val v = key?.let { tiles[it] } ?: favRow.getChildAt(0) ?: (grid.getChildAt(0) as? LinearLayout)?.getChildAt(0)
-        v?.requestFocus()
+    private fun buildQuiet() {
+        page.addView(text("A little less noise. More of what you love.",28,muted),LinearLayout.LayoutParams(-1,px(42))); gap(20)
+        buildApps(176); gap(20)
+        buildContentRows()
     }
-
-    // ---- actions --------------------------------------------------------------------------------
-    private fun launch(e: AppEntry) {
-        prefs.touchRecent(e.key)
-        prefs.lastFocus = e.key
-        safeStart(repo.launchIntent(e), e.label)
+    private fun buildContentRows() {
+        showAnchor=null
+        buildShowRow("Continue watching · Shows",content.visibleWatching.filter { it.mediaType=="series" },218,"watching-shows",4,"Shared by your apps","No shared shows yet\nOpen your apps to start watching")
+        gap(24)
+        buildShowRow("Continue watching · Movies",content.visibleWatching.filter { it.mediaType=="movie" },218,"watching-movies",4,"Shared by your apps","No shared movies yet\nOpen your apps to start watching")
+        gap(24)
+        buildLiveSports()
+        gap(24)
+        buildShowRow("Suggestions",content.suggestions,218,"discover",4,"Your apps · TVmaze")
+        gap(24)
+        buildShowRow("Trending",content.trending,218,"trending",4,"Cinemeta · popular now")
+        gap(24)
+        buildShowRow("New releases",content.newReleases,218,"new",4,"Cinemeta · past 120 days")
     }
-
-    private fun safeStart(i: Intent, label: String) {
-        try { startActivity(i) } catch (ex: Exception) {
-            Toast.makeText(this, "${getString(R.string.launch_failed)} $label", Toast.LENGTH_SHORT).show()
-            reload()
-        }
-    }
-
-    private fun showTileMenu(e: AppEntry) {
-        val favs = prefs.favourites.toMutableList()
-        val isFav = e.key in favs
-        val idx = favs.indexOf(e.key)
-        val items = ArrayList<Pair<String, () -> Unit>>()
-        if (isFav) {
-            items += getString(R.string.menu_remove_fav) to { favs.remove(e.key); prefs.favourites = favs; rebuild() }
-            if (idx > 0) items += getString(R.string.menu_move_left) to { prefs.favourites = HomeModel.move(favs, e.key, -1); rebuild() }
-            if (idx < favs.size - 1) items += getString(R.string.menu_move_right) to { prefs.favourites = HomeModel.move(favs, e.key, 1); rebuild() }
-        } else {
-            items += getString(R.string.menu_add_fav) to { favs.add(e.key); prefs.favourites = favs; rebuild() }
-        }
-        items += getString(R.string.menu_hide) to { prefs.hidden = prefs.hidden + e.key; rebuild() }
-        items += getString(R.string.menu_app_info) to { safeStart(repo.appInfoIntent(e.packageName), e.label) }
-        dialog(e.label, items, e.bitmap)
-    }
-
-    private fun showMenu() {
-        val items = ArrayList<Pair<String, () -> Unit>>()
-        repo.settingsIntent()?.let { si -> items += getString(R.string.menu_android_settings) to { safeStart(si, getString(R.string.settings)) } }
-        if (prefs.hidden.isNotEmpty()) items += getString(R.string.menu_unhide_all) to { prefs.hidden = emptySet(); rebuild() }
-        stockHomeIntent()?.let { sh -> items += getString(R.string.menu_stock_home) to { HomeKeyService.allowStockHome = true; safeStart(sh, "Google TV") } }
-        items += getString(R.string.menu_home_button) to {
-            Toast.makeText(this, getString(if (HomeKeyService.connected) R.string.home_button_on else R.string.home_button_off), Toast.LENGTH_LONG).show()
-            if (!HomeKeyService.connected) safeStart(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), getString(R.string.settings))
-        }
-        items += getString(R.string.menu_refresh) to { reload() }
-        items += getString(R.string.menu_about) to {
-            val v = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (_: Exception) { "?" }
-            Toast.makeText(this, "Rivi $v", Toast.LENGTH_SHORT).show()
-        }
-        dialog("Rivi", items)
-    }
-
-    companion object {
-        /** `--es motion settle,fade` on the launch intent picks the refinements; see [Motion]. */
-        const val EXTRA_MOTION = "motion"
-        /** `--es theme cinema` picks the colours; see [Theme]. */
-        const val EXTRA_THEME = "theme"
-    }
-
-    /** The stock home screen, if one other than us is installed and enabled. */
-    private fun stockHomeIntent(): Intent? {
-        val q = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-        val ri = packageManager.queryIntentActivities(q, 0).firstOrNull { HomeKeyService.isStockHomeScreen(it.activityInfo.packageName, it.activityInfo.name) } ?: return null
-        return Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-            .setClassName(ri.activityInfo.packageName, ri.activityInfo.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    private fun dialog(title: String, items: List<Pair<String, () -> Unit>>, picture: Bitmap? = null) {
-        if (motion.hold) {
-            val m = menu ?: SideMenu(this, theme, ::px).also {
-                menu = it
-                addContentView(it, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+    private fun buildLiveSports() {
+        if(content.games.isNotEmpty()) {
+            page.addView(section("Live sports","Live & upcoming · ESPN · Opens ${sportsDestination()?.label ?: "sports apps"}"))
+            val strip=row(); val width=(inner-4*20-46)/4
+            val now=System.currentTimeMillis()
+            content.games.forEachIndexed { i,event ->
+                val tile=LumaCard(this,scale,LumaCard.Mode.SPORT).apply {
+                    register(this,"game-${event.id}"); title=event.title; summary=event.heading(now); detail=event.detail(now); action=event.network.ifBlank { event.league }
+                    val destination=sportsDestination()?.label ?: "sports apps"
+                    contentDescription="$title. $summary. $detail. Open $destination; select the channel in the app."
+                    setOnClickListener { openSports(event) }
+                    setOnLongClickListener { sportsInfo(event); true }
+                }
+                if(event.logo.isNotBlank())cardArt.add(CardArt(tile,event.logo,px(width),px(218)))
+                strip.addView(tile,LinearLayout.LayoutParams(px(width),px(218)).apply { if(i<content.games.lastIndex)rightMargin=px(20) })
             }
-            m.open(title, picture, items)
+            constrainRow(strip)
+            val scroll=HorizontalScrollView(this).apply {
+                isFocusable=false; isHorizontalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER
+                clipChildren=true; clipToPadding=true; setPadding(0,px(6),0,px(6)); addView(strip,ViewGroup.LayoutParams(-2,px(218)))
+            }
+            page.addView(scroll,LinearLayout.LayoutParams(-1,px(230)))
+            gap(12)
+        }
+        if(content.liveSports.isNotEmpty()) {
+            buildShowRow(if(content.games.isEmpty())"Live sports" else "From your sports apps",content.liveSports,218,"live-events",4,"Live events shared by apps")
+            gap(12)
+        } else if(content.games.isEmpty())page.addView(section("Live sports","Open a sports app"))
+        val chosen=orderedApps().filter { it.packageName in sportsPackages }
+        if(chosen.isEmpty()) {
+            page.addView(button("Choose your sports apps","choose-sports") { chooseSportsApps() },LinearLayout.LayoutParams(-1,px(100)))
             return
         }
-        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle(title)
-            .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
-            .show()
+        val strip=row()
+        chosen.forEach { e ->
+            val tile=column()
+            tile.addView(appCard(e,"sports-${e.key}"),LinearLayout.LayoutParams(px(320),px(112)))
+            tile.addView(text("Open ${e.label}",22,muted),LinearLayout.LayoutParams(px(320),px(40)))
+            strip.addView(tile,LinearLayout.LayoutParams(px(320),px(152)).apply { rightMargin=px(20) })
+        }
+        val scroll=HorizontalScrollView(this).apply {
+            isFocusable=false; isHorizontalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER
+            clipChildren=true; clipToPadding=true; setPadding(0,px(5),0,px(5))
+            addView(strip,ViewGroup.LayoutParams(-2,px(152)))
+        }
+        page.addView(scroll,LinearLayout.LayoutParams(-1,px(162)))
+    }
+    private fun sportsDestination():AppEntry? = orderedApps().filter { it.packageName in sportsPackages }
+        .let { entries -> entries.firstOrNull { it.packageName=="com.rblive.app" } ?: entries.firstOrNull() }
+    private fun openSports(event:SportsEvent) {
+        val target=sportsDestination()
+        if(target==null) { chooseSportsApps(); return }
+        launch(target)
+        Toast.makeText(this,"${event.title}: look for ${event.network.ifBlank { "the game" }} in ${target.label}. Channel availability varies.",Toast.LENGTH_LONG).show()
+    }
+    private fun sportsInfo(event:SportsEvent) {
+        AlertDialog.Builder(this).setTitle(event.title)
+            .setMessage("${event.heading(System.currentTimeMillis())}\n${event.detail(System.currentTimeMillis())}\n\nSchedule: ESPN. Broadcast labels do not guarantee this channel or game is available in your sports app. RBTV+ does not expose a verified game/channel link in the installed version; choose the channel after it opens.")
+            .setPositiveButton("Open ${sportsDestination()?.label ?: "sports apps"}") { _,_ -> openSports(event) }.setNegativeButton("Close",null).show()
+    }
+    private fun programCard(p:Program?,mode:LumaCard.Mode,key:String,w:Int,h:Int):LumaCard {
+        val card=LumaCard(this,scale,mode)
+        register(card,key)
+        card.title=p?.title ?: if(discovery)"Find your next favorite" else "Make yourself at home"
+        card.detail=p?.detail ?: if(discovery)"Browse your streaming apps" else "Your apps, one quiet place"
+        card.summary=p?.summary.orEmpty()
+        card.action=if(p==null)"Browse apps" else if(p.resume && p.intentUri.isNotBlank())"Resume in ${p.app}" else "Open ${p.app}"
+        card.progress=p?.progress ?: 0f
+        card.stremio=p?.packageName=="com.stremio.one"
+        card.contentDescription=listOf(card.title,card.detail,card.action).joinToString(". ")
+        card.setOnClickListener { if(p==null)appAnchor?.requestFocus() else openProgram(p) }
+        card.setOnLongClickListener { if(p!=null)programInfo(p) else menu(); true }
+        if(p!=null && p.art.isNotBlank())cardArt.add(CardArt(card,p.art,px(w),px(h)))
+        if(showAnchor==null)showAnchor=card
+        return card
+    }
+    private fun buildShowRow(title:String,programs:List<Program>,height:Int,key:String,count:Int,note:String="",emptyText:String="") {
+        page.addView(section(title,if(programs.isNotEmpty())"${programs.size} titles · $note" else note))
+        val strip=row()
+        // Leave a visible slice of the next card to make horizontal scrolling discoverable.
+        val width=(inner-count*20-46)/count
+        if(programs.isEmpty()) {
+            val needsPermission=key.startsWith("watching") && checkSelfPermission("android.permission.READ_TV_LISTINGS")!=android.content.pm.PackageManager.PERMISSION_GRANTED
+            val label=if(needsPermission)"Allow TV listings to see your progress\nPress OK to enable" else emptyText.ifBlank { if(discovery)"No titles available yet\nOpen apps or refresh from Settings" else "Discovery is off\nEnable discovery in Settings" }
+            val empty=button(label, "$key-empty") {
+                if(key.startsWith("watching") && checkSelfPermission("android.permission.READ_TV_LISTINGS")!=android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    requestPermissions(arrayOf("android.permission.READ_TV_LISTINGS"),41)
+                else if(discovery || key.startsWith("watching"))appAnchor?.requestFocus() else menu()
+            }.apply {
+                maxLines=2; gravity=Gravity.CENTER_VERTICAL; setPadding(px(32),0,px(32),0)
+                background=round(0xFF171F18.toInt(),0xFF364033.toInt())
+                setOnFocusChangeListener { _,f -> background=round(if(f)0xFF263126.toInt() else 0xFF171F18.toInt(),if(f)ink else 0xFF364033.toInt()); setTextColor(ink) }
+            }
+            if(showAnchor==null)showAnchor=empty
+            strip.addView(empty,LinearLayout.LayoutParams(-1,px(height)))
+        } else programs.forEachIndexed { i,p ->
+            strip.addView(programCard(p,LumaCard.Mode.SHOW,"$key-${p.id}",width,height),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<programs.lastIndex)rightMargin=px(20) })
+        }
+        if(programs.isEmpty())page.addView(strip) else {
+            val scroll=HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER
+                isFocusable=false; clipChildren=true; clipToPadding=true; setPadding(0,px(6),0,px(6))
+                addView(strip,ViewGroup.LayoutParams(-2,px(height)))
+            }
+            page.addView(scroll,LinearLayout.LayoutParams(-1,px(height+12)))
+        }
+        constrainRow(strip)
+    }
+    private fun loadVisibleArt() {
+        val rect=Rect()
+        for(item in cardArt) {
+            if(item.card.getGlobalVisibleRect(rect) && rect.width()>px(20) && rect.height()>px(20)) {
+                if(!item.requested) {
+                    item.requested=true
+                    artwork.load(item.url,item.w,item.h) { bitmap ->
+                        if(item.card.getGlobalVisibleRect(Rect()))item.card.art=bitmap else item.requested=false
+                    }
+                }
+            } else if(item.requested) { item.card.art=null; item.requested=false }
+        }
+    }
+    private fun orderedApps():List<AppEntry> {
+        val items=apps.map { HomeModel.Item(it.key,it.packageName,it.label) }
+        if(!prefs.favouritesInitialised && apps.isNotEmpty()) { prefs.favourites=HomeModel.initialFavourites(repo.defaultFavouritePackages,items); prefs.favouritesInitialised=true }
+        val arranged=HomeModel.arrange(items,prefs.favourites,prefs.hidden,prefs.recentOrder(),emptyList())
+        val byKey=apps.associateBy { it.key }
+        return (arranged.favourites+arranged.rest).mapNotNull { byKey[it] }.distinctBy { it.key }
+    }
+    private fun appCard(e:AppEntry,key:String):LumaCard=LumaCard(this,scale,LumaCard.Mode.APP).apply {
+        title=e.label; contentDescription=e.label; logoBounds=e.logoBounds; art=e.bitmap; register(this,key)
+        appCards.getOrPut(e.key){ArrayList()}.add(this)
+        setOnClickListener { launch(e) }; setOnLongClickListener { appMenu(e); true }
+        if(appAnchor==null)appAnchor=this
+        if(firstCard==null)firstCard=this
+    }
+    private fun buildApps(height:Int) {
+        val entries=orderedApps()
+        page.addView(section("Your apps","${entries.size} apps"))
+        val strip=row(); val width=(inner-5*18)/6
+        if(entries.isEmpty()) {
+            strip.addView(text("Loading your apps…",28,muted),LinearLayout.LayoutParams(-1,px(height)))
+            page.addView(strip); return
+        }
+        val scroll=HorizontalScrollView(this).apply {
+            isFocusable=false; isHorizontalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER
+            clipChildren=true; clipToPadding=true; isSmoothScrollingEnabled=false; setPadding(0,px(4),0,px(4))
+        }
+        entries.forEachIndexed { i,e ->
+            strip.addView(appCard(e,"favorite-${e.key}"),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<entries.lastIndex)rightMargin=px(18) })
+        }
+        if(firstCard?.tag=="feature")firstCard?.nextFocusDownId=strip.getChildAt(0).id
+        constrainRow(strip)
+        scroll.addView(strip,ViewGroup.LayoutParams(-2,px(height)))
+        page.addView(scroll,LinearLayout.LayoutParams(-1,px(height+8)))
+    }
+    private fun buildAllApps() {
+        page.addView(section("All apps"))
+        val all=orderedApps(); val width=(inner-5*18)/6
+        all.chunked(6).forEach { entries ->
+            val strip=row()
+            entries.forEachIndexed { i,e -> strip.addView(appCard(e,"app-${e.key}"),LinearLayout.LayoutParams(px(width),px(154)).apply { if(i<5)rightMargin=px(18) }) }
+            page.addView(strip,LinearLayout.LayoutParams(-1,px(154)).apply { bottomMargin=px(20) }); constrainRow(strip)
+        }
+        // The Apps tab goes to the complete grid, while the initial focus stays on the first row.
+        all.firstOrNull()?.let { appAnchor=focusables["app-${it.key}"] }
+    }
+    private fun constrainRow(row:LinearLayout) {
+        if(row.childCount==0)return
+        val first=row.getChildAt(0); val last=row.getChildAt(row.childCount-1)
+        if(first.id!=View.NO_ID)first.nextFocusLeftId=first.id
+        if(last.id!=View.NO_ID)last.nextFocusRightId=last.id
+    }
+    private fun reload() {
+        dirty=false; val g=++generation
+        val previous=apps.associateBy { it.key }
+        background.post {
+            val found=repo.discover(); val input=repo.inputsEntry()
+            found.forEach { it.bitmap=previous[it.key]?.bitmap; it.logoBounds=previous[it.key]?.logoBounds }
+            ui.post { if(g==generation) { apps=found; inputs=input; render(); if(visible)startContent() } }
+            for(e in found) {
+                if(g!=generation)break
+                val image=repo.loadTile(e,320,180,0f)
+                e.bitmap=image
+                ui.post { if(g==generation)appCards[e.key]?.forEach { it.logoBounds=e.logoBounds; it.art=image } }
+            }
+            if(g==generation)repo.pruneCache(found.map { repo.cacheName(it,320,180,0f) }.toSet())
+        }
+    }
+    private fun startContent() {
+        val recent=prefs.recentOrder().entries.sortedByDescending { it.value }.mapNotNull { entry -> apps.firstOrNull { it.key==entry.key }?.packageName }.distinct()
+        contentRepo.start(apps.map { it.packageName }.toSet(),apps.filter { it.key in prefs.hidden }.map { it.packageName }.toSet(),discovery,recent)
+    }
+    private fun launch(e:AppEntry) { prefs.touchRecent(e.key); prefs.lastFocus=e.key; safeStart(repo.launchIntent(e),e.label) }
+    private fun safeStart(i:Intent,label:String):Boolean = try { startActivity(i); true } catch(_:Exception) { Toast.makeText(this,"Could not open $label",Toast.LENGTH_SHORT).show(); false }
+    private fun openInputs() { inputs?.let { safeStart(it.intent,"Inputs") } ?: repo.settingsIntent()?.let { safeStart(it,"TV settings") } }
+    private fun openProgram(p:Program) {
+        if(p.catalog && p.packageName=="com.stremio.one" && p.detailUri.matches(Regex("stremio:///detail/(movie|series)/tt[0-9]{5,12}"))) {
+            val target=Intent(Intent.ACTION_VIEW,Uri.parse(p.detailUri)).setPackage(p.packageName)
+            if(packageManager.resolveActivity(target,0)!=null && safeStart(target,"Stremio"))return
+        }
+        if(!p.catalog && p.intentUri.isNotBlank()) {
+            try {
+                val target=Intent.parseUri(p.intentUri,Intent.URI_INTENT_SCHEME).apply {
+                    component=null; selector=null; setPackage(p.packageName)
+                    flags=Intent.FLAG_ACTIVITY_NEW_TASK; clipData=null
+                }
+                if(packageManager.resolveActivity(target,0)!=null && safeStart(target,p.app))return
+            } catch(_:Exception) { }
+        }
+        apps.firstOrNull { it.packageName==p.packageName }?.let { launch(it); if(p.catalog)Toast.makeText(this,"Find ${p.title} in ${p.app}",Toast.LENGTH_LONG).show() }
+    }
+    private fun dialog(title:String,items:List<Pair<String,()->Unit>>) {
+        AlertDialog.Builder(this).setTitle(title).setItems(items.map { it.first }.toTypedArray()) { _,i -> items[i].second() }.setNegativeButton("Close",null).show()
+    }
+    private fun appMenu(e:AppEntry) {
+        val favs=prefs.favourites.toMutableList(); val index=favs.indexOf(e.key)
+        val items=ArrayList<Pair<String,()->Unit>>()
+        fun changed() { render(); startContent() }
+        if(index>=0) {
+            items+="Remove from favorites" to { favs.remove(e.key); prefs.favourites=favs; changed() }
+            if(index>0)items+="Move left" to { prefs.favourites=HomeModel.move(favs,e.key,-1); changed() }
+            if(index<favs.size-1)items+="Move right" to { prefs.favourites=HomeModel.move(favs,e.key,1); changed() }
+        } else items+="Add to favorites" to { favs.add(e.key); prefs.favourites=favs; changed() }
+        items+="Hide from Luma" to { prefs.hidden=prefs.hidden+e.key; content=HomeContent(); changed() }
+        items+="App info" to { safeStart(repo.appInfoIntent(e.packageName),e.label) }
+        dialog(e.label,items)
+    }
+    private fun menu() {
+        val items=ArrayList<Pair<String,()->Unit>>()
+        items+="Choose apps one by one" to { reviewApps() }
+        items+="Live sports apps" to { chooseSportsApps() }
+        items+="Layout: ${layout.label}" to {
+            dialog("Choose your home",HomeLayout.entries.map { choice -> choice.label to { layout=choice; settings.edit().putString("layout",choice.name).apply(); settings.edit().remove("focus").apply(); render(); root.smoothScrollTo(0,0); firstCard?.requestFocus() } })
+        }
+        items+="Show discovery: ${if(discovery)"On" else "Off"}" to {
+            settings.edit().putBoolean("discovery",!discovery).apply(); content=HomeContent(); render(); startContent()
+        }
+        repo.settingsIntent()?.let { i -> items+="TV settings" to { safeStart(i,"TV settings") } }
+        items+="Inputs" to { openInputs() }
+        items+="Choose default Home app" to { safeStart(Intent(android.provider.Settings.ACTION_HOME_SETTINGS),"Home settings") }
+        items+="Other home screens" to { otherHomes() }
+        if(prefs.hidden.isNotEmpty())items+="Restore hidden apps" to { prefs.hidden=emptySet(); render(); startContent() }
+        items+="Hidden titles" to { hiddenTitles() }
+        items+="Refresh apps and shows" to { reload() }
+        items+="About and credits" to { credits() }
+        dialog("Luma TV",items)
+    }
+    private fun reviewApps(index:Int=0) {
+        val choices=apps.sortedBy { it.label.lowercase(java.util.Locale.ROOT) }
+        if(index>=choices.size) { Toast.makeText(this,"App choices saved",Toast.LENGTH_SHORT).show(); return }
+        val e=choices[index]
+        fun choose(include:Boolean) {
+            prefs.hidden=if(include)prefs.hidden-e.key else prefs.hidden+e.key
+            render(); startContent(); reviewApps(index+1)
+        }
+        AlertDialog.Builder(this).setTitle("${index+1} of ${choices.size} · ${e.label}")
+            .setMessage("Show this app in Luma's app row and grid? Currently ${if(e.key in prefs.hidden)"hidden" else "included"}. Hiding does not uninstall it.")
+            .setPositiveButton("Include") { _,_ -> choose(true) }
+            .setNegativeButton("Hide") { _,_ -> choose(false) }
+            .setNeutralButton("Done for now",null).show()
+    }
+    private fun chooseSportsApps() {
+        val choices=apps.sortedBy { it.label.lowercase(java.util.Locale.ROOT) }
+        val selected=sportsPackages.toMutableSet()
+        AlertDialog.Builder(this).setTitle("Live sports apps")
+            .setMultiChoiceItems(choices.map { it.label }.toTypedArray(),choices.map { it.packageName in selected }.toBooleanArray()) { _,i,on ->
+                if(on)selected.add(choices[i].packageName) else selected.remove(choices[i].packageName)
+            }.setPositiveButton("Save") { _,_ -> settings.edit().putStringSet("sportsPackages",selected).apply(); render() }
+            .setNegativeButton("Cancel",null).show()
+    }
+    private fun otherHomes() {
+        val q=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val targets=packageManager.queryIntentActivities(q,0).filter { it.activityInfo.packageName!=packageName }
+        dialog("Other home screens",targets.map { ri -> ri.loadLabel(packageManager).toString() to {
+            safeStart(Intent(q).setClassName(ri.activityInfo.packageName,ri.activityInfo.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),"Home")
+        } })
+    }
+    private fun search() {
+        val input=EditText(this).apply { hint="App or show name"; isSingleLine=true; setTextColor(ink) }
+        AlertDialog.Builder(this).setTitle("Search your home").setView(input).setPositiveButton("Search") { _,_ ->
+            val query=input.text.toString().trim()
+            if(query.isEmpty())return@setPositiveButton
+            val choices=ArrayList<Pair<String,()->Unit>>()
+            orderedApps().filter { it.label.contains(query,true) }.forEach { e -> choices+=e.label to { launch(e) } }
+            (content.watching+content.suggestions+content.trending+content.newReleases).filter { it.title.contains(query,true) }.distinctBy { it.id }.forEach { p -> choices+="${p.title} · ${p.app}" to { openProgram(p) } }
+            if(choices.isEmpty())Toast.makeText(this,"No matching apps or loaded shows",Toast.LENGTH_LONG).show() else dialog("Results",choices)
+        }.setNegativeButton("Cancel",null).show()
+    }
+    private fun programInfo(p:Program) {
+        dialog(p.title,listOf(
+            "Open ${p.app}" to { openProgram(p) },
+            "Hide from large hero" to { hideTitle(p,hero=true,watching=false) },
+            "Hide from Continue watching" to { hideTitle(p,hero=false,watching=true) },
+            "Hide from both" to { hideTitle(p,hero=true,watching=true) },
+            "About this title / source" to { programDetails(p) }
+        ))
+    }
+    private fun withTitlePreferences(value:HomeContent)=value.copy(
+        hiddenHeroTitles=settings.getStringSet("hiddenHeroTitles",emptySet()).orEmpty().toSet(),
+        hiddenWatchingTitles=settings.getStringSet("hiddenWatchingTitles",emptySet()).orEmpty().toSet())
+    private fun hideTitle(p:Program,hero:Boolean,watching:Boolean) {
+        val edit=settings.edit().putString("hiddenTitleLabel:${p.titleKey}",p.title)
+        if(hero)edit.putStringSet("hiddenHeroTitles",content.hiddenHeroTitles+p.titleKey)
+        if(watching)edit.putStringSet("hiddenWatchingTitles",content.hiddenWatchingTitles+p.titleKey)
+        edit.apply(); content=withTitlePreferences(content); render()
+        Toast.makeText(this,"Hidden in Luma. Restore from Settings → Hidden titles.",Toast.LENGTH_LONG).show()
+    }
+    private fun hiddenTitles() {
+        val keys=(content.hiddenHeroTitles+content.hiddenWatchingTitles).sorted()
+        if(keys.isEmpty()) {
+            AlertDialog.Builder(this).setTitle("Hidden titles").setMessage("Hold OK on a title to hide it from the large hero, Continue watching, or both. This only changes Luma on this TV; shared streaming accounts stay unchanged.").setPositiveButton("Close",null).show()
+            return
+        }
+        dialog("Restore a hidden title",keys.map { key ->
+            val places=listOfNotNull(if(key in content.hiddenHeroTitles)"hero" else null,if(key in content.hiddenWatchingTitles)"Continue watching" else null).joinToString(" + ")
+            "${settings.getString("hiddenTitleLabel:$key",key)} · $places" to {
+                settings.edit().putStringSet("hiddenHeroTitles",content.hiddenHeroTitles-key).putStringSet("hiddenWatchingTitles",content.hiddenWatchingTitles-key).remove("hiddenTitleLabel:$key").apply()
+                content=withTitlePreferences(content); render()
+            }
+        })
+    }
+    private fun programDetails(p:Program) {
+        val detail="${p.title}\n${p.detail}\n\n"+if(p.catalog)"General discovery from ${p.sourceName}. Availability depends on your service, subscription and region. Catalog listings do not guarantee a playable source.\n\n${p.sourceUrl}" else "Published by ${p.app} through Android TV."
+        AlertDialog.Builder(this).setTitle("About this show").setMessage(detail).setPositiveButton("Open ${p.app}") { _,_ -> openProgram(p) }.setNeutralButton("Source") { _,_ -> if(p.sourceUrl.isNotBlank())safeStart(Intent(Intent.ACTION_VIEW,Uri.parse(p.sourceUrl)),"TVmaze") }.setNegativeButton("Close",null).show()
+    }
+    private fun credits() {
+        dialog("Luma TV 0.1.0",listOf(
+            "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
+            "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
+            "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },
+            "TVmaze · show data · CC BY-SA" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.tvmaze.com/api#licensing")),"TVmaze") },
+            "Cinemeta · popular and recent titles" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/Stremio/stremio-official-addons")),"Cinemeta") },
+            "ESPN · sports schedules and broadcasts" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.espn.com/")),"ESPN") },
+            "Project source · github.com/draco1738/luma-tv" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/draco1738/luma-tv")),"Project source") },
+            "Privacy" to { AlertDialog.Builder(this).setTitle("Your home, your choice").setMessage("Luma has no analytics, ad identifiers, registration or background service. App arrangement and launch recency stay on this TV.\n\nWith discovery on, Luma requests public catalogs and artwork from TVmaze, Stremio Cinemeta, ESPN scoreboards and their image services. Those servers receive your IP address and requested catalog/show/league IDs. Published TV rows can also link to provider artwork. Switch discovery off to stop public catalog requests.\n\nCurrently watching uses progress that apps publish to Android TV. Luma cannot inspect their login status or credentials. Continue watching and the hero use newest published playback activity first, regardless of source. Discovery prefers other apps ahead of Stremio; a purple S identifies Stremio. Luma does not remove ads inside other apps.").setPositiveButton("Close",null).show() }
+        ))
+    }
+    private fun readLicense(title:String,file:String) {
+        val body=assets.open(file).bufferedReader().use { it.readText() }
+        val label=TextView(this).apply { text=body; setTextColor(ink); setTextSize(TypedValue.COMPLEX_UNIT_SP,18f); setPadding(px(30),px(20),px(30),px(20)) }
+        val scroll=ScrollView(this).apply { isFocusable=true; addView(label) }
+        AlertDialog.Builder(this).setTitle(title).setView(scroll).setPositiveButton("Close",null).show()
+    }
+    override fun dump(prefix:String,fd:java.io.FileDescriptor?,out:java.io.PrintWriter,args:Array<out String>?) {
+        super.dump(prefix,fd,out,args)
+        out.println("LUMA layout=${layout.name} apps=${apps.size} watching=${content.watching.size} suggestions=${content.suggestions.size} trending=${content.trending.size} new=${content.newReleases.size} games=${content.games.size} discovery=$discovery")
+        out.println("LUMA focus=${currentFocus?.tag} visible=$visible artwork=${appCards.values.flatten().count { it.art!=null }}")
     }
 }

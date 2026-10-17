@@ -1,28 +1,30 @@
 #!/usr/bin/env bash
-# Remove Rivi. Because it changes nothing else on the device, this is the whole restore:
-# the Home-button service disappears with the app and Home opens the stock launcher again.
-# No factory reset, no app data touched.
+# Select a working replacement Home BEFORE uninstalling Luma.
+# --stock-home explicitly restores the two Google TV Home packages used in the TCL setup.
 set -u
 cd "$(dirname "$0")"
 source adb/common.sh
-say "Removing Rivi from $TV"
+if [ "${1:-}" = "--stock-home" ]; then
+  for package in com.google.android.apps.tv.launcherx com.google.android.tungsten.setupwraith; do
+    if sh_ pm path "$package" | grep -q package:; then
+      sh_ pm enable --user 0 "$package" >/dev/null || die "Could not enable $package; Luma remains installed"
+      audit "enable" "$package" ""
+    fi
+  done
+  replacement=$(sh_ cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -p com.google.android.apps.tv.launcherx | tail -n 1)
+else
+  replacement=$(home_candidates | grep '/' | grep -v "$PKG/" | grep -v FallbackHome | head -n 1 | xargs)
+fi
+case "$replacement" in
+  */*) ;;
+  *) die "No replacement Home is enabled. Restore one first, or use ./restore.sh --stock-home. Luma remains installed." ;;
+esac
+sh_ cmd package set-home-activity --user 0 "$replacement" >/dev/null || die "Home selection failed; Luma remains installed"
+[ "$(current_home)" = "$replacement" ] || die "Replacement Home did not become the resolver; Luma remains installed"
+sh_ am start -n "$replacement" >/dev/null || die "Replacement Home did not launch; Luma remains installed"
 if sh_ pm path "$PKG" | grep -q package:; then
-  "${A[@]}" uninstall "$PKG" </dev/null >/dev/null 2>&1 && { note "uninstalled $PKG"; audit "uninstall" "$PKG" ""; } || die "uninstall failed"
-else
-  note "$PKG is not installed"
+  "${A[@]}" uninstall "$PKG" </dev/null || die "Uninstall failed"
+  audit "uninstall" "$PKG" ""
 fi
-sh_ input keyevent KEYCODE_HOME >/dev/null; sleep 2
-say "Home app: $(current_home)"
-dis=$(sh_ pm list packages -d | tr '\n' ' ')
-if [ -n "$dis" ]; then
-  note "Disabled packages on this device (not disabled by Rivi): $dis"
-  note "If another guide had you disable the Google launcher, re-enable it with:"
-  note "  adb shell pm enable --user 0 com.google.android.apps.tv.launcherx"
-  note "  adb shell pm enable --user 0 com.google.android.tungsten.setupwraith"
-else
-  note "No disabled packages."
-fi
-cat <<'TXT'
-
-Without a computer: Settings → Apps → Rivi → Uninstall.
-TXT
+say "Home restored to $replacement"
+note "This does not reset DNS, re-enable other debloated apps, or change streaming accounts."

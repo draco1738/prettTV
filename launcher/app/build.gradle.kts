@@ -9,13 +9,14 @@ plugins {
 android {
     namespace = "fi.jommi.rivi"
     compileSdk = 34
+    buildToolsVersion = "35.0.0"
 
     defaultConfig {
-        applicationId = "fi.jommi.rivi"
+        applicationId = "dev.zane.lumatv"
         minSdk = 26
         targetSdk = 34
-        versionCode = 15
-        versionName = "0.15"
+        versionCode = 1
+        versionName = "0.1.0"
     }
 
     // Release signing is optional. Put a `signing.properties` file next to settings.gradle.kts

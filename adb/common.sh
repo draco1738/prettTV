@@ -4,8 +4,8 @@
 # falling back to the single connected device.
 set -u
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-PKG=fi.jommi.rivi
-HOME_ACT=$PKG/.MainActivity
+PKG=dev.zane.lumatv
+HOME_ACT=$PKG/fi.jommi.rivi.MainActivity
 AUDIT=$ROOT/results/audit.jsonl
 
 pick_device() {

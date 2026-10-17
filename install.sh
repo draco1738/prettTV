@@ -26,11 +26,6 @@ out=$("${A[@]}" install -r "$APK" 2>&1 </dev/null); echo "$out" | grep -q Succes
 audit "install" "$PKG $(sh_ dumpsys package $PKG | grep -m1 versionName | tr -d ' ')" "adb uninstall $PKG"
 sh_ am start -n "$HOME_ACT" >/dev/null 2>&1; sleep 2
 top=$(sh_ dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity')
-echo "$top" | grep -q "$PKG" && note "Rivi is on screen." || note "WARNING: Rivi did not come to the foreground: $top"
-if sh_ settings get secure enabled_accessibility_services | grep -q "$PKG/"; then
-  note "Home button: already opens Rivi."
-else
-  say "To make the Home button open Rivi, on the TV:"
-  note "Settings → System → Accessibility → Rivi Home button → On"
-fi
+echo "$top" | grep -q "$PKG" && note "Luma TV is on screen." || note "WARNING: Luma TV did not come to the foreground: $top"
+note "Use Settings → Choose default Home app to select Luma TV. The installer does not disable other launchers."
 note "To remove it again: ./restore.sh"

@@ -1,0 +1,31 @@
+## Direction contract
+
+THESIS: A calm television home that puts a useful feature, apps and suggestions within one view.
+
+OWN-WORLD: Sage-black ground, ivory type, quiet outlines, landscape stills and a single selected navigation pill. System sans-serif keeps native TV legibility.
+
+STORY: Find a show or app with a remote, see the focused action, and open its provider.
+
+FIRST VIEWPORT: C uses 56 px margins, a 1132 × 486 feature, a 656 px shared side panel, six visible 94 px dark app tiles in a finite horizontal row, then horizontal content rows. Hero action sits at lower left.
+
+FORM: User-selected C Balanced from the three previews; seed 2a08e375. A Cinema and B Quiet remain selectable alternatives.
+
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+
+## Runtime constraints
+
+Operate mode; TV remote from couch distance. Coordinates scale from 1920 × 1080. Hero type 58 px, section type 24 px, cards 29 px; system font scale applies. Full accessible labels accompany visual truncation. Focus motion is finite, 140 ms, and respects disabled animations.
+
+Use real installed-app artwork and Android TV rows. General TVmaze discovery is labeled and does not imply personal watch history or current subscription availability. Scene artwork replaces fictional mockup content. No invented progress or episode state.
+
+The launcher APK does not modify system packages. This TCL's separate setup disabled two Google Home components to make its normal Home resolver honor Luma; Projectivy was removed after Home recovery was verified; its APK is preserved outside the repository. Document that setup separately and preserve the local rollback journal.
+
+## Accepted follow-up requirements
+
+The owner praised the rebuilt C, then requested dark icons with colored accents; two separate Continue watching rows (Shows, Movies); longer horizontal Suggestions, Trending and New releases (up to 60 each); and an all-app row with a clear beginning and end, returning to its default start on Home. The large left hero uses the newest published playback timestamp regardless of provider; the two small cards remain discovery. The latest owner instruction supersedes app bias: both Continue watching rows and the hero use newest published engagement first, regardless of source. Stremio-last ordering applies only to discovery. A purple S marks Stremio.
+
+Hold OK on a title to hide it from hero, Continue watching or both. Restore individual titles in Settings → Hidden titles. Filters are local, normalized across sources, and never modify shared accounts. TV listings permission is requested at first launch and granted on the test TV; actual app data is now populated. The owner explicitly requested real A/B/C TV screenshots in the private GitHub repository. Original fictional comp artwork and the original bottom-row content are superseded by these explicit requests.
+
+The latest addition puts Live sports directly below Movies: authentic published sports events when present, otherwise labeled sports-app launch shortcuts. Discover all launchable sideloaded apps, exclude Projectivy/LTvLauncher, and offer app-by-app inclusion controls in Settings. See docs/native-design-evidence.md for recorded native exceptions and review scope.
+
+Latest owner adjustments: subtle card-edge contrast, no top Luma wordmark or rail monogram, brand/credits only at the bottom. Live sports includes ESPN schedules and broadcast logos; the installed RBTV+ exposes no verified per-game link, so a game opens the chosen app with channel guidance. SportioTV and HD Streamz are uninstalled; RBTV+ remains. C stays selected on the TV.

@@ -1,0 +1,19 @@
+# Luma 0.1.0 validation — 2026-10-17
+
+Signed release built with JDK17 / Android SDK34 / build-tools35.0.0. All 37 JVM tests pass (16 inherited model tests, 14 content-policy tests, 7 sports freshness/order/bounds tests). Shell installer and restore script pass Bash syntax validation. The restore script was not executed against the owner's configured Home during validation.
+
+On the TCL Android14 / 32-bit ARM TV, all three layouts launch. C is the selected Home, including after stopping its process and pressing Home. Home resolution points to Luma. The app row has one copy of each included app and explicit focus stops at each end; Home resets its start. Long horizontal content rows populate, show a partial next card, and load art as they enter the viewport. The owner's local title filters persisted through updates. TV settings and the native HDMI-input chooser opened during checks. QuasiTV, LTvLauncher, Projectivy, SportioTV and HD Streamz were removed separately at the owner's request; recovery stock packages remain installed, disabled by the separate setup.
+
+The initial blank Continue watching row was a missing runtime TV-listings grant; the app now requests it on first launch. After granting it, 21 raw watching items and 59 app suggestions were observed. The owner hid some shared-account titles locally. Cinemeta catalog redirects initially prevented discovery; bounded HTTPS redirect handling corrected this. Observed catalog counts: 59 Trending, 60 New releases. Continue watching uses published timestamps and program types: no claim is made that every app/profile publishes complete or current history.
+
+C was captured at fontScale1.3 with animator scale0, then the original values were restored. Focus, layout and caption truncation were checked on the actual 1920x1080 UI. The panel is 60Hz; the app is not claimed to maintain 60fps.
+
+A short automated 25-key navigation sample rendered262frames:13janky(4.96%), median25ms,p95=36ms,p99=42ms;1missedVsync,3slowUIframes,1slowbitmapupload. The legacy jank counter was56(21.37%). Approximate PSS60472KiB/RSS164912KiB. This is one scripted sample, not a controlled benchmark or a promise about every navigation pattern. Raw traces and account/device dumps remain excluded. The owner explicitly requested publishing the selected A/B/C launcher screenshots in the private repository.
+
+Original generated comps are replaced by actual TV screenshots in GitHub; local review references remain. A raw image comparison against C reports drift because real provider imagery, title lengths, dark icons and explicitly changed row content differ; it is not a pixel-perfect match claim. The design review records the applicable scope separately.
+
+ESPN NFL and other scoreboard endpoints returned actual live/upcoming events. Installed RBTV+ manifest and entry activities were inspected: no game/channel VIEW intent filter was found, and its TV player is not exported. Game cards use a clearly labeled app-opening fallback, not an unverified stream jump. No stream playback success is claimed.
+
+Final device checks: 36 launchable apps; Left at Netflix remains Netflix, Right at YouTube TV remains YouTube TV, and Home followed by Down returns to Netflix. ESPN populated 34 fixtures. Selecting a game opened com.rblive.tv.ui.home.HomeActivity, confirming the app-opening fallback. Large-text captures were refreshed after the metadata scrim fix and fontScale restored to 1.0. Screenshots show A, B and C; C was restored after captures.
+
+Independent finish verdict: ship for the scored P1 metadata-contrast fix and P2 native-evidence record, both resolved. The reviewer found no material regressions in the inspected branding, borders, finite-row presentation and sports section. This was a scoped verdict pass, not a new whole-surface or functional certification; automated static-comp gates remain pending as documented.
