@@ -3,6 +3,9 @@ package fi.jommi.rivi
 // Built on Rivi v0.15, Copyright (c) 2026 Jommi, MIT. See assets/rivi-license.txt.
 import android.app.Activity
 import android.app.AlertDialog
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.*
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -48,6 +51,9 @@ class MainActivity : Activity() {
     private var showAnchor: View? = null
     private val focusables = LinkedHashMap<String, View>()
     private val horizontalRows=LinkedHashMap<String,HorizontalScrollView>()
+    private data class FocusRow(val container:LinearLayout,val cards:List<View>)
+    private val focusRows=HashMap<View,FocusRow>()
+    private val rowMotion=HashMap<HorizontalScrollView,ValueAnimator>()
     private data class Viewport(val focus:String?=null,val y:Int=0,val rows:Map<String,Int> = emptyMap(),val contentFocus:String?=null)
     private var pendingViewport:Viewport?=null
     private val appCards = HashMap<String, MutableList<PrettTvCard>>()
@@ -109,7 +115,7 @@ class MainActivity : Activity() {
     }
     override fun onStop() {
         visible=false; contentRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
-        cancelArtworkScan(); ui.removeCallbacks(retryArtwork); ui.removeCallbacks(retryApps); cardArt.forEach { it.request.cancel() }
+        stopRowMotion(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); ui.removeCallbacks(retryApps); cardArt.forEach { it.request.cancel() }
         (currentFocus?.tag as? String)?.let { settings.edit().putString("focus",it).apply() }
         super.onStop()
     }
@@ -126,11 +132,53 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() { if(sidebar?.visibility==View.VISIBLE)hideRail() else { firstCard?.requestFocus(); root.smoothScrollTo(0,0) } }
     override fun dispatchKeyEvent(event:KeyEvent):Boolean {
+        if(event.action==KeyEvent.ACTION_DOWN && sidebar?.visibility!=View.VISIBLE &&
+            (event.keyCode==KeyEvent.KEYCODE_DPAD_LEFT || event.keyCode==KeyEvent.KEYCODE_DPAD_RIGHT)) {
+            val row=focusRows[currentFocus]
+            if(row!=null) {
+                val scroll=row.container.parent as? HorizontalScrollView
+                when(val move=RowNavigation.move(row.cards.indexOf(currentFocus),row.cards.size,
+                    event.keyCode==KeyEvent.KEYCODE_DPAD_RIGHT,scroll?.scrollX ?: 0,event.repeatCount)) {
+                    is RowNavigation.Move.Focus -> {
+                        val from=scroll?.scrollX ?: 0
+                        if(scroll!=null)rowMotion.remove(scroll)?.cancel()
+                        if(row.cards[move.index].requestFocus(if(event.keyCode==KeyEvent.KEYCODE_DPAD_RIGHT)View.FOCUS_RIGHT else View.FOCUS_LEFT) && scroll!=null) {
+                            val destination=scroll.scrollX
+                            scroll.scrollTo(from,0); moveRow(scroll,destination)
+                        }
+                        return true
+                    }
+                    RowNavigation.Move.RevealStart -> { if(scroll!=null)moveRow(scroll,0); return true }
+                    RowNavigation.Move.Stay -> return true
+                    RowNavigation.Move.Sidebar -> Unit
+                }
+            }
+        }
         if(event.action==KeyEvent.ACTION_DOWN && event.keyCode==KeyEvent.KEYCODE_DPAD_LEFT && sidebar?.visibility!=View.VISIBLE) {
             val target=focusables.values.firstOrNull { it.id==currentFocus?.nextFocusLeftId && it.tag.toString().startsWith("rail-") }
-            if(target!=null) { sidebar?.visibility=View.VISIBLE; root.alpha=.45f; target.requestFocus(); return true }
+            if(target!=null) {
+                if(event.repeatCount==0) { stopRowMotion(); sidebar?.visibility=View.VISIBLE; root.alpha=.45f; target.requestFocus() }
+                return true
+            }
         }
         return super.dispatchKeyEvent(event)
+    }
+    private fun moveRow(scroll:HorizontalScrollView,destination:Int) {
+        rowMotion.remove(scroll)?.cancel()
+        if(destination==scroll.scrollX)return
+        if(!ValueAnimator.areAnimatorsEnabled()) { scroll.scrollTo(destination,0); return }
+        val motion=ValueAnimator.ofInt(scroll.scrollX,destination).apply {
+            duration=180; interpolator=android.view.animation.DecelerateInterpolator()
+            addUpdateListener { scroll.scrollTo(it.animatedValue as Int,0) }
+            addListener(object:AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation:Animator) { if(rowMotion[scroll]===animation)rowMotion.remove(scroll) }
+            })
+        }
+        rowMotion[scroll]=motion; motion.start()
+    }
+    private fun stopRowMotion() {
+        // Finish at the focused card before saving/restoring a viewport or leaving Home.
+        val running=rowMotion.values.toList(); rowMotion.clear(); running.forEach { it.end() }
     }
     private fun hideRail(restore:Boolean=true) {
         sidebar?.visibility=View.GONE; root.alpha=1f
@@ -166,10 +214,11 @@ class MainActivity : Activity() {
 
     private fun render(reset:Boolean=false,restore:Viewport?=null) {
         if(isFinishing || isDestroyed)return
+        stopRowMotion()
         if(reset)homeRequested=true
         val saved=if(homeRequested)Viewport() else restore ?: pendingViewport ?: viewport()
         pendingViewport=saved
-        artwork.cancel(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); appCards.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
+        artwork.cancel(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); focusRows.clear(); appCards.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
         root=ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER; clipChildren=false; clipToPadding=false }
         page=column().apply { setPadding(px(56),px(30),px(56),px(40)) }
         val stage=FrameLayout(this).apply { setBackgroundColor(bgColor); clipChildren=false; clipToPadding=false }
@@ -325,6 +374,7 @@ class MainActivity : Activity() {
             tile.addView(text("Open ${e.label}",22,muted),LinearLayout.LayoutParams(px(320),px(40)))
             strip.addView(tile,LinearLayout.LayoutParams(px(320),px(152)).apply { rightMargin=px(20) })
         }
+        constrainRow(strip)
         val scroll=HorizontalScrollView(this).apply {
             isFocusable=false; isHorizontalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER
             clipChildren=true; clipToPadding=true; setPadding(0,px(5),0,px(5))
@@ -483,10 +533,20 @@ class MainActivity : Activity() {
         all.firstOrNull()?.let { libraryAnchor=focusables["app-${it.key}"] }
     }
     private fun constrainRow(row:LinearLayout) {
-        if(row.childCount==0)return
-        val first=row.getChildAt(0); val last=row.getChildAt(row.childCount-1)
-        if(first.id!=View.NO_ID)first.nextFocusLeftId=focusables[if(first is PrettTvCard && first.tag.toString().contains("favorite-"))"rail-apps" else "rail-shows"]!!.id
-        if(last.id!=View.NO_ID)last.nextFocusRightId=last.id
+        val cards=ArrayList<View>()
+        fun collect(view:View) {
+            if(view.isFocusable)cards.add(view)
+            else if(view is ViewGroup)for(i in 0 until view.childCount)collect(view.getChildAt(i))
+        }
+        collect(row)
+        if(cards.isEmpty())return
+        val group=FocusRow(row,cards)
+        cards.forEachIndexed { index,card ->
+            focusRows[card]=group
+            val appRow=card.tag.toString().let { it.startsWith("favorite-") || it.startsWith("sports-") || it.startsWith("app-") }
+            card.nextFocusLeftId=cards.getOrNull(index-1)?.id ?: focusables[if(appRow)"rail-apps" else "rail-shows"]!!.id
+            card.nextFocusRightId=cards.getOrNull(index+1)?.id ?: card.id
+        }
     }
     private fun reload() {
         dirty=false; val g=++generation

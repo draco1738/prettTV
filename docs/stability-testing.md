@@ -38,6 +38,9 @@ With the TV idle on C Balanced, run the same route on the old and new signed rel
 ./tests/measure-home-motion.ps1 -Tv '<serial>' -OutputDirectory '<local-before-directory>'
 # Install the candidate release, then repeat with a separate after directory.
 ./tests/measure-home-motion.ps1 -Tv '<serial>' -OutputDirectory '<local-after-directory>'
+./tests/verify-row-navigation.ps1 -Tv '<serial>' -OutputDirectory '<local-navigation-directory>'
 ```
 
 This warms the route once, resets only the app's graphics counters, then repeats two paced D-pad routes through apps and content shelves. It saves Android `gfxinfo` frame statistics and verifies that focus and the Home process survive. It does not clear caches or change animation settings. Keep the same content and device conditions when comparing results; frame count and frame-time percentiles must be considered together because enabling an animation adds frames. Cold startup, streaming playback and sustained 60 fps are outside this measurement. Follow [Android's rendering guidance](https://developer.android.com/topic/performance/issues/render) when investigating remaining slow frames.
+
+The row-navigation check records the selected cards while moving right, then requires Left to visit them in reverse order. It also checks that held Left stops at the first card, a fresh Left opens the sidebar, and Right returns to that same card. This is a separate regression check, not a frame-rate measurement. Both scripts require an idle TV already displaying prettTV.
