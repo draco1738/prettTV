@@ -16,13 +16,17 @@
 - **Pick your layout.** Cinema, Quiet or Balanced, with a hidden left sidebar in all three.
 - **Put recent viewing first.** A large feature and separate Shows and Movies rows use supported app progress and locally confirmed playback.
 - **Keep your apps close.** Dark tiles with color accents, favorites first, and a finite row with a clear start and end. Hide an app from the row while keeping it in Library.
-- **Find something next.** Browse up to 60 titles per row. Suggestions, Discover and Trending put preferred services first; New releases draws from Cinemeta's recent catalog.
+- **Save something for later.** A dedicated Watchlist row keeps your saved titles and their app destinations. Follow shows separately for new-episode alerts.
+- **Make the rows yours.** Reorder or hide content rows, choose card sizes, and browse 20, 40 or 60 discovery titles per row. Suggestions, Discover and Trending put preferred services first.
+- **Follow your teams.** Favorite teams move up Live sports, with optional kickoff reminders while Home is visible.
 - **Keep shared accounts personal.** Hide individual titles from the feature or Continue watching without changing anyone else's streaming account.
 
 Built on [Rivi by Jommi](https://github.com/jommi9/rivi), using native Android Views/Canvas, progressive artwork loading and bounded caches. No third-party UI framework or analytics SDK.
 
 > [!NOTE]
 > Viewing progress and recommendations depend on what each app shares with Android TV. prettTV does not access a universal streaming history or detect every signed-in account. [How content works →](docs/content-and-sports.md)
+
+Home also retains recent content during outages, offers undo for supported changes, and checks for official updates without installing anything automatically. [Explore the controls →](docs/usage.md)
 
 ## Get started
 
@@ -75,7 +79,9 @@ Choose a layout in **prettTV Settings → Layout**. Your apps, viewing history a
 <details>
 <summary><strong>Explore the content rows</strong></summary>
 
-Continue watching · Shows → Continue watching · Movies → Live sports → Suggestions → Discover → Trending → New releases.
+Continue watching · Shows → Continue watching · Movies → Watchlist → New episodes when available → Live sports → Suggestions → Discover → Trending → New releases.
+
+This is the default order; **Settings → Customize rows** lets you change it. The capture below shows the existing discovery styling; it predates the additional rows.
 
 ![Suggestions, Discover and Trending on the TCL TV.](docs/screenshots/discover-row.png)
 
@@ -86,7 +92,7 @@ Continue watching · Shows → Continue watching · Movies → Live sports → S
 | Control | Action |
 | :--- | :--- |
 | **Arrows / OK** | Move between cards / open the selected item. |
-| **Hold OK** | Arrange apps, hide a title or correct recent viewing. |
+| **Hold OK** | Arrange apps; save, follow, dismiss or inspect a title; correct recent viewing. |
 | **Left at the first card** | Reveal the sidebar; Right or Back closes it. |
 | **Back from content** | Return to the top. |
 | **Menu** | Open prettTV Settings. |
@@ -105,7 +111,7 @@ Full recovery needs the original private setup record and authorized local TCP d
 
 Use **JDK 17**, **Android SDK 34** and **build-tools 35.0.0**. The [development guide](docs/development.md) covers source builds, signing and the test setup.
 
-For **v0.1.10**, validation recorded **139 JVM tests** and **10 isolated Android tests** passing. The TV checks verified recovery authorization, preflight and cancellation; the full restore was not executed on the owner's TV. [Read the validation record](docs/validation.md).
+Release checks cover JVM tests, Android lint, isolated device tests, navigation, lifecycle, failure handling and measured scrolling. [Validation history](docs/validation.md) records completed checks and their limitations for each release; earlier results do not certify a newer build.
 
 ## Built with credit
 

@@ -21,7 +21,7 @@ if (-not $Tv) {
     $Tv = $devices[0]
 }
 if ((Invoke-Adb -Arguments @('shell','pm','list','features') | Out-String) -notmatch 'android.software.leanback') { throw 'The selected device is not Android TV.' }
-$apk = Join-Path $PSScriptRoot 'prettTV-0.1.10.apk'
+$apk = Join-Path $PSScriptRoot 'prettTV-0.2.0.apk'
 if (-not (Test-Path -LiteralPath $apk)) {
     $apk = Join-Path $PSScriptRoot 'launcher/app/build/outputs/apk/release/app-release.apk'
     if (-not $NoBuild) {
@@ -44,7 +44,7 @@ if (-not $LauncherOnly) {
                 New-Item -ItemType Directory -Path $cache -Force | Out-Null
                 $rbtv = Join-Path $cache 'RBTV-3.0.320.apk'
                 if (-not (Test-Path -LiteralPath $rbtv)) {
-                    Invoke-WebRequest -Uri 'https://github.com/draco1738/prettTV/releases/download/v0.1.10/RBTV-3.0.320.apk' -OutFile "$rbtv.download" -TimeoutSec 180
+                    Invoke-WebRequest -Uri 'https://github.com/draco1738/prettTV/releases/download/v0.2.0/RBTV-3.0.320.apk' -OutFile "$rbtv.download" -TimeoutSec 180
                     Move-Item -LiteralPath "$rbtv.download" -Destination $rbtv -Force
                 }
             }

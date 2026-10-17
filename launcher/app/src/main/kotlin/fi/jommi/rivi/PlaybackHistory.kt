@@ -20,8 +20,10 @@ class PlaybackHistory(context:Context) {
     private fun key(p:Program)=p.packageName+"|"+p.titleKey
     private fun json(p:Program)=JSONObject().put("id",p.id).put("title",p.title).put("detail",p.detail).put("art",p.art)
         .put("pkg",p.packageName).put("app",p.app).put("uri",p.intentUri).put("pos",p.position).put("dur",p.duration).put("type",p.mediaType)
+        .put("imdbId",p.imdbId).put("releaseYear",p.releaseYear)
     private fun program(j:JSONObject)=Program(j.optString("id"),j.optString("title"),j.optString("detail"),j.optString("art"),j.optString("pkg"),j.optString("app"),
-        j.optString("uri"),j.optLong("pos"),j.optLong("dur"),mediaType=j.optString("type"),watchingSource=true)
+        j.optString("uri"),j.optLong("pos"),j.optLong("dur"),mediaType=j.optString("type"),watchingSource=true,
+        imdbId=j.optString("imdbId"),releaseYear=j.optInt("releaseYear"))
     @Synchronized fun merge(rows:List<Program>):List<Program> {
         val now=System.currentTimeMillis(); val cutoff=prefs.getLong("baselineCutoff",now)
         val edit=prefs.edit().putLong("baselineCutoff",cutoff)
@@ -41,10 +43,10 @@ class PlaybackHistory(context:Context) {
         edit.putString("known",known.toString()).apply()
         return ContentPolicy.chronological(result)
     }
-    @Synchronized fun confirm(p:Program,position:Long=p.position,duration:Long=p.duration) {
+    @Synchronized fun confirm(p:Program,position:Long=p.position,duration:Long=p.duration,eventAt:Long=System.currentTimeMillis()) {
         val k=key(p)
         prefs.edit().putLong("played:$k",System.currentTimeMillis()).putLong("position:$k",position.coerceAtLeast(0))
-            .putLong("duration:$k",duration.coerceAtLeast(0)).apply()
+            .putLong("duration:$k",duration.coerceAtLeast(0)).putLong("event:$k",eventAt.coerceAtLeast(0)).apply()
     }
     fun match(pkg:String,labels:List<String>):Program? {
         val rows=try { JSONArray(prefs.getString("known","[]")) } catch(_:Exception) { JSONArray() }

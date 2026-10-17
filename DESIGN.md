@@ -82,6 +82,18 @@ components:
     typography: "{typography.title}"
     rounded: "{rounded.card}"
     height: "218px"
+  show-card-small:
+    backgroundColor: "{colors.card-ground}"
+    textColor: "{colors.ivory}"
+    typography: "{typography.title}"
+    rounded: "{rounded.card}"
+    height: "190px"
+  show-card-large:
+    backgroundColor: "{colors.card-ground}"
+    textColor: "{colors.ivory}"
+    typography: "{typography.title}"
+    rounded: "{rounded.card}"
+    height: "270px"
   app-card-balanced:
     textColor: "{colors.ivory}"
     rounded: "{rounded.card}"
@@ -148,9 +160,9 @@ The hidden sidebar is the latest explicit owner override. It contains Home, Show
 - A hidden-by-default left overlay sidebar shared by A, B, and C.
 - Native text scaling, readable metadata, and full accessible labels behind visual truncation.
 
-This record combines the native source in `launcher/app/src/main/kotlin/fi/jommi/rivi/` with confirmed TCL Android TV evidence for installed v0.1.1 and 52 passing tests. Prime Video was hidden through Hold OK → Hide from Your apps row: the row count changed from 34 to 33, the app remained available in Library with Show in Your apps row, and restoring it returned the count to 34. Search and history independence were checked in source, not in separate device sessions. Cold Home after force-stop resolved `dev.zane.pretttv` to C with The Night Agent in the hero.
+This 0.2.0 refresh records an extension of the incumbent world. Current actual ADB captures in `docs/screenshots/A-cinema.png`, `B-quiet.png`, and `C-balanced.png` preserve the home palette, native typography, cards, and A/B/C compositions; B visibly introduces Watchlist below Movies. Source in `launcher/app/src/main/kotlin/fi/jommi/rivi/` establishes the new configurable shelves and native feature controls. Functional validation reports 202 JVM tests and 35 Android tests passing. The final functional gate and the user-approved one-hour soak checkpoint review passed; see `docs/validation.md`. The original two-hour run was stopped at the user's request and its native outcome remains UNRECORDED.
 
-Final actual TV captures were recorded as `prettTV-final-A.png`, `prettTV-final-B.png`, `prettTV-final-C.png`, and `prettTV-final-sidebar.png`; their repository destinations are `docs/screenshots/A-cinema.png`, `B-quiet.png`, `C-balanced.png`, and `sidebar.png`. The prior font-scale 1.3 capture review passed. The v0.1.1 scoped visual confirmation passed. A subsequent clean-cache check identified bright installed-banner fallback; v0.1.2 replaces that fallback for Disney+ and HBO. Optional playback tracking and RBTV assistance remain off, so no end-to-end playback or game-matching result is claimed.
+The current capture set does not show the new details, personalization, sports-preference, or update dialogs. Their descriptions below are source-derived, not a claimed visual pass. Earlier font-scale, hide/restore, cold-Home, and scoped visual checks remain historical evidence in the validation record. Optional playback tracking and RBTV assistance remain off in the supplied evidence; no new end-to-end playback or game-matching result is claimed. Screenshot pixels are unmodified actual device output.
 
 The earlier finish verdict was **ship for the scored metadata-contrast and native-evidence fixes**, with no material regressions found in the changes inspected at that time. It was not whole-surface certification; the confirmed device actions and current bounded visual confirmation have their own stated scope. The obsolete static-comp font guess and fictional preview content remain outside design authority. Original provenance and review scope are retained in `docs/native-design-evidence.md` and `docs/validation.md`.
 
@@ -209,9 +221,11 @@ The home is a 1920 × 1080 reference composition, scaled by display width. The r
 
 The app shelf follows after a card-gap. It shows six dark app tiles at a time, with app-gap spacing; width is the integer result of `(inner - 5 × 18) / 6`. Every included app occurs once in this finite row, and Home returns it to its start. The sidebar's Library action opens the complete six-column Library · All apps grid later on the page. Hiding an app affects only this horizontal Your apps row; it stays in Library, search, and viewing history.
 
-Content shelves show four complete cards and a visible portion of the next. Their width is the integer result of `(inner - 4 × 20 - 46) / 4`; cards are 218 reference pixels tall. Section headers occupy 44 pixels, shelf wrappers allow 6 pixels above and below focus-scaled cards, and section gaps separate shelves.
+Content shelves default to four complete Standard cards and a visible portion of the next. Small shows five cards, Standard four, and Large three; their heights use `show-card-small`, `show-card`, and `show-card-large`. Width is the integer result of `(inner - count × 20 - 46) / count`. Sports event cards use the same size choices. Section headers occupy 44 reference pixels, shelf wrappers allow 6 pixels above and below focus-scaled cards, and section gaps separate shelves. Settings → Customize rows reorders or hides the content shelves and restores defaults; title limits of 20, 40, or 60 apply to Suggestions, Discover, Trending, and New releases.
 
-Current row order is Continue watching · Shows, Continue watching · Movies, Live sports, Suggestions, Discover, Trending, New releases, then Library · All apps and the footer. Personal rows and the hero use local playback evidence across providers. Published timestamps seed a frozen baseline; refreshing a provider timestamp alone no longer promotes a title. Optional supported media sessions or the manual I watched this most recently action update local recency. App metadata can be missing or ambiguous, so the hero is not guaranteed to represent all real viewing. The two compact cards remain discovery. Discovery rows can hold up to 60 titles; source labels preserve their distinction from personal history. These behaviors reflect the latest owner request and source, superseding earlier timestamp-only wording in the surface contract.
+Default content order is Continue watching · Shows, Continue watching · Movies, Watchlist, New episodes when there are release alerts, Live sports, Suggestions, Discover, Trending, and New releases, then Library · All apps and the footer. A saved row order or hidden-row preference overrides that default. Watchlist is present by default even when empty; New episodes is conditional. The two compact side-panel cards remain discovery.
+
+Personal rows and the hero use local playback evidence across providers. Published timestamps seed a frozen baseline; refreshing a provider timestamp alone does not promote a title. Optional supported media sessions or I watched this most recently update local recency. App metadata can be missing or ambiguous, so the hero is not guaranteed to represent all real viewing. Feed providers are balanced before row limits; user-selected Recommendation services or real shared activity establish service priority, with general/free feeds later and Stremio last and badged. Inferred priority is not verified login status. Discover uses additional titles outside the other discovery shelves while preserving the same card language.
 
 **A Cinema:** the shared full-width content frame and hidden overlay rail, a full-width 470-pixel hero, and 116-pixel app tiles.
 
@@ -226,6 +240,8 @@ SHOW cards use the native green-black scrim recorded in the sidecar: transparent
 App tiles receive a very light white overlay (`0x06` alpha) to separate dark artwork from the page. Focused compact cards receive a `0x0D` white overlay. Neither changes the app-logo identity.
 
 **The Quiet Focus Rule.** Resting surfaces stay still. Focus changes finish in 140 ms with `DecelerateInterpolator`; SHOW, APP, and SPORT cards scale to 1.025, while HERO and COMPACT remain at 1.0. When Android disables animators, the state changes immediately.
+
+Horizontal focus travel uses a separate finite 180 ms native `ValueAnimator` with `DecelerateInterpolator`; disabling animators makes the scroll immediate. Content refreshes replace changed rows and preserve unaffected cards, artwork, focus, and viewport where possible. This description remains source-derived; final functional validation and the passed user-approved one-hour soak checkpoint review are scoped in `docs/validation.md`.
 
 ## Shapes
 
@@ -251,7 +267,7 @@ COMPACT cards share the Discover panel: imagery occupies 52% of the row width, f
 
 Dark and recognizable, with the app mark as the visual focus. `AppIconPack` maps twelve unmodified Homarr Dashboard Icons PNGs to installed packages: Netflix, Prime Video, YouTube, Apple TV+, Crunchyroll, Stremio, Paramount+, Peacock, Pluto TV, Hulu, NordVPN, and HBO. It composes each onto `app-pack-ground` in a native bitmap, initially containing it within 72% of tile width and 68% of height. The original source files remain unchanged; the native composition is separate.
 
-`launcher/app/src/main/assets/app-icons/sources.json` records pinned source URLs, SHA-256 values, and `modified: false`; the adjacent `LICENSE.txt` carries the upstream Apache 2.0 license. Disney+ and HBO Max deliberately retain installed artwork because the candidate pack images did not fit. Disney+ logo sizing has been corrected in the current source. Other unmapped apps also use installed banners or icons. When a quiet banner's logo bounds can be detected, final card drawing fits the detected logo within 70% of card width and 58% of height. Photographic banners retain their framing. The guarded dark-banner fallback remains only for unpacked artwork; missing artwork falls back to the app label.
+`launcher/app/src/main/assets/app-icons/sources.json` records pinned source URLs, SHA-256 values, and modification flags; the adjacent `LICENSE.txt` carries the upstream license. Current source uses the attributed HBO light asset for its mapped packages and a native `ic_disney_dark` drawable for Disney+, composed onto the dark tile ground. Unmapped apps use installed banners or icons. When a quiet banner's logo bounds can be detected, final card drawing fits the detected logo within 70% of card width and 58% of height. Photographic banners retain their framing. The guarded dark-banner fallback remains only for unpacked artwork; missing artwork falls back to the app label.
 
 The app row has a real beginning and end. Right stays on the last app; Left from the first app reveals the overlay with Library focused. Other shelf starts reveal Shows. No row wraps or manufactures duplicate tiles. Hold OK opens the native arrangement menu and toggles Hide from Your apps row or Show in Your apps row. Library retains every discoverable app, including those hidden from the row; search, suggestions, and viewing history remain unaffected. Settings → Restore apps to Your apps row clears every row-only hide choice. If the row is empty, Choose apps for this row remains focusable. The full app label remains accessible.
 
@@ -260,6 +276,8 @@ The app row has a real beginning and end. Right stays on the last app; Left from
 SPORT cards use the common ground, outline, title, and metadata styling. An authentic broadcast logo is contained near the top; a network or league name substitutes when no logo is present. The upper label carries event status or timing. ESPN schedule labels and app destination labels are explicit.
 
 The section states **Opens RBTV+** when that is the selected destination. An optional accessibility helper can match both teams and kickoff time inside supported RBTV 3.0.320 layouts for NFL, college football, NBA, and Premier League. It starts only after an explicit game selection, runs for at most 30 seconds, and stops before the user's server choice. Unsupported or unmatched events use the app-opening/manual-selection path. This is bounded UI assistance, not a verified per-game deep link or a guarantee that the game, channel, server, or stream is available. Published provider events and labeled sports-app shortcuts retain their distinct presentation.
+
+Favorite teams are chosen through native league and checkbox dialogs. Live events rank first, then favorite-team relevance and kickoff time. Optional kickoff reminders use an existing tonal full-width button below the header, say Starting soon with the event title, and expose OK to dismiss. They appear for eligible upcoming favorite-team events while Home is open; no background or playback guarantee is implied.
 
 ### Navigation and utility controls
 
@@ -275,6 +293,24 @@ Search uses a native single-line `EditText` inside an Android `AlertDialog`; set
 
 Hold OK also offers I watched this most recently to correct local recency. Playback tracking is optional: its native settings explanation identifies Android Notification access, media-session metadata, local viewing records, and the limits of apps that omit title metadata. The tracker does not read or store notification text. Game handoff settings lead to Android Accessibility settings and explain the request-bounded RBTV helper. These additions use existing native dialogs rather than new visual components.
 
+### Watchlist, release alerts, and title details
+
+Watchlist reuses SHOW cards, size controls, metadata treatment, and the Saved by you source note. It sorts saved titles newest first and pages long lists in groups of 60 with Newer saved titles and Older saved titles actions. Its empty state says Save something for later and points to Hold OK → Add to Watchlist. Saving is local; confirmed later viewing may remove a saved title through the recorded local-playback policy, with an Undo entry. Saving does not assert availability.
+
+The long-OK native menu adds or removes a title from Watchlist. Series also offer Follow new episodes or Unfollow new episodes. The New episodes shelf appears only when release alerts exist and explicitly says Episode released · availability unconfirmed. Alerts require verified show matching and release metadata; individual alerts can be dismissed. Followed shows and their check status remain accessible through native Settings dialogs.
+
+About this title / source opens a scrollable native details dialog with source-supplied synopsis, real progress when available, and availability wording. Open / actions presents actual provider destinations; Save to Watchlist or Remove saved is a separate native action. The details body uses the existing regular system face at 24 reference pixels with native scrolling. Uncaptured dialog appearance remains source-derived.
+
+Settings exposes Undo with the latest action label for recorded changes, including app arrangement, Watchlist, following, title hiding, row preferences, and recommendation feedback. It is bounded session history, not a promise that every operation has a persistent undo. Not interested removes a title from recommendation shelves and adjusts genre preference within service priorities while leaving Watchlist and viewing history intact; Settings also resets feedback.
+
+### Offline status and updates
+
+Offline Home reuses cached content and app access. The header displays Offline with the cached-content age using the existing muted support text. Cached recommendation data expires after seven days; the status is informational and does not manufacture fresh viewing evidence.
+
+Settings → Updates opens a native scrollable screen with the same sage-black, ivory, muted text, quiet borders, and pale-sage focus. It has explicit Check now, Download, Install, Cancel, and Back actions, state-dependent availability, a polite accessibility status region, and plain release notes. It never opens automatically from Home. APK download is user initiated and Android confirms installation.
+
+This screen uses Android dp/sp rather than the home's 1920-wide reference units: buttons are 52 dp high with 8 dp corners, 1 dp card-edge outlines, 17 sp labels, and 12 dp gaps. Disabled button text is the source's muted `0xFF7C897E`. These are source-local native control measurements, not replacements for the home token scale. No screenshot of the updater or its permission dialog is included in the current evidence set.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -286,6 +322,7 @@ Hold OK also offers I watched this most recently to correct local recency. Playb
 - **Do** order personal history using local playback evidence and distinguish discovery, game-assistance, and app-opening paths.
 - **Do** keep the six-destination sidebar hidden by default in all three layouts and make Library open the complete app grid.
 - **Do** spell the brand prettTV, keep branding and credits at the footer, and retain A and B as alternatives to selected C.
+- **Do** reuse native cards and dialogs for personal shelves, preserve user row preferences, and distinguish saved titles, release alerts, and playable availability.
 
 ### Don't:
 
@@ -295,9 +332,6 @@ Hold OK also offers I watched this most recently to correct local recency. Playb
 - **Don't** turn finite app shelves into looping rows or repeat apps to imply more content.
 - **Don't** add idle animation, decorative drop shadows, or bright global accent surfaces to this quiet system.
 - **Don't** extend the confirmed hide/restore and Home checks into claims about untested playback tracking or RBTV matching.
-
-Discover row (0.1.3): directly below Suggestions and above Trending in A/B/C, using the existing 218 px content cards, horizontal scrolling and spacing. Up to 60 additional app/catalog titles, excluding titles in the other shelves; Stremio remains later and badged. It reuses fetched catalogs and existing artwork limits.
-
-Service-first feeds (0.1.4): preserve the same shelf geometry and visual language. Balance app providers before limiting each row; reserve cards from each service for both Suggestions and Discover. Prioritize services inferred from real shared progress or chosen in Settings → Recommendation services. Free/general feeds follow, with Stremio last. Use the native checkbox dialog and an explicit Use viewing activity reset; do not label inferred choices as verified logins. Trending combines provider-labeled popular channels and conservative same-title/same-type catalog matches without replacing the app's identity or launch intent.
+- **Don't** treat the passed functional gate and user-approved one-hour soak review as visual certification of uncaptured 0.2.0 dialogs, or as completion of the original two-hour run.
 
 App hiding (0.1.5): keep the current viewport and move focus to the next surviving app, or the previous app at the row's end. An empty Your apps row focuses its chooser. Hiding from Library retains the same Library tile. Arrangement actions apply after the menu dismisses; they do not send the user to the hero or restart content fetching. Explicit Home still resets to the top and the beginning of the app row.

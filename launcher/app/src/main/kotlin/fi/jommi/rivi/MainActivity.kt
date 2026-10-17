@@ -28,6 +28,17 @@ class MainActivity : Activity() {
     private lateinit var artwork: ArtworkLoader
     private val settings by lazy { getSharedPreferences("pretttv", MODE_PRIVATE) }
     private val playback by lazy { PlaybackHistory(this) }
+    private val personal by lazy { PersonalizationStore(this) }
+    private val rowSections=LinkedHashMap<String,LinearLayout>()
+    private val rowValues=HashMap<String,Any>()
+    private val boundPrograms=HashMap<String,Program?>()
+    private var renderedRowPreferences:RowPreferences?=null
+    private var homeStatus:TextView?=null
+    private var reminderBanner:TextView?=null
+    private var teamLoadingDialog:AlertDialog?=null
+    private val dismissedReminders=HashSet<String>()
+    private var watchlistOffset=0
+    private var nextRowFocus:String?=null
     private var lastContentFocus:View?=null
     private var sidebar:View?=null
     private var layout = HomeLayout.BALANCED
@@ -56,6 +67,7 @@ class MainActivity : Activity() {
     private val rowMotion=HashMap<HorizontalScrollView,ValueAnimator>()
     private data class Viewport(val focus:String?=null,val y:Int=0,val rows:Map<String,Int> = emptyMap(),val contentFocus:String?=null)
     private var pendingViewport:Viewport?=null
+    private var viewportRevision=0
     private val appCards = HashMap<String, MutableList<PrettTvCard>>()
     private data class CardArt(val card:PrettTvCard,val url:String,val w:Int,val h:Int,val request:ArtworkRequest=ArtworkRequest())
     private val cardArt=ArrayList<CardArt>()
@@ -90,8 +102,10 @@ class MainActivity : Activity() {
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bgColor))
         window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         contentRepo=ContentRepository(this) { value ->
+            val removed=personal.consumePlaybackHistory(value.watching)
             val filtered=withTitlePreferences(value)
-            if(filtered!=content) { content=filtered; render() }
+            if(filtered!=content || removed>0) { content=filtered; refreshHomeRows() }
+            if(removed>0)Toast.makeText(this,"Started watching · removed from Watchlist. Undo in Settings.",Toast.LENGTH_LONG).show()
         }
         render(reset=true)
         if(checkSelfPermission("android.permission.READ_TV_LISTINGS")!=android.content.pm.PackageManager.PERMISSION_GRANTED && !settings.getBoolean("tvPermissionAsked",false)) {
@@ -105,6 +119,9 @@ class MainActivity : Activity() {
     }
     override fun onStart() {
         super.onStart(); visible=true
+        val savedLayout=HomeLayout.parse(settings.getString("layout",null))
+        if(layout!=savedLayout) { layout=savedLayout; render(reset=true) }
+        AppUpdater.checkWhenHomeVisible(this)
         RbtvHandoffService.cancel()
         registerReceiver(tickReceiver,IntentFilter(Intent.ACTION_TIME_TICK).apply { addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED) })
         updateClock()
@@ -114,7 +131,9 @@ class MainActivity : Activity() {
         ui.postDelayed(retryArtwork,30_000)
     }
     override fun onStop() {
+        AppUpdater.cancelHomeCheck()
         visible=false; contentRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
+        teamLoadingDialog?.dismiss(); teamLoadingDialog=null
         stopRowMotion(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); ui.removeCallbacks(retryApps); cardArt.forEach { it.request.cancel() }
         (currentFocus?.tag as? String)?.let { settings.edit().putString("focus",it).apply() }
         super.onStop()
@@ -209,7 +228,7 @@ class MainActivity : Activity() {
         if(extra.isNotEmpty())addView(text(extra,19,muted),LinearLayout.LayoutParams(-2,px(44)))
     }
     private fun gap(n:Int) { page.addView(View(this),LinearLayout.LayoutParams(1,px(n))) }
-    private fun updateClock() { if(::clock.isInitialized)clock.text=android.text.format.DateFormat.getTimeFormat(this).format(Date()) }
+    private fun updateClock() { if(::clock.isInitialized)clock.text=android.text.format.DateFormat.getTimeFormat(this).format(Date()); updateHomeStatus() }
 
     private fun viewport(focus:String?=null)=Viewport(
         focus ?: (currentFocus?.tag as? String) ?: (lastContentFocus?.tag as? String) ?: settings.getString("focus",null),
@@ -221,7 +240,8 @@ class MainActivity : Activity() {
         if(reset)homeRequested=true
         val saved=if(homeRequested)Viewport() else restore ?: pendingViewport ?: viewport()
         pendingViewport=saved
-        artwork.cancel(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); focusRows.clear(); appCards.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
+        val revision=++viewportRevision
+        artwork.cancel(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); focusRows.clear(); appCards.clear(); rowSections.clear(); rowValues.clear(); boundPrograms.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
         root=ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER; clipChildren=false; clipToPadding=false }
         page=column().apply { setPadding(px(56),px(30),px(56),px(40)) }
         val stage=FrameLayout(this).apply { setBackgroundColor(bgColor); clipChildren=false; clipToPadding=false }
@@ -244,6 +264,7 @@ class MainActivity : Activity() {
             if(next?.tag is String && !(next.tag as String).startsWith("rail-")) { lastContentFocus=next; hideRail(restore=false) }
         }
         setContentView(stage); ready=true; updateClock()
+        updateHomeStatus()
         root.viewTreeObserver.addOnScrollChangedListener { scheduleArtworkScan() }
         val renderedRoot=root
         // Restore after measurement, when horizontal scroll bounds are known. A feed refresh
@@ -251,7 +272,7 @@ class MainActivity : Activity() {
         renderedRoot.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener {
             override fun onPreDraw():Boolean {
                 renderedRoot.viewTreeObserver.removeOnPreDrawListener(this)
-                if(root!==renderedRoot)return true
+                if(root!==renderedRoot || revision!=viewportRevision)return true
                 saved.rows.forEach { (key,x) -> horizontalRows[key]?.scrollTo(x,0) }
                 if(saved.focus?.startsWith("rail-")==true) {
                     sidebar?.visibility=View.VISIBLE; root.alpha=.45f
@@ -260,6 +281,7 @@ class MainActivity : Activity() {
                 val target=focusables[saved.focus] ?: firstCard ?: focusables.values.firstOrNull()
                 if(target?.requestFocus()!=true)firstCard?.requestFocus()
                 root.scrollTo(0,saved.y)
+                revealFocus(currentFocus)
                 pendingViewport=null; homeRequested=false
                 loadVisibleArt()
                 return true
@@ -269,10 +291,16 @@ class MainActivity : Activity() {
     private fun buildHeader() {
         val header=row()
         header.addView(text("Home",36,0xFFADC1B6.toInt(),true),LinearLayout.LayoutParams(px(260),px(56)))
-        header.addView(View(this),LinearLayout.LayoutParams(0,1,1f))
+        homeStatus=text("",19,muted).apply { gravity=Gravity.CENTER_VERTICAL or Gravity.END }
+        header.addView(homeStatus,LinearLayout.LayoutParams(0,px(56),1f))
         clock=text("",26,ink).apply { gravity=Gravity.CENTER_VERTICAL or Gravity.END }
         header.addView(clock,LinearLayout.LayoutParams(px(146),px(56)))
         page.addView(header,LinearLayout.LayoutParams(-1,px(56)))
+        reminderBanner=button("","kickoff-reminder") {
+            visibleReminders().firstOrNull()?.let { dismissedReminders.add(SportsPolicy.reminderKey(it)); contentRepo.acknowledgeReminder(it) }
+            updateHomeStatus()
+        }.apply { visibility=View.GONE; gravity=Gravity.CENTER_VERTICAL; maxLines=2 }
+        page.addView(reminderBanner,LinearLayout.LayoutParams(-1,px(70)))
     }
     private fun buildRail(stage:FrameLayout) {
         val rail=column().apply { setPadding(px(10),px(35),px(10),px(30)); background=round(0xFF15221B.toInt()) }
@@ -322,24 +350,141 @@ class MainActivity : Activity() {
     }
     private fun buildContentRows() {
         showAnchor=null
-        buildShowRow("Continue watching · Shows",content.visibleWatching.filter { it.mediaType=="series" },218,"watching-shows",4,"Shared by your apps","No shared shows yet\nOpen your apps to start watching")
-        gap(24)
-        buildShowRow("Continue watching · Movies",content.visibleWatching.filter { it.mediaType=="movie" },218,"watching-movies",4,"Shared by your apps","No shared movies yet\nOpen your apps to start watching")
-        gap(24)
-        buildLiveSports()
-        gap(24)
-        buildShowRow("Suggestions",content.suggestions,218,"discover",4,"Your services first")
-        gap(24)
-        buildShowRow("Discover",content.discover,218,"explore",4,"More from your services")
-        gap(24)
-        buildShowRow("Trending",content.trending,218,"trending",4,"Popular picks · Your services first")
-        gap(24)
-        buildShowRow("New releases",content.newReleases,218,"new",4,"Cinemeta · past 120 days")
+        val config=personal.rowPreferences(); renderedRowPreferences=config
+        for(key in config.ordered(rowLabels.keys).filter { it !in config.hidden && (it!="episodes" || content.newEpisodes.isNotEmpty()) }) {
+            val container=column(); page.addView(container); rowSections[key]=container
+            fillContentRow(key,container,config); rowValues[key]=rowValue(key)
+        }
+    }
+    private val rowLabels get()=linkedMapOf("watching-shows" to "Continue watching · Shows","watching-movies" to "Continue watching · Movies",
+        "watchlist" to "Watchlist","episodes" to "New episodes","sports" to "Live sports","discover" to "Suggestions","explore" to "Discover","trending" to "Trending","new" to "New releases")
+    private fun programsFor(key:String):List<Program> = when(key) {
+        "watching-shows"->content.visibleWatching.filter { it.mediaType=="series" }
+        "watching-movies"->content.visibleWatching.filter { it.mediaType=="movie" }
+        "watchlist"->personal.watchlist()
+        "episodes"->content.newEpisodes.map { it.asProgram() }
+        "discover"->content.suggestions
+        "explore"->content.discover
+        "trending"->content.trending
+        "new"->content.newReleases
+        else->emptyList()
+    }
+    private fun rowValue(key:String):Any = if(key=="sports")listOf(content.games,content.liveSports,sportsPackages) else programsFor(key)
+    private fun fillContentRow(key:String,container:LinearLayout,config:RowPreferences) {
+        val outer=page; page=container
+        try {
+            if(key=="sports")buildLiveSports() else {
+                val height=when(config.size(key)) { RowCardSize.SMALL->190; RowCardSize.STANDARD->218; RowCardSize.LARGE->270 }
+                val note=when(key) { "watchlist"->"Saved by you"; "episodes"->"Episode released · availability unconfirmed"; "new"->"Cinemeta · past 120 days"; "watching-shows","watching-movies"->"Shared by your apps"; else->"Your services first" }
+                val empty=when(key) { "watchlist"->"Save something for later\nHold OK on a title → Add to Watchlist"; "watching-shows"->"No shared shows yet\nOpen your apps to start watching"; "watching-movies"->"No shared movies yet\nOpen your apps to start watching"; else->"" }
+                val all=programsFor(key)
+                val titles=when {
+                    key=="watchlist"->{ watchlistOffset=watchlistOffset.coerceIn(0,((all.size-1).coerceAtLeast(0)/60)*60);all.drop(watchlistOffset).take(60) }
+                    key in setOf("discover","explore","trending","new")->all.take(config.limit(key))
+                    else->all
+                }
+                fun turnSavedPage(offset:Int) {
+                    watchlistOffset=offset; rowValues.remove("watchlist")
+                    nextRowFocus=personal.watchlist().getOrNull(offset)?.let { "watchlist-${ContentIdentity.key(it)}" }
+                    refreshHomeRows()
+                }
+                val previous=if(key=="watchlist" && watchlistOffset>0)"Newer saved titles" to { turnSavedPage(watchlistOffset-60) } else null
+                val next=if(key=="watchlist" && watchlistOffset+60<all.size)"Older saved titles" to { turnSavedPage(watchlistOffset+60) } else null
+                val sourceNote=if(key=="watchlist" && all.size>60)"${watchlistOffset+1}–${watchlistOffset+titles.size} of ${all.size} saved" else note
+                buildShowRow(rowLabels[key].orEmpty(),titles,height,key,config.size(key).visibleCards,sourceNote,empty,previous,next)
+            }
+            gap(24)
+        } finally { page=outer }
+    }
+    /** Feed refreshes replace only changed rows. Unchanged cards keep focus and artwork. */
+    private fun refreshHomeRows() {
+        if(!ready || isFinishing || isDestroyed)return
+        val config=personal.rowPreferences()
+        val keys=config.ordered(rowLabels.keys).filter { it !in config.hidden && (it!="episodes" || content.newEpisodes.isNotEmpty()) }
+        if(config!=renderedRowPreferences || keys!=rowSections.keys.toList()) { render(); return }
+        stopRowMotion()
+        val saved=if(nextRowFocus!=null)viewport(nextRowFocus) else pendingViewport ?: viewport()
+        nextRowFocus=null; pendingViewport=saved
+        val revision=++viewportRevision
+        val oldFocus=currentFocus
+        var replacement:String?=null
+        for((key,container) in rowSections) {
+            val value=rowValue(key)
+            if(rowValues[key]==value)continue
+            val oldCards=focusables.values.filter { descendant(it,container) }
+            val oldIndex=oldCards.indexOf(oldFocus)
+            forgetRow(container); container.removeAllViews()
+            fillContentRow(key,container,config); rowValues[key]=value
+            if(oldIndex>=0)replacement=focusables.values.filter { descendant(it,container) }.let { it.getOrNull(oldIndex.coerceAtMost(it.lastIndex))?.tag as? String }
+        }
+        if(layout!=HomeLayout.QUIET) {
+            updateBoundProgram("feature",content.feature,if(wide)1132 else inner,if(wide)486 else 470)
+            if(wide)content.suggestions.filter { it.id!=content.feature?.id }.let { next ->
+                for(i in 0..1)updateBoundProgram("next-$i",next.getOrNull(i),608,184)
+            }
+        }
+        updateHomeStatus()
+        showAnchor=rowSections.values.asSequence().flatMap { section -> focusables.values.asSequence().filter { descendant(it,section) } }.firstOrNull() ?: firstCard
+        if(saved.focus !in focusables && replacement!=null)pendingViewport=saved.copy(focus=replacement)
+        val renderedRoot=root
+        renderedRoot.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw():Boolean {
+                renderedRoot.viewTreeObserver.removeOnPreDrawListener(this)
+                if(root!==renderedRoot || revision!=viewportRevision)return true
+                saved.rows.forEach { (key,x)->horizontalRows[key]?.scrollTo(x,0) }
+                (focusables[saved.focus] ?: focusables[replacement] ?: firstCard)?.requestFocus()
+                renderedRoot.scrollTo(0,saved.y); revealFocus(currentFocus)
+                pendingViewport=null; homeRequested=false
+                loadVisibleArt(); return true
+            }
+        })
+    }
+    private fun descendant(view:View,parent:ViewGroup):Boolean {
+        var item:android.view.ViewParent?=view.parent
+        while(item!=null) { if(item===parent)return true; item=item.parent }
+        return false
+    }
+    /** Retain the old viewport where possible, but never strand focus after a row moves. */
+    private fun revealFocus(target:View?) {
+        if(target==null || !descendant(target,root))return
+        for(scroll in horizontalRows.values)if(descendant(target,scroll)) {
+            val bounds=Rect(0,0,target.width,target.height)
+            scroll.offsetDescendantRectToMyCoords(target,bounds)
+            val left=scroll.scrollX; val right=left+scroll.width
+            val dx=when { bounds.left<left->bounds.left-left; bounds.right>right->bounds.right-right; else->0 }
+            if(dx!=0)scroll.scrollBy(dx,0)
+        }
+        val bounds=Rect(0,0,target.width,target.height)
+        root.offsetDescendantRectToMyCoords(target,bounds)
+        val top=root.scrollY; val bottom=top+root.height
+        val dy=when { bounds.top<top->bounds.top-top; bounds.bottom>bottom->bounds.bottom-bottom; else->0 }
+        if(dy!=0)root.scrollBy(0,dy)
+    }
+    private fun forgetRow(container:ViewGroup) {
+        val removed=focusables.values.filter { descendant(it,container) }.toSet()
+        removed.forEach { view->focusables.remove(view.tag as? String); boundPrograms.remove(view.tag as? String); focusRows.remove(view) }
+        horizontalRows.entries.removeAll { descendant(it.value,container) }
+        cardArt.removeAll { if(it.card in removed) { it.request.cancel(); true } else false }
+        appCards.values.forEach { cards->cards.removeAll { it in removed } }
+        if(lastContentFocus in removed)lastContentFocus=null
+    }
+    private fun updateHomeStatus() {
+        val age=if(content.snapshotAt>0)android.text.format.DateUtils.getRelativeTimeSpanString(content.snapshotAt,System.currentTimeMillis(),60_000).toString() else ""
+        homeStatus?.text=if(content.offline)"Offline · ${if(age.isEmpty())"cached content" else "updated $age"}" else ""
+        val reminders=visibleReminders()
+        reminderBanner?.apply { text=reminders.firstOrNull()?.let { "Starting soon · ${it.title} · OK to dismiss" }.orEmpty(); visibility=if(reminders.isEmpty())View.GONE else View.VISIBLE }
+    }
+    private fun visibleReminders():List<SportsEvent> {
+        val now=System.currentTimeMillis()
+        return content.kickoffReminders.filter { SportsPolicy.reminderKey(it) !in dismissedReminders && it.fresh(now) && it.startsAt>now }
     }
     private fun buildLiveSports() {
+        val size=personal.rowPreferences().size("sports")
+        val count=size.visibleCards
+        val cardHeight=when(size) { RowCardSize.SMALL->190; RowCardSize.STANDARD->218; RowCardSize.LARGE->270 }
         if(content.games.isNotEmpty()) {
             page.addView(section("Live sports","Live & upcoming · ESPN · Opens ${sportsDestination()?.label ?: "sports apps"}"))
-            val strip=row(); val width=(inner-4*20-46)/4
+            val strip=row(); val width=(inner-count*20-46)/count
             val now=System.currentTimeMillis()
             content.games.forEachIndexed { i,event ->
                 val tile=PrettTvCard(this,scale,PrettTvCard.Mode.SPORT).apply {
@@ -349,20 +494,20 @@ class MainActivity : Activity() {
                     setOnClickListener { openSports(event) }
                     setOnLongClickListener { sportsInfo(event); true }
                 }
-                if(event.logo.isNotBlank())cardArt.add(CardArt(tile,event.logo,px(width),px(218)))
-                strip.addView(tile,LinearLayout.LayoutParams(px(width),px(218)).apply { if(i<content.games.lastIndex)rightMargin=px(20) })
+                if(event.logo.isNotBlank())cardArt.add(CardArt(tile,event.logo,px(width),px(cardHeight)))
+                strip.addView(tile,LinearLayout.LayoutParams(px(width),px(cardHeight)).apply { if(i<content.games.lastIndex)rightMargin=px(20) })
             }
             constrainRow(strip)
             val scroll=HorizontalScrollView(this).apply {
                 isFocusable=false; isHorizontalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER
-                clipChildren=true; clipToPadding=true; setPadding(0,px(6),0,px(6)); addView(strip,ViewGroup.LayoutParams(-2,px(218)))
+                clipChildren=true; clipToPadding=true; setPadding(0,px(6),0,px(6)); addView(strip,ViewGroup.LayoutParams(-2,px(cardHeight)))
             }
-            page.addView(scroll,LinearLayout.LayoutParams(-1,px(230)))
+            page.addView(scroll,LinearLayout.LayoutParams(-1,px(cardHeight+12)))
             horizontalRows["sports-games"]=scroll
             gap(12)
         }
         if(content.liveSports.isNotEmpty()) {
-            buildShowRow(if(content.games.isEmpty())"Live sports" else "From your sports apps",content.liveSports,218,"live-events",4,"Live events shared by apps")
+            buildShowRow(if(content.games.isEmpty())"Live sports" else "From your sports apps",content.liveSports,cardHeight,"live-events",count,"Live events shared by apps")
             gap(12)
         } else if(content.games.isEmpty())page.addView(section("Live sports","Open a sports app"))
         val chosen=orderedApps().filter { it.packageName in sportsPackages }
@@ -416,6 +561,19 @@ class MainActivity : Activity() {
     private fun programCard(p:Program?,mode:PrettTvCard.Mode,key:String,w:Int,h:Int):PrettTvCard {
         val card=PrettTvCard(this,scale,mode)
         register(card,key)
+        bindProgram(card,p,w,h)
+        if(showAnchor==null)showAnchor=card
+        return card
+    }
+    private fun updateBoundProgram(key:String,p:Program?,w:Int,h:Int) {
+        if(boundPrograms[key]==p)return
+        (focusables[key] as? PrettTvCard)?.let { bindProgram(it,p,w,h) }
+    }
+    private fun bindProgram(card:PrettTvCard,p:Program?,w:Int,h:Int) {
+        val old=boundPrograms[card.tag as? String]
+        if(old?.art!=p?.art)card.art=null
+        cardArt.removeAll { if(it.card===card) { it.request.cancel(); true } else false }
+        boundPrograms[card.tag as String]=p
         card.title=p?.title ?: if(discovery)"Find your next favorite" else "Make yourself at home"
         card.detail=p?.detail ?: if(discovery)"Browse your streaming apps" else "Your apps, one quiet place"
         card.summary=p?.summary.orEmpty()
@@ -426,14 +584,14 @@ class MainActivity : Activity() {
         card.setOnClickListener { if(p==null)appAnchor?.requestFocus() else openProgram(p) }
         card.setOnLongClickListener { if(p!=null)programInfo(p) else menu(); true }
         if(p!=null && p.art.isNotBlank())cardArt.add(CardArt(card,p.art,px(w),px(h)))
-        if(showAnchor==null)showAnchor=card
-        return card
+        card.invalidate()
     }
-    private fun buildShowRow(title:String,programs:List<Program>,height:Int,key:String,count:Int,note:String="",emptyText:String="") {
+    private fun buildShowRow(title:String,programs:List<Program>,height:Int,key:String,count:Int,note:String="",emptyText:String="",previous:Pair<String,()->Unit>?=null,next:Pair<String,()->Unit>?=null) {
         page.addView(section(title,if(programs.isNotEmpty())"${programs.size} titles · $note" else note))
         val strip=row()
         // Leave a visible slice of the next card to make horizontal scrolling discoverable.
         val width=(inner-count*20-46)/count
+        previous?.let { (label,action)->strip.addView(button(label,"$key-page-previous",action).apply { maxLines=2 },LinearLayout.LayoutParams(px(width),px(height)).apply { rightMargin=px(20) }) }
         if(programs.isEmpty()) {
             val needsPermission=key.startsWith("watching") && checkSelfPermission("android.permission.READ_TV_LISTINGS")!=android.content.pm.PackageManager.PERMISSION_GRANTED
             val label=if(needsPermission)"Allow TV listings to see your progress\nPress OK to enable" else emptyText.ifBlank { if(discovery)"No titles available yet\nOpen apps or refresh from Settings" else "Discovery is off\nEnable discovery in Settings" }
@@ -449,8 +607,10 @@ class MainActivity : Activity() {
             if(showAnchor==null)showAnchor=empty
             strip.addView(empty,LinearLayout.LayoutParams(-1,px(height)))
         } else programs.forEachIndexed { i,p ->
-            strip.addView(programCard(p,PrettTvCard.Mode.SHOW,"$key-${p.id}",width,height),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<programs.lastIndex)rightMargin=px(20) })
+            val identity=if(key=="watchlist")ContentIdentity.key(p) else p.id
+            strip.addView(programCard(p,PrettTvCard.Mode.SHOW,"$key-$identity",width,height),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<programs.lastIndex)rightMargin=px(20) })
         }
+        next?.let { (label,action)->strip.addView(button(label,"$key-page-next",action).apply { maxLines=2 },LinearLayout.LayoutParams(px(width),px(height)).apply { leftMargin=px(20) }) }
         if(programs.isEmpty())page.addView(strip) else {
             val scroll=HorizontalScrollView(this).apply {
                 isHorizontalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER
@@ -478,6 +638,8 @@ class MainActivity : Activity() {
             if(item.card.getGlobalVisibleRect(rect) && rect.width()>px(20) && rect.height()>px(20)) {
                 if(item.card.art==null && item.request.begin(SystemClock.uptimeMillis())) {
                     artwork.load(item.url,item.w,item.h) { bitmap ->
+                        // A replaced row/hero can still have a decoding request in flight.
+                        if(cardArt.none { it===item })return@load
                         item.request.complete(bitmap!=null,SystemClock.uptimeMillis())
                         if(visible && item.card.getGlobalVisibleRect(Rect()))item.card.art=bitmap
                         if(bitmap==null && visible) { ui.removeCallbacks(retryArtwork); ui.postDelayed(retryArtwork,30_000) }
@@ -583,7 +745,9 @@ class MainActivity : Activity() {
     private fun launch(e:AppEntry) { prefs.touchRecent(e.key); prefs.lastFocus=e.key; safeStart(repo.launchIntent(e),e.label) }
     private fun safeStart(i:Intent,label:String):Boolean = try { startActivity(i); true } catch(_:Exception) { Toast.makeText(this,"Could not open $label",Toast.LENGTH_SHORT).show(); false }
     private fun openInputs() { inputs?.let { safeStart(it.intent,"Inputs") } ?: repo.settingsIntent()?.let { safeStart(it,"TV settings") } }
-    private fun openProgram(p:Program) {
+    private fun actionProgram(p:Program)=content.newEpisodes.firstOrNull { it.asProgram().id==p.id }?.program ?: p
+    private fun openProgram(selected:Program) {
+        val p=actionProgram(selected)
         if(p.catalog && p.packageName=="com.stremio.one" && p.detailUri.matches(Regex("stremio:///detail/(movie|series)/tt[0-9]{5,12}"))) {
             val target=Intent(Intent.ACTION_VIEW,Uri.parse(p.detailUri)).setPackage(p.packageName)
             if(packageManager.resolveActivity(target,0)!=null && safeStart(target,"Stremio"))return
@@ -597,17 +761,23 @@ class MainActivity : Activity() {
                 if(packageManager.resolveActivity(target,0)!=null && safeStart(target,p.app))return
             } catch(_:Exception) { }
         }
-        apps.firstOrNull { it.packageName==p.packageName }?.let { launch(it); if(p.catalog)Toast.makeText(this,"Find ${p.title} in ${p.app}",Toast.LENGTH_LONG).show() }
+        val installed=apps.firstOrNull { it.packageName==p.packageName }
+        if(installed!=null) { launch(installed); Toast.makeText(this,"Find ${p.title} in ${p.app}",Toast.LENGTH_LONG).show() }
+        else Toast.makeText(this,"${p.app} is unavailable. Your saved title is kept.",Toast.LENGTH_LONG).show()
     }
     private fun dialog(title:String,items:List<Pair<String,()->Unit>>) {
-        AlertDialog.Builder(this).setTitle(title).setItems(items.map { it.first }.toTypedArray()) { _,i -> items[i].second() }.setNegativeButton("Close",null).show()
+        var action:(()->Unit)?=null
+        val panel=AlertDialog.Builder(this).setTitle(title).setItems(items.map { it.first }.toTypedArray()) { _,i -> action=items[i].second }.setNegativeButton("Close",null).create()
+        panel.setOnDismissListener { if(!isFinishing && !isDestroyed)action?.invoke() }; panel.show()
     }
     private fun appMenu(e:AppEntry,origin:String) {
         val place=viewport(origin)
         val before=orderedApps().filter { it.key !in prefs.hidden }.map { it.key }
         val favs=prefs.favourites.toMutableList(); val index=favs.indexOf(e.key)
+        val beforeFavourites=prefs.favourites.toList(); val beforeHidden=prefs.hidden.toSet()
         val items=ArrayList<Pair<String,()->Unit>>()
         fun changed() {
+            personal.recordUndo("Arrange ${e.label}") { prefs.favourites=beforeFavourites; prefs.hidden=beforeHidden; render(restore=place) }
             val target=if(origin.startsWith("favorite-")) {
                 val after=orderedApps().filter { it.key !in prefs.hidden }.map { it.key }
                 HomeModel.focusAfterChange(e.key,before,after)?.let { "favorite-$it" } ?: "empty-app-row"
@@ -633,6 +803,18 @@ class MainActivity : Activity() {
     }
     private fun menu() {
         val items=ArrayList<Pair<String,()->Unit>>()
+        personal.undoLabel()?.let { label->items+="Undo · $label" to {
+            val undone=personal.undo(); content=withTitlePreferences(content); refreshHomeRows(); contentRepo.refresh()
+            Toast.makeText(this,if(undone==null)"Nothing to undo" else "Undone · $undone",Toast.LENGTH_SHORT).show()
+        } }
+        items+="Customize rows" to { customizeRows() }
+        items+="Followed shows" to { followedShows() }
+        items+="Favorite teams" to { chooseFavoriteTeams() }
+        items+="Kickoff reminders: ${if(personal.kickoffRemindersEnabled())"On" else "Off"}" to {
+            personal.setKickoffRemindersEnabled(!personal.kickoffRemindersEnabled()); contentRepo.refresh()
+        }
+        items+="Recommendation feedback" to { feedbackSettings() }
+        items+="Updates" to { safeStart(Intent(this,UpdateActivity::class.java),"Updates") }
         items+="Choose apps one by one" to { reviewApps() }
         items+="Live sports apps" to { chooseSportsApps() }
         items+="Recommendation services" to { chooseRecommendationServices() }
@@ -660,6 +842,70 @@ class MainActivity : Activity() {
         }
         items+="Return to stock Google TV" to { safeStart(Intent(this,StockRecoveryActivity::class.java),"Stock recovery") }
         dialog("prettTV",items)
+    }
+    private fun customizeRows() {
+        val config=personal.rowPreferences()
+        val choices=config.copy(hidden=emptySet()).ordered(rowLabels.keys).map { key->
+            "${rowLabels[key]} · ${if(key in config.hidden)"Hidden" else config.size(key).label}" to { customizeRow(key) }
+        }.toMutableList()
+        choices+="Restore default rows" to { personal.setRowPreferences(RowPreferences()); refreshHomeRows() }
+        dialog("Customize rows",choices)
+    }
+    private fun customizeRow(key:String) {
+        val config=personal.rowPreferences(); val order=config.copy(hidden=emptySet()).ordered(rowLabels.keys).toMutableList(); val index=order.indexOf(key)
+        fun save(value:RowPreferences) { personal.setRowPreferences(value); refreshHomeRows(); customizeRows() }
+        val choices=arrayListOf<Pair<String,()->Unit>>(
+            (if(key in config.hidden)"Show row" else "Hide row") to { save(config.copy(hidden=if(key in config.hidden)config.hidden-key else config.hidden+key)) },
+            "Card size · ${config.size(key).label}" to {
+                dialog("Card size",RowCardSize.entries.map { size->size.label to { save(config.copy(sizes=config.sizes+(key to size))) } })
+            }
+        )
+        if(index>0)choices+="Move up" to { java.util.Collections.swap(order,index,index-1); save(config.copy(order=order)) }
+        if(index<order.lastIndex)choices+="Move down" to { java.util.Collections.swap(order,index,index+1); save(config.copy(order=order)) }
+        if(key in setOf("discover","explore","trending","new"))choices+="Title limit · ${config.limit(key)}" to {
+            dialog("Titles in ${rowLabels[key]}",listOf(20,40,60).map { limit->"$limit titles" to { save(config.copy(limits=config.limits+(key to limit))) } })
+        }
+        dialog(rowLabels[key].orEmpty(),choices)
+    }
+    private fun followedShows() {
+        val shows=personal.followedShows()
+        if(shows.isEmpty()) {
+            AlertDialog.Builder(this).setTitle("Follow new episodes").setMessage("Hold OK on a show and choose Follow new episodes. prettTV checks verified release metadata while Home is open. An episode release does not guarantee availability in your streaming app.").setPositiveButton("Close",null).show(); return
+        }
+        val choices=shows.map { followed->followed.program.title to {
+            dialog(followed.program.title,listOf("Show details" to { programDetails(followed.program) },"Unfollow" to { personal.unfollow(followed.key); contentRepo.refresh() }))
+        } }.toMutableList()
+        choices+="Episode check status" to { AlertDialog.Builder(this).setTitle("New episodes").setMessage(content.episodeStatus.ifBlank { "Release metadata has not been checked yet." }).setPositiveButton("Close",null).show() }
+        dialog("Followed shows",choices)
+    }
+    private fun chooseFavoriteTeams() {
+        teamLoadingDialog?.dismiss()
+        val loading=AlertDialog.Builder(this).setTitle("Favorite teams").setMessage("Loading available teams…").setNegativeButton("Cancel",null).show()
+        teamLoadingDialog=loading
+        loading.setOnDismissListener { if(teamLoadingDialog===loading)teamLoadingDialog=null }
+        contentRepo.requestTeams { teams->
+            if(!visible || isFinishing || isDestroyed || !loading.isShowing)return@requestTeams
+            loading.dismiss()
+            if(teams.isEmpty()) {
+                AlertDialog.Builder(this).setTitle("Teams unavailable").setMessage("Check your connection and try again. Existing favorites are kept.").setPositiveButton("Close",null).show(); return@requestTeams
+            }
+            val groups=teams.groupBy { it.league }.toSortedMap()
+            dialog("Choose a league",groups.map { (league,entries)->league to { chooseLeagueTeams(league,entries) } })
+        }
+    }
+    private fun chooseLeagueTeams(league:String,teams:List<SportsTeam>) {
+        val ordered=teams.sortedBy { it.name }; val selected=personal.favoriteTeams().toMutableSet()
+        AlertDialog.Builder(this).setTitle("$league · Favorite teams")
+            .setMultiChoiceItems(ordered.map { it.name }.toTypedArray(),ordered.map { it.id in selected }.toBooleanArray()) { _,index,on->
+                if(on)selected.add(ordered[index].id) else selected.remove(ordered[index].id)
+            }.setPositiveButton("Save") { _,_->personal.setFavoriteTeams(selected); contentRepo.refresh() }
+            .setNegativeButton("Cancel",null).show()
+    }
+    private fun feedbackSettings() {
+        AlertDialog.Builder(this).setTitle("Recommendation feedback")
+            .setMessage("Not interested hides that title from recommendations and gently lowers similar genres within your service priorities. Your Watchlist and viewing history stay intact. Undo the latest change in Settings, or reset all recommendation feedback here.")
+            .setPositiveButton("Reset feedback") { _,_->personal.resetRecommendationFeedback();contentRepo.refresh() }
+            .setNegativeButton("Close",null).show()
     }
     private fun reviewApps(index:Int=0) {
         val choices=apps.sortedBy { it.label.lowercase(java.util.Locale.ROOT) }
@@ -709,19 +955,35 @@ class MainActivity : Activity() {
             if(query.isEmpty())return@setPositiveButton
             val choices=ArrayList<Pair<String,()->Unit>>()
             orderedApps().filter { it.label.contains(query,true) }.forEach { e -> choices+=e.label to { launch(e) } }
-            (content.watching+content.suggestions+content.trending+content.newReleases).filter { it.title.contains(query,true) }.distinctBy { it.id }.forEach { p -> choices+="${p.title} · ${p.app}" to { openProgram(p) } }
+            (content.watching+personal.watchlist()+content.suggestions+content.discover+content.trending+content.newReleases).filter { it.title.contains(query,true) }.distinctBy { ContentIdentity.key(it) }.forEach { p -> choices+="${p.title} · ${p.app}" to { openProgram(p) } }
             if(choices.isEmpty())Toast.makeText(this,"No matching apps or loaded shows",Toast.LENGTH_LONG).show() else dialog("Results",choices)
         }.setNegativeButton("Cancel",null).show()
     }
-    private fun programInfo(p:Program) {
-        dialog(p.title,listOf(
+    private fun programInfo(selected:Program) {
+        val p=actionProgram(selected)
+        val items=arrayListOf<Pair<String,()->Unit>>(
             "Open ${p.app}" to { openProgram(p) },
+            (if(personal.isSaved(p))"Remove from Watchlist" else "Add to Watchlist") to {
+                val changed=if(personal.isSaved(p))personal.removeSaved(p) else personal.save(p)
+                refreshHomeRows(); Toast.makeText(this,if(changed)"Watchlist updated · Undo in Settings" else personal.lastError ?: "Already saved",Toast.LENGTH_SHORT).show()
+            },
             "I watched this most recently" to { playback.confirm(p); startContent(); Toast.makeText(this,"Recent viewing corrected on this TV",Toast.LENGTH_SHORT).show() },
             "Hide from large hero" to { hideTitle(p,hero=true,watching=false) },
             "Hide from Continue watching" to { hideTitle(p,hero=false,watching=true) },
             "Hide from both" to { hideTitle(p,hero=true,watching=true) },
-            "About this title / source" to { programDetails(p) }
-        ))
+            "About this title / source" to { programDetails(selected) }
+        )
+        if(p.mediaType=="series")items.add(2,(if(personal.isFollowed(p))"Unfollow new episodes" else "Follow new episodes") to {
+            val changed=if(personal.isFollowed(p))personal.unfollow(p) else personal.follow(p)
+            contentRepo.refresh(); Toast.makeText(this,if(changed)"Following updated. Alerts require a verified show match." else personal.lastError ?: "Already followed",Toast.LENGTH_LONG).show()
+        })
+        if((content.suggestions+content.discover+content.trending+content.newReleases).any { ContentIdentity.key(it)==ContentIdentity.key(p) })items+="Not interested" to {
+            personal.dismissRecommendation(p); contentRepo.refresh()
+            content=content.copy(suggestions=content.suggestions.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) },discover=content.discover.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) },trending=content.trending.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) },newReleases=content.newReleases.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) })
+            refreshHomeRows(); Toast.makeText(this,"Recommendation dismissed · Undo in Settings",Toast.LENGTH_SHORT).show()
+        }
+        content.newEpisodes.firstOrNull { it.asProgram().id==selected.id }?.let { episode->items+="Dismiss episode alert" to { contentRepo.dismissEpisode(episode.id) } }
+        dialog(p.title,items)
     }
     private fun withTitlePreferences(value:HomeContent)=value.copy(
         hiddenHeroTitles=settings.getStringSet("hiddenHeroTitles",emptySet()).orEmpty().toSet(),
@@ -733,10 +995,15 @@ class MainActivity : Activity() {
             .setNegativeButton("Close",null).show()
     }
     private fun hideTitle(p:Program,hero:Boolean,watching:Boolean) {
+        val oldHero=content.hiddenHeroTitles.toSet(); val oldWatching=content.hiddenWatchingTitles.toSet()
+        val oldLabel=settings.getString("hiddenTitleLabel:${p.titleKey}",null)
+        personal.recordUndo("Hide ${p.title}") {
+            settings.edit().putStringSet("hiddenHeroTitles",oldHero).putStringSet("hiddenWatchingTitles",oldWatching).putString("hiddenTitleLabel:${p.titleKey}",oldLabel).apply()
+        }
         val edit=settings.edit().putString("hiddenTitleLabel:${p.titleKey}",p.title)
         if(hero)edit.putStringSet("hiddenHeroTitles",content.hiddenHeroTitles+p.titleKey)
         if(watching)edit.putStringSet("hiddenWatchingTitles",content.hiddenWatchingTitles+p.titleKey)
-        edit.apply(); content=withTitlePreferences(content); render()
+        edit.apply(); content=withTitlePreferences(content); refreshHomeRows()
         Toast.makeText(this,"Hidden in prettTV. Restore from Settings → Hidden titles.",Toast.LENGTH_LONG).show()
     }
     private fun hiddenTitles() {
@@ -754,11 +1021,31 @@ class MainActivity : Activity() {
         })
     }
     private fun programDetails(p:Program) {
-        val detail="${p.title}\n${p.detail}\n\n"+if(p.catalog)"General discovery from ${p.sourceName}. Availability depends on your service, subscription and region. Catalog listings do not guarantee a playable source.\n\n${p.sourceUrl}" else "Published by ${p.app} through Android TV."
-        AlertDialog.Builder(this).setTitle("About this show").setMessage(detail).setPositiveButton("Open ${p.app}") { _,_ -> openProgram(p) }.setNeutralButton("Source") { _,_ -> if(p.sourceUrl.isNotBlank())safeStart(Intent(Intent.ACTION_VIEW,Uri.parse(p.sourceUrl)),"TVmaze") }.setNegativeButton("Close",null).show()
+        val original=actionProgram(p)
+        val progress=if(p.duration>0)"Progress: ${(p.progress*100).toInt()}% · ${(p.duration-p.position).coerceAtLeast(0)/60_000} min remaining\n" else ""
+        val detail=listOf(p.detail,progress,p.summary.ifBlank { "No synopsis supplied by this source." },
+            if(p.catalog)"${p.sourceName} catalog. Streaming availability is unconfirmed." else "Shared by ${p.app}. Availability depends on that app and your subscription.").joinToString("\n\n")
+        val body=text(detail,24).apply { maxLines=Int.MAX_VALUE; ellipsize=null; setPadding(px(30),px(20),px(30),px(20)) }
+        val scroll=ScrollView(this).apply { isFocusable=true; addView(body) }
+        AlertDialog.Builder(this).setTitle(p.title).setView(scroll)
+            .setPositiveButton("Open / actions") { _,_->titleDestinations(p) }
+            .setNeutralButton(if(personal.isSaved(original))"Remove saved" else "Save to Watchlist") { _,_->
+                val changed=if(personal.isSaved(original))personal.removeSaved(original) else personal.save(original)
+                if(!changed && personal.lastError!=null)Toast.makeText(this,personal.lastError,Toast.LENGTH_LONG).show()
+                refreshHomeRows()
+            }
+            .setNegativeButton("Close",null).show()
+    }
+    private fun titleDestinations(selected:Program) {
+        val p=actionProgram(selected)
+        val matches=(listOf(p)+content.watching+personal.watchlist()+content.suggestions+content.discover+content.trending+content.newReleases)
+            .filter { ContentIdentity.key(it)==ContentIdentity.key(p) }.distinctBy { it.packageName }
+        val choices=matches.map { item->"Open ${item.app}" to { openProgram(item) } }.toMutableList()
+        if(selected.sourceUrl.startsWith("https://"))choices+="View source" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse(selected.sourceUrl)),"Source") }
+        dialog(p.title,choices)
     }
     private fun credits() {
-        dialog("prettTV 0.1.10",listOf(
+        dialog("prettTV 0.2.0",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },
@@ -766,7 +1053,7 @@ class MainActivity : Activity() {
             "Cinemeta · popular and recent titles" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/Stremio/stremio-official-addons")),"Cinemeta") },
             "ESPN · sports schedules and broadcasts" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.espn.com/")),"ESPN") },
             "Project source · github.com/draco1738/prettTV" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/draco1738/prettTV")),"Project source") },
-            "Privacy" to { AlertDialog.Builder(this).setTitle("Your home, your choice").setMessage("prettTV has no analytics, ad identifiers or registration. App arrangement, viewing records and launch recency stay on this TV. Optional helpers use active media-session metadata (Notification access) or navigate RBTV during a game request (Accessibility access). No notification text is read or retained. Helpers can be turned off in Android settings.\n\nWith discovery on, prettTV requests public catalogs and artwork from TVmaze, Stremio Cinemeta, ESPN scoreboards and their image services. Those servers receive your IP address and requested catalog/show/league IDs. Published TV rows can also link to provider artwork. Switch discovery off to stop public catalog requests.\n\nCurrently watching uses progress that apps publish to Android TV. prettTV cannot inspect their login status or credentials. Continue watching and the hero use locally confirmed viewing first, with shared timestamps as an initial baseline. Timestamp refreshes alone do not prove playback. Supported media sessions can update local recency; otherwise hold OK on a title to correct it. Recommendations use shared viewing activity to prioritize services, without assuming an app launch proves a login. Choose your signed-in apps in Recommendation services to override this inference. Providers are balanced before row limits; general/free feeds follow your services and Stremio stays last with a purple S badge. prettTV does not remove ads inside other apps.").setPositiveButton("Close",null).show() }
+            "Privacy" to { AlertDialog.Builder(this).setTitle("Your home, your choice").setMessage("prettTV has no analytics, ad identifiers or registration. App arrangement, viewing records and launch recency stay on this TV. Optional helpers use active media-session metadata (Notification access) or navigate RBTV during a game request (Accessibility access). No notification text is read or retained. Helpers can be turned off in Android settings.\n\nWith discovery on, prettTV requests public catalogs and artwork from TVmaze, Stremio Cinemeta, ESPN scoreboards and their image services. Those servers receive your IP address and requested catalog/show/league IDs. Published TV rows can also link to provider artwork. Switch discovery off to stop general catalog requests. Shows you explicitly follow can still request episode data from TVmaze; unfollow them to stop those checks. Watchlist, followed shows, favorite teams and cached Home data stay on this TV. Cached recommendations expire after seven days. Update checks contact the official prettTV GitHub repository; APK downloads require your action and installation requires Android confirmation.\n\nCurrently watching uses progress that apps publish to Android TV. prettTV cannot inspect their login status or credentials. Continue watching and the hero use locally confirmed viewing first, with shared timestamps as an initial baseline. Timestamp refreshes alone do not prove playback. Supported media sessions can update local recency; otherwise hold OK on a title to correct it. Recommendations use shared viewing activity to prioritize services, without assuming an app launch proves a login. Choose your signed-in apps in Recommendation services to override this inference. Providers are balanced before row limits; general/free feeds follow your services and Stremio stays last with a purple S badge. prettTV does not remove ads inside other apps.").setPositiveButton("Close",null).show() }
         ))
     }
     private fun readLicense(title:String,file:String) {
@@ -787,11 +1074,11 @@ class MainActivity : Activity() {
             out.println("PRETTTV_RECOVERY configured=${try { store.plan()!=null } catch(_:Exception) { false }} paused=${StockRecoveryStore.paused(this)} phase=${StockRecoverySession.state.phase}")
             out.println(store.status()); return
         }
-        val stores=mapOf("home" to settings,"apps" to getSharedPreferences("rivi",MODE_PRIVATE),"playback" to getSharedPreferences("prett-playback",MODE_PRIVATE))
+        val stores=mapOf("home" to settings,"apps" to getSharedPreferences("rivi",MODE_PRIVATE),"playback" to getSharedPreferences("prett-playback",MODE_PRIVATE),PersonalizationStore.PREFS_NAME to getSharedPreferences(PersonalizationStore.PREFS_NAME,MODE_PRIVATE))
         if(args?.contains("--export-local-settings")==true) { out.println("PRETTTV_SETTINGS="+LocalSettingsTransfer.export(stores)); return }
         val restore=args?.indexOf("--restore-local-settings") ?: -1
         if(restore>=0) {
-            try { LocalSettingsTransfer.restore(args!![restore+1],stores); layout=HomeLayout.parse(settings.getString("layout",null)); content=HomeContent(); render(reset=true); reload(); out.println("PRETTTV_SETTINGS_RESTORED") }
+            try { LocalSettingsTransfer.restore(args!![restore+1],stores); personal.clearUndoHistory(); layout=HomeLayout.parse(settings.getString("layout",null)); content=HomeContent(); render(reset=true); reload(); out.println("PRETTTV_SETTINGS_RESTORED") }
             catch(_:Exception) { out.println("PRETTTV_SETTINGS_RESTORE_FAILED") }
             return
         }
@@ -800,7 +1087,11 @@ class MainActivity : Activity() {
         out.println("prettTV focus=${currentFocus?.tag} visible=$visible artwork=${appCards.values.flatten().count { it.art!=null }}")
         out.println("prettTV contentArtwork=${cardArt.count { it.card.art!=null }}")
         out.println("prettTV appRefreshError=$appLoadError pending=$dirty")
-        if(args?.contains("--viewport-diagnostics")==true)out.println("VIEWPORT y=${root.scrollY} rows="+horizontalRows.mapValues { it.value.scrollX })
+        out.println("prettTV watchlist=${personal.watchlist().size} episodes=${content.newEpisodes.size} followed=${personal.followedShows().size} offline=${content.offline} rows=${rowSections.keys.joinToString(",")}")
+        if(args?.contains("--viewport-diagnostics")==true) {
+            out.println("VIEWPORT y=${root.scrollY} rows="+horizontalRows.mapValues { it.value.scrollX })
+            out.println("VIEWPORT_CONTENT signature=${listOf(rowValues,apps.map { it.key },content.feature).hashCode()}")
+        }
         if(args?.contains("--feed-diagnostics")==true)out.println(contentRepo.diagnostics())
         if(args?.contains("--content-diagnostics")==true)for(p in content.watching)
             out.println("WATCH ${p.packageName} | ${p.title} | ${p.id} | engagement=${p.engagedAt} | position=${p.position} | duration=${p.duration}")

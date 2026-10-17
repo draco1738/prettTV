@@ -1,0 +1,4 @@
+<resources>
+    <string name="update_download_progress">%1$s %2$d%%</string>
+    <string name="update_permissions_unavailable">This TV could not open installation permissions. You can update using the installer bundle instead.</string>
+</resources>

@@ -8,8 +8,9 @@ Use these checks to reproduce build validation, artwork failures and remote navi
 |---|---|---|
 | [Build checks](#build-checks) | Unit tests, lint and test APKs | Computer only |
 | [Artwork fault tests](#artwork-fault-tests) | Decode failures, queue completion, cancellation and cache recovery | Authorized ADB device |
-| [Navigation and lifecycle](#navigation-and-lifecycle) | Focus, process continuity, cold Home and stop/return | Idle TV on C Balanced |
-| [Scrolling comparison](#comparing-scrolling-changes) | Frame statistics and row-navigation regression | Idle TV on C Balanced |
+| [Navigation and lifecycle](#navigation-and-lifecycle) | Focus, process continuity, cold Home and stop/return | Idle TV on the selected layout |
+| [Scrolling comparison](#comparing-scrolling-changes) | Frame statistics and row-navigation regression | Idle TV on the selected layout |
+| [Final feature-release gate](#final-feature-release-gate) | All-layout stress, lifecycle, failure checks and a one-hour soak | Idle TV and isolated fixtures |
 
 Passing these bounded tests does not establish indefinite uptime or a sustained frame rate. Keep raw reports local: they can contain content identities and installed-app names.
 
@@ -32,7 +33,7 @@ From the repository root, with PowerShell 7 and an authorized ADB device:
 ./tests/android-fault-tests.ps1 -Tv '<serial>' -OutputDirectory '<local-results-directory>'
 ```
 
-The script temporarily installs an isolated target and test runner, executes **ten Android checks**, and removes both packages in `finally`. It refuses to replace pre-existing test installations.
+The script temporarily installs an isolated target and test runner, executes the Android fault suite, and removes both packages in `finally`. It refuses to replace pre-existing test installations. Read the reported test count from the current run rather than carrying forward an older release's count.
 
 | Fixture or check | Required behavior |
 |---|---|
@@ -52,7 +53,7 @@ The fixture provider runs inside the same sandbox because the TCL's cross-app au
 
 ## Navigation and lifecycle
 
-Leave the TV idle with **C Balanced** selected and prettTV already configured as default Home. Do not run these tests while someone is watching.
+Leave the TV idle with the selected layout visible and prettTV already configured as default Home. Use `-Layout CINEMA`, `QUIET` or `BALANCED` to assert the expected layout. The stress, lifecycle and soak harnesses require an absolute output directory on E:. Do not run these tests while someone is watching.
 
 ```powershell
 ./tests/stress-home.ps1 -Tv '<serial>' -Cycles 15 -RestartCycles 5 -OutputDirectory '<local-results-directory>'
@@ -97,3 +98,30 @@ The separate row-navigation check requires:
 4. Right returns to that same card.
 
 This is a navigation regression check, not a frame-rate measurement. Both scripts require an idle TV already displaying prettTV.
+
+## Final feature-release gate
+
+After integration, run the final candidate through the following checks and record results in [Validation](validation.md):
+
+| Area | Required evidence |
+| --- | --- |
+| Static checks | Successful build and full tests; no lint errors or new unexplained warnings. Review existing warnings individually. |
+| Failure handling | Malformed/restored preferences, duplicate identities, corrupt snapshots/artwork, interrupted writes/downloads, cancellation and rejected updates. Use isolated fixtures for simulated low storage and corruption. |
+| Remote navigation | At least 500 scripted actions per layout, including held-key boundaries, direction reversals, sidebar return, options, hiding, arranging, undo and Watchlist paging. |
+| Lifecycle | 25 cold starts and 50 leave/return cycles across A, B and C; preserved settings and usable focus. |
+| Soak | At least one hour with navigation and idle periods; record process continuity, memory trend, frame statistics and refresh diagnostics. |
+| Performance | Identical warmed before/after routes, frame-time percentiles, janky-frame counts, startup timing and memory. Investigate repeatable regressions. |
+| Recovery/update | Verify recovery readiness and both cancellation paths. Test destructive restore with isolated/fake state; do not execute it on the owner's TV. Installation rejection must preserve the existing app. |
+
+The guarded soak script requires an absolute local output directory on the connected E: drive:
+
+```powershell
+./tests/soak-home.ps1 -Tv '<serial>' -Layout BALANCED `
+    -DurationSeconds 3600 -OutputDirectory 'E:/TV-validation/soak'
+```
+
+The default and minimum are 3,600 seconds; longer runs remain supported. It stops if another app becomes active or Home unexpectedly loses focus/process continuity. ADB commands have a 30-second limit. Long observation gaps or insufficient diagnostic samples invalidate the soak, so a suspended computer cannot count toward the requested coverage. At the default two-minute sampling interval, a one-hour run needs at least 26 diagnostic samples, including initial and final observations. The harness selects the visible Home instance when Android retains older stopped instances; `tests/harness-diagnostics.ps1` tests that parsing and duration limits without contacting a TV. It measures a Home session; separate lifecycle tests cover leaving for the fixture and returning.
+
+If the owner shortens a running test after it started, preserve that run's original requested duration and interrupted result. A separate review may establish the approved shorter duration from recorded monotonic samples, continuous coverage, unchanged process identity, valid focus, refresh diagnostics and a final read-only observation. That review must identify the owner's revised requirement; it must not relabel an incomplete longer run as a harness pass.
+
+A crash, ANR, data-loss case, stuck navigation or unresolved critical/high finding blocks release. Fix defects, add regression coverage, and rerun affected checks before reporting the candidate as ready.

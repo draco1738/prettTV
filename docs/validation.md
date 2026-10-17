@@ -6,6 +6,7 @@ Recorded results for each release, newest first. Device observations apply to th
 
 | Release | Scope | Recorded |
 | :--- | :--- | :--- |
+| [0.2.0](#pretttv-020-personal-rows-and-release-hardening--2026-10-17) | Personal rows and release hardening | 2026-10-17 |
 | [0.1.10](#pretttv-0110-stock-troubleshooting-recovery--2026-10-17) | Stock troubleshooting recovery | 2026-10-17 |
 | [0.1.9](#pretttv-019-scrolling-and-row-navigation--2026-10-17) | Scrolling and row navigation | 2026-10-17 |
 | [0.1.8](#pretttv-018-stability-and-failure-recovery--2026-10-17) | Stability and failure recovery | 2026-10-17 |
@@ -16,6 +17,49 @@ Recorded results for each release, newest first. Device observations apply to th
 | [0.1.3](#pretttv-013-discover-row--2026-10-17) | Discover row | 2026-10-17 |
 | [0.1.2](#pretttv-012-dark-tile-correction--2026-10-17) | Dark-tile correction | 2026-10-17 |
 | [0.1.1](#pretttv-011-validation--2026-10-17) | Validation | 2026-10-17 |
+
+## prettTV 0.2.0 personal rows and release hardening — 2026-10-17
+
+This release adds the separate Watchlist row, configurable row order/visibility/card sizes, title details, recommendation feedback, session Undo, explicit episode follows, favorite teams and optional Home-only kickoff reminders. A bounded persisted snapshot supports offline Home. Settings now offers verified official updates with an explicit download and Android installation confirmation. C Balanced remains the default; A and B retain their native dark layouts.
+
+The final signed candidate is versionCode 12, using the existing release certificate. APK SHA-256: `fbd54e4d7489cc421bfaa5ef072db3124bae07a5e24deafeff2c4c6eb8fe61f3`. It was installed in place without uninstalling prettTV or clearing the owner's data.
+
+202 JVM tests passed. All 35 Android fault and UI checks passed on the TCL in the isolated test package. They cover corrupt/oversized artwork and snapshots, interrupted work, strict settings migration/import, Watchlist playback consumption and Undo, row controls, 72-entry Watchlist pagination, rapid refresh races, focus visibility, provider-row identity reuse, episode and sports policies, recovery failures, and opening/closing Updates. Android lint reports zero errors and 31 individually reviewed warnings: 22 retained upstream unused resources, four programmatic-view constructors, two TV orientation locks, two original vector raster warnings, and the Disney vector path warning. No blanket suppression was added. The test harness itself passes 57 offline assertions, including multiple retained Home activities, transient no-focus settling, persistent focus loss, timeouts, duration and coverage checks.
+
+Testing found and fixed an Updates startup crash on the TCL caused by requesting its window insets controller before the decor view existed. A regression now opens the real activity. Other fixes preserve focus through consecutive partial/full refreshes, keep replacement cards visible, distinguish Watchlist identities when provider row IDs are reused, retain episode-specific destinations, prioritize favorite teams before fixture limits, validate all restored settings before mutation, and bound background work and storage. Earlier-candidate failures remain in the private evidence; they are not counted as final-candidate passes.
+
+### Final device gate
+
+Each layout passed 12 navigation cycles and 564 guarded inputs: 1,692 inputs total. The final build passed 25 forced cold starts across A/B/C; a focusable Home returned in 521–878 ms including ADB overhead, without waiting for all network artwork. All 50 real leave-and-return cycles preserved the same focus and viewport with unchanged content. Temporary test packages were removed and independently checked absent.
+
+The owner shortened the requested soak to one hour while it was running. Navigation stopped after the first saved checkpoint beyond that duration: **3,639.46 seconds, 31 samples and at least 1,278 guarded inputs**. All samples used the same process and C Balanced, with valid focus, populated feeds, no reported refresh/shared-provider errors and saved snapshots. The largest diagnostic sample gap was 121.78 seconds. Post-stop read-only captures confirmed the same process and usable Home.
+
+This is a **separate passed review of the approved one-hour checkpoints**, not a completed two-hour harness run. Host Ctrl-C ended the original 7,200-second process before its final result file was written; that native outcome remains unrecorded. The review derives duration and continuity from saved samples and final captures, and does not invent a final observation-gap aggregate. The revised repeatable harness accepts a one-hour minimum. Its duration tests still reject incomplete requested runs.
+
+Soak PSS ranged from 74,733 to 85,745 KiB (73.0–83.7 MiB), ending at 81,756 KiB. First- and last-quarter means were 81,238.71 and 81,264.86 KiB, a 26.14 KiB difference: no sustained growth was apparent in this window. At the last checkpoint, cumulative rendering showed 3,666 frames, 769 janky frames (20.98%) and p99 27 ms. This lighter mixed navigation/idle route is separate from the before/after comparison below and is not evidence of a locked frame rate or indefinite leak-free operation.
+
+The retained crash buffer was unchanged from the final-candidate baseline. The old Updates crashes remain historical evidence; no new crash or ANR was recorded. Retained exit records contained only the requested cold-start force stops preceding the soak. The installed APK was pulled back and matched the release hash. Home/app preferences and all stored playback timestamps were unchanged. All 21 cached viewing records were retained; their serialization gained empty IMDb/year fields, and two Netflix launch payloads refreshed without changing their destination. C, the default Home resolver and idle recovery state were retained.
+
+The final row-navigation check passed reversal across nine app cards, held-Left containment, intentional sidebar entry and return to the original card. Actual A/B/C Home screenshots were refreshed from the TV. The feature-dialog test evidence is functional; the Home screenshots are not a visual certification of every new dialog.
+
+Both stock-recovery confirmations were opened and canceled on the final build. Read-only preflight recognized the saved ten-package setup. Recovery returned to its idle state and prettTV remained Home. The full restore was deliberately not performed on the owner's TV; success and interruption cases use isolated/fake state.
+
+Updates opened on the real TV and returned normally with Back. Its live check safely rejected the older GitHub release, which lacked the new verification manifest. Policy/transfer tests cover invalid checksums, identity/certificate/version rejection, cancellation and interrupted downloads. A future-version installation through Android's installer has not been exercised end to end on this TV. The standalone signed APK remains the installation route for this release.
+
+### Bounded motion comparison
+
+The same paced C route was warmed once and measured twice on each build. Android `gfxinfo` reported:
+
+| Measure | Previous 0.1.10 | Final 0.2.0 |
+| --- | ---: | ---: |
+| Rendered frames | 190 | 161 |
+| Janky frames | 68 (35.79%) | 53 (32.92%) |
+| Median frame time | 17 ms | 17 ms |
+| 95th percentile | 28 ms | 27 ms |
+| 99th percentile | 28 ms | 31 ms |
+| Slow UI-thread frames | 0 | 1 |
+
+The measurements are mixed: jank share and p95 decreased slightly, while p99 increased. Added rows change the content traversed despite the same input script. These short hardware samples do not establish a broad performance improvement or sustained 60 fps. Remaining frame-deadline misses are reported rather than hidden. Raw frame traces, device logs, settings and viewing data remain private.
 
 ## prettTV 0.1.10 stock troubleshooting recovery — 2026-10-17
 

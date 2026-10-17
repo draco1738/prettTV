@@ -13,6 +13,7 @@ data class Program(
     val released: Long = 0, val detailUri: String = "",
     val engagedAt: Long = 0, val mediaType: String = "unknown",val liveSports:Boolean=false,
     val genres:String="",val providerWeight:Long=0,
+    val releaseYear:Int=0,val imdbId:String="",
 ) {
     val titleKey: String get() = title.trim().replace(Regex("\\s+")," ").lowercase(Locale.ROOT)
     val progress: Float get() = if (duration > 0) (position.toDouble() / duration).coerceIn(0.0, 1.0).toFloat() else 0f
@@ -22,7 +23,10 @@ data class Program(
 data class HomeContent(val watching: List<Program> = emptyList(), val suggestions: List<Program> = emptyList(),
     val trending: List<Program> = emptyList(), val newReleases: List<Program> = emptyList(),
     val hiddenHeroTitles:Set<String> = emptySet(),val hiddenWatchingTitles:Set<String> = emptySet(),val liveSports:List<Program> = emptyList(),
-    val games:List<SportsEvent> = emptyList(),val discover:List<Program> = emptyList()) {
+    val games:List<SportsEvent> = emptyList(),val discover:List<Program> = emptyList(),
+    val snapshotAt:Long=0,val offline:Boolean=false,val newEpisodes:List<EpisodeAlert> = emptyList(),
+    val episodeStatus:String="",val availableTeams:List<SportsTeam> = emptyList(),
+    val kickoffReminders:List<SportsEvent> = emptyList()) {
     val visibleWatching: List<Program> get() = watching.filter { it.titleKey !in hiddenWatchingTitles }
     val feature: Program? get() = watching.filter { it.titleKey !in hiddenHeroTitles }.maxByOrNull { it.engagedAt }
         ?: suggestions.firstOrNull { it.titleKey !in hiddenHeroTitles }

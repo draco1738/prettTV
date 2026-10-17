@@ -25,6 +25,8 @@ class StabilityInstrumentation:Instrumentation() {
         try {
             check(targetContext.packageName=="dev.zane.pretttv.stability") { "Refusing to run against the production Home" }
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
+            PersonalizationAndroidChecks.run(targetContext, ::test)
+            DiscoveryAndroidChecks.run(targetContext, ::test)
             test("real decoder accepts fixture and downsamples large image") {
                 withLoader { loader ->
                     check(load(loader,"good")!=null)
@@ -159,6 +161,8 @@ class StabilityInstrumentation:Instrumentation() {
                     }.commit())
                 }
             }
+            HomeFeatureAndroidChecks.run(this, ::test)
+            UpdateAndroidChecks.run(this, ::test)
             finish(Activity.RESULT_OK,Bundle().apply { putString("stream","STABILITY PASS: $passed Android fault tests\n");putInt("passed",passed) })
         } catch(t:Throwable) {
             finish(Activity.RESULT_CANCELED,Bundle().apply { putString("stream","STABILITY FAIL after $passed: ${t.javaClass.simpleName}: ${t.message}\n");putString("failure",t.stackTraceToString()) })

@@ -9,8 +9,8 @@ Start with installation, then make the home screen your own. These guides descri
 | Guide | What you will find |
 | :--- | :--- |
 | [Installation](installation.md) | Download the bundle, connect through ADB, choose Home, update or uninstall. |
-| [Using prettTV](usage.md) | Layouts, remote controls, app arrangement, hidden titles and settings. |
-| [Content and live sports](content-and-sports.md) | Continue watching, recommendation priority, source coverage and RBTV handoff. |
+| [Using prettTV](usage.md) | Remote controls, Watchlist, row customization, undo, episode follows and settings. |
+| [Content and live sports](content-and-sports.md) | Viewing order, recommendations, release alerts, favorite teams, offline data and RBTV handoff. |
 | [Privacy and permissions](privacy.md) | What stays on the TV, what uses the network and which access is optional. |
 | [Stock recovery](stock-recovery.md) | Configure the original setup record and use the two-confirmation restore. |
 | [RBTV companion](companion-apps.md) | The bundled version, checksum, provenance and review limits. |

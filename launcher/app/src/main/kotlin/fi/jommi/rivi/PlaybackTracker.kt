@@ -3,6 +3,7 @@ package fi.jommi.rivi
 import android.content.ComponentName
 import android.media.MediaMetadata
 import android.media.session.MediaController
+import android.media.session.MediaSession
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
@@ -20,6 +21,8 @@ class PlaybackTracker:NotificationListenerService() {
     private val ui=Handler(Looper.getMainLooper())
     private val callbacks=HashMap<MediaController,MediaController.Callback>()
     private val firstPlaying=HashMap<String,Long>()
+    private data class EventKey(val session:MediaSession.Token,val title:String,val mediaId:String)
+    private val confirmedEvents=ConfirmedPlaybackEvents<EventKey>()
     private lateinit var history:PlaybackHistory
     private lateinit var manager:MediaSessionManager
     private val changed=MediaSessionManager.OnActiveSessionsChangedListener { attach(it.orEmpty()) }
@@ -37,7 +40,7 @@ class PlaybackTracker:NotificationListenerService() {
             val cb=object:MediaController.Callback() {
                 override fun onPlaybackStateChanged(state:PlaybackState?) { scan() }
                 override fun onMetadataChanged(metadata:MediaMetadata?) { scan() }
-                override fun onSessionDestroyed() { firstPlaying.clear(); scan() }
+                override fun onSessionDestroyed() { callbacks.remove(c); firstPlaying.clear(); confirmedEvents.removeMatching { it.session==c.sessionToken }; scan() }
             }
             c.registerCallback(cb,ui); callbacks[c]=cb
         }
@@ -45,21 +48,25 @@ class PlaybackTracker:NotificationListenerService() {
     }
     private fun scan() {
         if(StockRecoveryStore.paused(this)) { close(); return }
-        ui.removeCallbacks(sample); var playing=false; val active=HashSet<String>()
+        ui.removeCallbacks(sample); var playing=false; val active=HashSet<String>(); val present=HashSet<EventKey>()
         for(c in callbacks.keys) {
             val state=c.playbackState ?: continue
-            if(state.state!=PlaybackState.STATE_PLAYING)continue
             val m=c.metadata
             val labels=listOf(MediaMetadata.METADATA_KEY_DISPLAY_TITLE,MediaMetadata.METADATA_KEY_TITLE,MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE,MediaMetadata.METADATA_KEY_ALBUM)
                 .mapNotNull { m?.getString(it)?.takeIf(String::isNotBlank) }
             val p=history.match(c.packageName,labels) ?: continue
+            val eventKey=EventKey(c.sessionToken,p.packageName+"|"+p.titleKey,m?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID).orEmpty())
+            present.add(eventKey)
+            if(state.state!=PlaybackState.STATE_PLAYING)continue
             val k=p.packageName+"|"+p.titleKey; active.add(k); playing=true
             val now=SystemClock.elapsedRealtime(); val began=firstPlaying.getOrPut(k) { now }
             val position=state.position+(if(state.lastPositionUpdateTime>0)(now-state.lastPositionUpdateTime).coerceAtLeast(0)*state.playbackSpeed else 0f).toLong()
             val duration=m?.getLong(MediaMetadata.METADATA_KEY_DURATION)?.takeIf { it>0 } ?: p.duration
-            if(now-began>=15_000 && position>=15_000 && duration>=180_000)history.confirm(p,position.coerceAtMost(duration),duration)
+            if(now-began>=15_000 && position>=15_000 && duration>=180_000)
+                history.confirm(p,position.coerceAtMost(duration),duration,confirmedEvents.confirm(eventKey,System.currentTimeMillis()))
         }
         firstPlaying.keys.retainAll(active)
+        confirmedEvents.retain(present)
         if(playing)ui.postDelayed(sample,5_000)
     }
     override fun onListenerDisconnected() { close() }
@@ -67,6 +74,6 @@ class PlaybackTracker:NotificationListenerService() {
     private fun close() {
         ui.removeCallbacksAndMessages(null)
         if(::manager.isInitialized)try { manager.removeOnActiveSessionsChangedListener(changed) } catch(_:Exception) { }
-        callbacks.forEach { (c,cb)->c.unregisterCallback(cb) }; callbacks.clear(); firstPlaying.clear()
+        callbacks.forEach { (c,cb)->c.unregisterCallback(cb) }; callbacks.clear(); firstPlaying.clear(); confirmedEvents.clear()
     }
 }

@@ -3,6 +3,8 @@ package fi.jommi.rivi
 import android.content.Context
 import android.database.ContentObserver
 import android.net.Uri
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.media.tv.TvContract.PreviewPrograms
 import android.os.Handler
 import android.os.HandlerThread
@@ -30,15 +32,41 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private var games=emptyList<SportsEvent>()
     private var lastCatalog=CatalogSnapshot()
     private var lastShared=SharedFeedSnapshot()
+    private val offlineStore=OfflineSnapshotStore(File(context.filesDir,"content/home-v1.bin"))
+    private val episodeCatalog=EpisodeCatalog(File(context.filesDir,"content/episodes-v1.bin"),::get)
+    private val personal=PersonalizationStore(context)
+    private val reminderPrefs=context.getSharedPreferences("prett-kickoff-reminders",Context.MODE_PRIVATE)
+    private var restored=false
+    private var sharedAt=0L
+    private var catalogAt=0L
+    private var catalogReadAt=0L
+    @Volatile private var availableTeams=emptyList<SportsTeam>()
+    private var episodeSnapshot=EpisodeSnapshot()
+    @Volatile private var pendingTeamsCallback:((List<SportsTeam>)->Unit)?=null
     private val sports=SportsCatalog(dir,::get)
     private val playback=PlaybackHistory(context)
     @Volatile private var feedSummary="Feeds have not loaded yet"
     @Volatile private var completedRefreshes=0
     @Volatile private var refreshError="none"
     @Volatile private var sharedFeedErrors="none"
+    @Volatile private var snapshotStatus="not saved"
     @Volatile var recommendationServices=emptySet<String>(); private set
     @Volatile var availableServices=emptySet<String>(); private set
-    fun diagnostics():String="REFRESH completed=$completedRefreshes error=$refreshError sharedFailures=$sharedFeedErrors\n$feedSummary"
+    fun diagnostics():String="REFRESH completed=$completedRefreshes error=$refreshError sharedFailures=$sharedFeedErrors snapshot=$snapshotStatus\n$feedSummary"
+    fun followedShows():List<FollowedShow> = personal.followedShows()
+    fun followShow(program:Program) { personal.follow(program); refresh() }
+    fun unfollowShow(key:String) { personal.unfollow(key); refresh() }
+    fun dismissEpisode(id:String) { worker.post { episodeCatalog.dismiss(id); refreshOnUi() } }
+    fun requestTeams(callback:(List<SportsTeam>)->Unit) {
+        if(availableTeams.isNotEmpty())callback(availableTeams)
+        else { pendingTeamsCallback=callback; refresh() }
+    }
+    fun acknowledgeReminder(event:SportsEvent) {
+        val keys=reminderPrefs.getStringSet("shown",emptySet()).orEmpty().toMutableSet()
+        keys.add(SportsPolicy.reminderKey(event))
+        reminderPrefs.edit().putStringSet("shown",keys.sortedByDescending { it.substringAfterLast(':').toLongOrNull() ?: 0 }.take(256).toSet()).apply()
+    }
+    private fun refreshOnUi() { ui.post { refresh() } }
     private val observer = object : ContentObserver(ui) { override fun onChange(selfChange: Boolean) { refresh() } }
     private val refreshTask = Runnable { load() }
 
@@ -56,7 +84,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     }
 
     fun stop() {
-        active = false; generation++; ui.removeCallbacks(refreshTask); worker.removeCallbacksAndMessages(null)
+        active = false; generation++; pendingTeamsCallback=null; ui.removeCallbacks(refreshTask)
         if (observing) { try { context.contentResolver.unregisterContentObserver(observer) } catch (_: Exception) { }; observing = false }
     }
     fun close() { stop(); thread.quitSafely() }
@@ -65,15 +93,37 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private fun load() {
         val g = ++generation; val available = installed; val excluded = hidden; val useCatalog = discovery
         val priority=preferred; val selectedServices=serviceOverride
-        worker.removeCallbacksAndMessages(null)
         worker.post {
             fun current() = active && g == generation
+            if(!current())return@post
             try {
+            val now=System.currentTimeMillis()
+            val online=networkAvailable()
+            if(!restored) {
+                val cached=offlineStore.load()?.eligible(now)
+                if(cached!=null) { lastShared=cached.shared; lastCatalog=cached.catalog; games=cached.games; sharedAt=cached.sharedAt; catalogAt=cached.catalogAt }
+                restored=true
+            }
+            // Offline recommendations have a finite lifetime; viewing state is not a recommendation.
+            val retained=OfflineSnapshot(lastShared,lastCatalog,games,sharedAt,catalogAt).eligible(now)
+            lastShared=retained.shared; lastCatalog=retained.catalog
+            val follows=personal.followedShows()
+            val favoriteTeams=personal.favoriteTeams()
+            val feedback=personal.recommendationFeedback()
+            episodeSnapshot=episodeCatalog.snapshot(follows,now)
             val freshChannels=sharedChannels()
             val freshPublished=query("preview_program",available,freshChannels ?: lastShared.channels)
             val freshWatching=query("watch_next_program",available)
             if(!current())return@post
-            lastShared=lastShared.updated(freshPublished,freshWatching,freshChannels).eligible(available)
+            val usablePublished=when {
+                online!=false -> freshPublished
+                freshPublished?.isEmpty()==true -> null
+                now-sharedAt !in 0..OfflineSnapshot.MAX_AGE -> freshPublished?.filter { it.watchingSource }
+                else -> freshPublished
+            }
+            val usableWatching=if(online==false && freshWatching?.isEmpty()==true)null else freshWatching
+            lastShared=lastShared.updated(usablePublished,usableWatching,freshChannels).eligible(available)
+            if(freshPublished!=null && online!=false)sharedAt=now
             sharedFeedErrors=listOfNotNull(if(freshChannels==null)"channels" else null,if(freshPublished==null)"previews" else null,
                 if(freshWatching==null)"watching" else null).joinToString(",").ifBlank { "none" }
             val published=lastShared.published
@@ -93,12 +143,16 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 val catalogBrowse=snapshot.browse()
                 val releases=snapshot.recent(System.currentTimeMillis())
                 val cleanWatching=ContentPolicy.clean(watching,excluded)
-                val cleanReleases=ContentPolicy.clean(releases,excluded)
-                val rows=RecommendationPolicy.build(previews,catalogRows+catalogBrowse,catalogBrowse,cleanWatching,cleanReleases,services,priority,excluded)
+                val cleanReleases=ContentPolicy.clean(releases,excluded).filterNot { feedback.isDismissed(it) }
+                val rows=RecommendationPolicy.build(previews,catalogRows+catalogBrowse,catalogBrowse,cleanWatching,cleanReleases,services,priority,excluded,feedback=feedback)
+                val liveGames=if(useCatalog)SportsPolicy.upcoming(games,System.currentTimeMillis(),favoriteTeams) else emptyList()
                 val result = HomeContent(watching=playback.merge(cleanWatching),suggestions=rows.suggestions,
                     trending=rows.trending,newReleases=cleanReleases,discover=rows.discover,
                     liveSports=ContentPolicy.clean(published.filter { it.liveSports },excluded),
-                    games=if(useCatalog)SportsPolicy.upcoming(games,System.currentTimeMillis()) else emptyList())
+                    games=liveGames,snapshotAt=maxOf(sharedAt,catalogAt),offline=online==false,
+                    newEpisodes=episodeSnapshot.alerts,episodeStatus=episodeSnapshot.status,availableTeams=availableTeams,
+                    kickoffReminders=if(personal.kickoffRemindersEnabled())SportsPolicy.reminders(liveGames,System.currentTimeMillis(),favoriteTeams,
+                        reminderPrefs.getStringSet("shown",emptySet()).orEmpty()) else emptyList())
                 feedSummary="SERVICES ${if(selectedServices==null)"viewing-activity" else "manual"}: "+services.joinToString()+"\n"+sources+"\n"+
                     listOf("Suggestions" to rows.suggestions,"Discover" to rows.discover,"Trending" to rows.trending).joinToString("\n") { (name,items) ->
                         "ROW $name count=${items.size} providers="+items.groupingBy { it.packageName }.eachCount()+
@@ -107,19 +161,21 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 ui.post { if (active && g == generation) deliver(result) }
             }
             publish()
+            catalogReadAt=catalogAt
             // General discovery is separate from personal history. One cache refresh per day.
-            if (useCatalog && previews.size < 4) for (seed in SEEDS) {
+            if (useCatalog && online!=false && previews.size < 4) for (seed in SEEDS) {
                 if (!active || g != generation) break
                 if (seed.pkg !in available || seed.pkg in excluded) continue
                 try { catalog(seed)?.let { card ->
                     if(current()) {
                         snapshot=snapshot.copy(seeds=(snapshot.seeds.filterNot { it.id==card.id }+card))
                         lastCatalog=snapshot
+                        catalogAt=maxOf(catalogAt,catalogReadAt)
                         publish()
                     }
                 } } catch (_: Exception) { }
             }
-            if(useCatalog && STREMIO in available && STREMIO !in excluded && active && g==generation) {
+            if(useCatalog && online!=false && STREMIO in available && STREMIO !in excluded && active && g==generation) {
                 val year=java.time.LocalDate.now().year
                 for(type in listOf("series","movie")) {
                     if(!active || g!=generation)break
@@ -131,13 +187,29 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 }
                 // Preserve the provider's Popular ordering, alternating series and films.
                 // Reuse all fetched entries for app-title popularity matching and discovery.
-                if(current()) { lastCatalog=snapshot; publish() }
+                if(current()) { lastCatalog=snapshot; catalogAt=maxOf(catalogAt,catalogReadAt); publish() }
             }
-            if(useCatalog && active && g==generation) {
-                val freshGames=sports.load { current() }
+            if(useCatalog && online!=false && active && g==generation) {
+                val freshGames=sports.load(favoriteTeams) { current() }
                 if(current()) { games=freshGames; publish() }
             }
-            if(current()) { completedRefreshes++; refreshError="none" }
+            if(current()) {
+                val episodes=episodeCatalog.load(follows,System.currentTimeMillis(),online!=false) { current() }
+                if(current()) { episodeSnapshot=episodes; publish() }
+            }
+            if(current() && pendingTeamsCallback!=null) {
+                val teams=sports.teams { current() }
+                if(current()) {
+                    availableTeams=teams
+                    val callback=pendingTeamsCallback; pendingTeamsCallback=null
+                    // A later content refresh does not invalidate a directory already requested by this visible picker.
+                    ui.post { if(active)callback?.invoke(teams) }
+                }
+            }
+            if(current()) {
+                snapshotStatus=if(offlineStore.save(OfflineSnapshot(lastShared,lastCatalog,games,sharedAt,catalogAt)))"saved" else "write unavailable"
+                completedRefreshes++; refreshError="none"
+            }
             } catch(e:Exception) {
                 if(current())refreshError=e.javaClass.simpleName
                 android.util.Log.w("PrettTvCatalog","Refresh failed: ${e.javaClass.simpleName}")
@@ -146,6 +218,11 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             }
         }
     }
+
+    private fun networkAvailable():Boolean? = try {
+        val connectivity=context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        connectivity.getNetworkCapabilities(connectivity.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)==true
+    } catch(_:Exception) { null }
 
     private fun sharedChannels():Map<Long,String>? {
         val channels=HashMap<Long,String>()
@@ -189,7 +266,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                         (number("end_time_utc_millis")==0L || number("end_time_utc_millis")>System.currentTimeMillis())
                     val channel=channels[number("channel_id")].orEmpty()
                     val continuing=Regex("continue|watching|resume",RegexOption.IGNORE_CASE).containsMatchIn(channel)
-                    out.add(Program("$table:${str("_id")}",title,detail,str("thumbnail_uri").ifBlank { str("poster_art_uri") },pkg,app,str("intent_uri"),position,duration,summary=str("short_description"),watchingSource=table=="watch_next_program" || continuing || position>0,engagedAt=number("last_engagement_time_utc_millis"),mediaType=kind,liveSports=sports,sourceName=channel,genres=str("genre").ifBlank { str("canonical_genre") },providerWeight=number("weight")))
+                    out.add(Program("$table:${str("_id")}",title,detail,str("thumbnail_uri").ifBlank { str("poster_art_uri") },pkg,app,str("intent_uri"),position,duration,summary=str("short_description"),watchingSource=table=="watch_next_program" || continuing || position>0,engagedAt=number("last_engagement_time_utc_millis"),mediaType=kind,liveSports=sports,sourceName=channel,genres=str("genre").ifBlank { str("canonical_genre") },providerWeight=number("weight"),releaseYear=str("release_date").take(4).toIntOrNull() ?: 0))
                 }
             }
         } catch (_: Exception) { return null }
@@ -198,7 +275,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
 
     private fun catalog(seed: Seed): Program? {
         val file=File(dir,"${seed.id}.json")
-        var json: JSONObject? = try { if (file.exists()) JSONObject(file.readText()) else null } catch (_: Exception) { null }
+        var json: JSONObject? = try { if (file.exists() && file.length()<=500_000 && System.currentTimeMillis()-file.lastModified() in 0..OfflineSnapshot.MAX_AGE) JSONObject(file.readText()) else null } catch (_: Exception) { null }
         if (json == null || json.optInt("pretttvArtVersion") != 2 || System.currentTimeMillis()-file.lastModified()>86_400_000L) {
             try {
                 val fresh=JSONObject(get("https://api.tvmaze.com/shows/${seed.id}", 250_000))
@@ -207,29 +284,31 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 val episode=JSONObject(get("https://api.tvmaze.com/episodes/${seed.episode}",250_000))
                 fresh.put("pretttvLandscape",episode.optJSONObject("image")?.optString("original").orEmpty())
                 fresh.put("pretttvArtVersion",2)
-                val tmp=File(dir,"${seed.id}.tmp"); tmp.writeText(fresh.toString()); if (!tmp.renameTo(file)) { file.writeText(fresh.toString()); tmp.delete() }
+                AtomicPrivateFile.write(file,fresh.toString().toByteArray(Charsets.UTF_8),500_000)
                 json=fresh
             } catch (_: Exception) { }
         }
         val j=json ?: return null
+        catalogReadAt=maxOf(catalogReadAt,file.lastModified())
         val art=j.optString("pretttvLandscape").ifBlank { j.optJSONObject("image")?.optString("original").orEmpty() }
         val genres=j.optJSONArray("genres")
         val genre=if (genres != null && genres.length()>0) genres.optString(0) else "Series"
         val summary=android.text.Html.fromHtml(j.optString("summary"),android.text.Html.FROM_HTML_MODE_LEGACY).toString().trim()
-        return Program("tvmaze:${seed.id}",j.optString("name"),"$genre · ${seed.app}",art,seed.pkg,seed.app,catalog=true,sourceUrl=j.optString("url"),summary=summary,sourceName="TVmaze",mediaType="series",genres=genre)
+        return Program("tvmaze:${seed.id}",j.optString("name"),"$genre · ${seed.app}",art,seed.pkg,seed.app,catalog=true,sourceUrl=j.optString("url"),summary=summary,sourceName="TVmaze",mediaType="series",genres=genre,releaseYear=j.optString("premiered").take(4).toIntOrNull() ?: 0,imdbId=j.optJSONObject("externals")?.optString("imdb").orEmpty())
     }
 
     private fun cinemeta(type:String,catalog:String,extra:String):List<Program>? {
         val file=File(dir,"cinemeta-$type-$catalog-$extra.json")
-        var data=try { if(file.exists())JSONObject(file.readText()) else null } catch(_:Exception) { null }
+        var data=try { if(file.exists() && file.length()<=1_500_000 && System.currentTimeMillis()-file.lastModified() in 0..OfflineSnapshot.MAX_AGE)JSONObject(file.readText()) else null } catch(_:Exception) { null }
         if(data==null || System.currentTimeMillis()-file.lastModified()>21_600_000L) {
             try {
                 val suffix=if(extra.isBlank())"" else "/$extra"
                 val fresh=JSONObject(get("https://v3-cinemeta.strem.io/catalog/$type/$catalog$suffix.json",1_500_000))
-                file.writeText(fresh.toString()); data=fresh
+                AtomicPrivateFile.write(file,fresh.toString().toByteArray(Charsets.UTF_8),1_500_000); data=fresh
             } catch(e:Exception) { android.util.Log.w("PrettTvCatalog","$type/$catalog: ${e.javaClass.simpleName}: ${e.message}") }
         }
         val rows=data?.optJSONArray("metas") ?: return null
+        catalogReadAt=maxOf(catalogReadAt,file.lastModified())
         val result=ArrayList<Program>()
         for(i in 0 until minOf(rows.length(),100)) {
             val j=rows.optJSONObject(i) ?: continue
@@ -241,7 +320,8 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             val source="https://v3-cinemeta.strem.io/meta/$type/$id.json"
             result.add(Program("cinemeta:$type:$id",title,if(catalog=="year")"$date · ${if(type=="movie")"Film" else "Series"}" else "$genre · Stremio",
                 j.optString("background").ifBlank { j.optString("poster") },STREMIO,"Stremio",catalog=true,sourceUrl=source,
-                summary=j.optString("description"),sourceName="Cinemeta",released=released,detailUri="stremio:///detail/$type/$id",mediaType=type,genres=genre))
+                summary=j.optString("description"),sourceName="Cinemeta",released=released,detailUri="stremio:///detail/$type/$id",mediaType=type,genres=genre,imdbId=id,
+                releaseYear=date.take(4).toIntOrNull() ?: j.optString("releaseInfo").take(4).toIntOrNull() ?: 0))
         }
         return result
     }

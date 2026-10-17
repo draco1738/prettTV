@@ -27,8 +27,9 @@ try {
     $installed.Add($runner)
     $result=Adb-Run @('shell','am','instrument','-w','-r',"$runner/fi.jommi.rivi.StabilityInstrumentation")
     $result | Set-Content -LiteralPath (Join-Path $OutputDirectory 'android-fault-tests.txt')
-    if(($result -join "`n") -notmatch 'STABILITY PASS: 10 Android fault tests'){throw 'Android fault tests failed; inspect android-fault-tests.txt'}
-    'All ten Android fault tests passed.'
+    $summary=[regex]::Match(($result -join "`n"),'STABILITY PASS: (\d+) Android fault tests')
+    if(-not $summary.Success -or [int]$summary.Groups[1].Value -lt 25){throw 'Android fault tests failed or incomplete; inspect android-fault-tests.txt'}
+    "All $($summary.Groups[1].Value) Android fault tests passed."
 } finally {
     for($i=$installed.Count-1;$i -ge 0;$i--){Adb-Run @('uninstall',$installed[$i]) | Out-Null}
 }

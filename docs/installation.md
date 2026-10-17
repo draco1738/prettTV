@@ -6,7 +6,7 @@ The release bundle installs **prettTV + RBTV+** and opens the launcher. **C · B
 
 ## 1. Get the bundle
 
-Download **`prettTV-0.1.10-with-RBTV.zip`** from [GitHub Releases](https://github.com/draco1738/prettTV/releases/latest) and extract it on your computer.
+Download **`prettTV-<version>-with-RBTV.zip`** from [GitHub Releases](https://github.com/draco1738/prettTV/releases/latest) and extract it on your computer.
 
 You need:
 
@@ -86,7 +86,15 @@ See [Stock recovery](stock-recovery.md) before relying on the last option. A fre
 
 ## Updates
 
-Use the new release bundle to run the installer again, or install the signed **`prettTV-<version>.apk`** to update only prettTV. The application ID is `dev.zane.pretttv`; a compatible signed update preserves its data and preferences.
+Starting with **prettTV 0.2.0**, open **Settings → Updates**:
+
+1. Choose **Check now** to fetch the latest stable official release and read its notes. Home also makes at most one automatic check per day while visible; it does not open the update screen or download an APK automatically.
+2. Choose **Download**. The updater checks the official asset location, APK checksum, package ID, newer version and matching signing certificate. You can cancel the download.
+3. Choose **Install**. If Android asks, allow prettTV to install from this source, return, and choose Install again. Confirm or cancel in Android's installer.
+
+The updater rejects debug builds, certificate mismatches and releases without verification metadata. Download or installation failure leaves the installed app in place. No uninstall is used to bypass a mismatch. A compatible signed update preserves the app's preferences.
+
+You can still run a new release bundle's installer or install the signed **`prettTV-<version>.apk`** through ADB. Use this route to upgrade from versions that predate the in-app updater. The application ID remains **`dev.zane.pretttv`**.
 
 An existing RBTV installation is preserved by the bundle installer, including when it differs from the bundled version. Updating prettTV alone does not update RBTV.
 

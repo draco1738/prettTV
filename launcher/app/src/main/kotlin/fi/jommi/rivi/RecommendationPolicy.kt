@@ -28,13 +28,14 @@ object RecommendationPolicy {
     }
 
     /** Round-robin providers within each priority tier before imposing any row limit. */
-    fun balanced(rows:List<Program>,services:Set<String>,recent:List<String> = emptyList(),lowerPriority:Set<String> = emptySet()):List<Program> {
+    fun balanced(rows:List<Program>,services:Set<String>,recent:List<String> = emptyList(),lowerPriority:Set<String> = emptySet(),
+                 feedback:RecommendationFeedback = RecommendationFeedback()):List<Program> {
         val result=ArrayList<Program>()
-        for((_,tierRows) in rows.filter { it.title.isNotBlank() }.groupBy { tier(it,services,lowerPriority) }.toSortedMap()) {
+        for((_,tierRows) in rows.filter { it.title.isNotBlank() && !feedback.isDismissed(it) }.groupBy { tier(it,services,lowerPriority) }.toSortedMap()) {
             val groups=tierRows.groupBy { it.packageName }.entries.sortedWith(
                 compareBy<Map.Entry<String,List<Program>>> { it.key==ANIME_SERVICE }
                     .thenBy { recent.indexOf(it.key).let { i -> if(i<0)Int.MAX_VALUE else i } })
-                .map { (_,cards) -> cards.sortedByDescending { it.providerWeight } }
+                .map { (_,cards) -> PersonalizationPolicy.applyFeedback(cards.sortedByDescending { it.providerWeight },feedback) }
             for(index in 0 until (groups.maxOfOrNull { it.size } ?: 0))
                 for(cards in groups)cards.getOrNull(index)?.let(result::add)
         }
@@ -52,18 +53,19 @@ object RecommendationPolicy {
     }
 
     fun build(previews:List<Program>,catalog:List<Program>,popular:List<Program>,watching:List<Program>,
-              releases:List<Program>,services:Set<String>,recent:List<String> = emptyList(),hidden:Set<String> = emptySet()):Rows {
+              releases:List<Program>,services:Set<String>,recent:List<String> = emptyList(),hidden:Set<String> = emptySet(),
+              feedback:RecommendationFeedback = RecommendationFeedback()):Rows {
         val blocked=watching.map { it.titleKey }.toSet()
-        val eligible=previews.filter { it.packageName !in hidden && it.titleKey !in blocked && !it.liveSports }
+        val eligible=previews.filter { it.packageName !in hidden && it.titleKey !in blocked && !it.liveSports && !feedback.isDismissed(it) }
         val appTitles=eligible.filterNot { it.catalog }.map { it.titleKey }.toSet()
         // If a provider omits its content type, keep that app card in discovery instead of
         // allowing a catalog Trending copy to reserve the title and displace its app link.
         val fallback=popular.filter { it.packageName !in hidden && it.titleKey !in blocked && it.titleKey !in appTitles }
-        val trending=balanced(popularAppCards(eligible,popular)+fallback,services,recent).take(60)
+        val trending=balanced(popularAppCards(eligible,popular)+fallback,services,recent,feedback=feedback).take(60)
         val used=(watching+trending+releases).map { it.titleKey }.toSet()
         // Pluto is a fallback in Suggestions/Discover even after a recent launch or a saved
         // service selection. Personal history and the separate Trending policy are unchanged.
-        val candidates=balanced(eligible+catalog.filter { it.packageName !in hidden },services,recent,lowerPriority=setOf(PLUTO))
+        val candidates=balanced(eligible+catalog.filter { it.packageName !in hidden },services,recent,lowerPriority=setOf(PLUTO),feedback=feedback)
             .filter { it.titleKey !in used }
         val suggestions=ArrayList<Program>(); val discover=ArrayList<Program>()
         val perSource=HashMap<String,Int>()

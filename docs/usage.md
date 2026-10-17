@@ -14,7 +14,7 @@ Open **Settings → Layout** to switch. Every layout uses the hidden left sideba
 | **B · Quiet** | Apps first, followed by content rows. |
 | **C · Balanced** | Large feature, two discovery cards and a compact app row. The default layout. |
 
-The rows below Your apps are **Continue watching · Shows**, **Continue watching · Movies**, **Live sports**, **Suggestions**, **Discover**, **Trending** and **New releases**. Content rows scroll horizontally with up to 60 titles. The large feature uses the most recent eligible viewing record; [how viewing order works](content-and-sports.md#continue-watching-and-the-large-feature) explains the available data and fallback.
+The default rows below Your apps are **Continue watching · Shows → Continue watching · Movies → Watchlist → New episodes → Live sports → Suggestions → Discover → Trending → New releases**. New episodes appears only when unread alerts exist. The large feature uses the most recent eligible viewing record; [how viewing order works](content-and-sports.md#continue-watching-and-the-large-feature) explains the available data and fallback.
 
 ## Remote controls
 
@@ -23,7 +23,7 @@ The rows below Your apps are **Continue watching · Shows**, **Continue watching
 | Arrows | Move between cards and rows. |
 | OK | Open the focused app, title or action. |
 | Hold OK on an app | Arrange favorites or hide/show it in Your apps. |
-| Hold OK on a title | Open its source, correct viewing order or hide it. |
+| Hold OK on a title | Save/remove it, inspect details, follow a show, dismiss a recommendation, correct viewing order or hide it. |
 | Left at the start of a row | Reveal the sidebar with a fresh press once the row is at its beginning. Holding Left stops at the boundary. |
 | Right or Back in the sidebar | Close the sidebar and return to the content card. Choosing a destination also closes it. |
 | Back from content | Return to the top. |
@@ -49,6 +49,51 @@ Hiding an app only changes Your apps. It stays available in Library, search and 
 
 SportioTV and HD Streamz were removed at the owner's request and are not included in the release. See [companion apps](companion-apps.md) for what the installation bundle includes.
 
+## Save titles to Watchlist
+
+Hold OK on a title → **Add to Watchlist**. Your saved titles appear in their own row, newest additions first. Each entry retains its source app and available artwork. Saving here does not change a streaming app's own watchlist.
+
+Watchlist keeps every saved entry within its local storage limit. To keep navigation light, it displays **60 entries per page**, with **Older saved titles** and **Newer saved titles** controls when needed. Missing apps do not delete saved entries. Clearing the artwork cache does not clear Watchlist.
+
+When supported playback confirms that you started a saved title after saving it, prettTV removes it from Watchlist. Opening an app alone is insufficient. **I watched this most recently** is also an explicit local viewing confirmation. Unsupported playback requires manual removal through Hold OK → **Remove from Watchlist**. Use **Settings → Undo** to restore a removed item; the same confirmed playback event will not remove the restored item again.
+
+## Arrange content rows
+
+Open **Settings → Customize rows**, select a row, then choose:
+
+| Control | Behavior |
+| --- | --- |
+| **Hide row / Show row** | Change its visibility without deleting its content or preferences. |
+| **Move up / Move down** | Reorder content rows below Your apps. |
+| **Card size** | Small, Standard or Large. Standard keeps the default proportions. |
+| **Title limit** | 20, 40 or 60 entries for Suggestions, Discover, Trending and New releases. Default: 60. |
+| **Restore default rows** | Reset order, visibility, sizes and title limits. |
+
+Row preferences apply across A, B and C. Watchlist pagination is independent of discovery limits. The Library remains available below the content rows.
+
+## Details, recommendations and undo
+
+Hold OK → **About this title / source** for the supplied synopsis, episode information, progress and source. **Open / actions** shows known app destinations for confidently matching titles. Missing details remain unavailable; an app destination does not establish a subscription or regional availability.
+
+**Not interested** appears for titles in recommendation rows. It removes that title from recommendations and gently lowers similar genres within existing service priorities. It does not hide the title from Watchlist or Continue watching. Use **Settings → Recommendation feedback → Reset feedback** to clear these choices.
+
+**Settings → Undo · [last change]** reverses supported recent changes, including app-menu arrangement/hiding, title hiding, Watchlist changes, recommendation feedback, follows, row preferences and favorite teams. The history holds up to 20 changes in the current Home session; it is not a permanent change log. Bulk app-review controls and restoring an individual hidden title do not add undo entries.
+
+## Follow new episodes
+
+Hold OK on a show → **Follow new episodes**. Following is separate from Watchlist, so starting the show does not end its alerts. **Settings → Followed shows** lists follows and their check status; up to 100 shows can be followed.
+
+The **New episodes** row shows new releases after the initial baseline. prettTV needs an identifiable TVmaze/IMDb show or an unambiguous title-and-year match; some app cards lack enough information. Checks run while Home is visible, at most daily for each checked show, with a bounded number of requests per refresh.
+
+Alerts mean **“episode released,” not “confirmed available in your streaming app.”** They do not interrupt playback. Hold OK on an alert to dismiss it, or unfollow through the show's menu. [Episode sources and limits →](content-and-sports.md#new-episode-alerts)
+
+## Teams, offline Home and updates
+
+- **Favorite teams:** Choose a league and teams in Settings. Their fixtures are prioritized within live and upcoming groups.
+- **Kickoff reminders:** Optional reminders appear on Home during the ten minutes before a favorite team's scheduled kickoff, using fresh data. Press OK on the reminder to dismiss it. They do not interrupt other apps or start a stream.
+- **Offline Home:** The last successful feed snapshot and available cached artwork remain usable during outages. Home labels offline content with its update age; stale live scores disappear. Saved titles and installed-app shortcuts remain available, though streaming still depends on the app and connection.
+- **Updates:** Open Settings → Updates to see official release notes, check manually, and choose Download or Install. Android asks for installation permission and confirmation. [Update behavior →](installation.md#updates)
+
 ## Keep shared-account titles out of your Home
 
 Hold OK on a title and choose **Hide from large hero**, **Hide from Continue watching**, or **Hide from both**. Restore a title individually through **Settings → Hidden titles**.
@@ -61,6 +106,10 @@ If a title's viewing order is stale, hold OK → **I watched this most recently*
 
 | Setting | What it controls |
 | --- | --- |
+| **Customize rows / Undo** | Arrange content sections and reverse supported recent changes. |
+| **Followed shows** | Manage episode follows and inspect release-check status. |
+| **Favorite teams / Kickoff reminders** | Prioritize team fixtures and optionally show Home-only reminders. |
+| **Updates** | Check official releases and explicitly download/install an update. |
 | **Recommendation services** | Choose the signed-in services to prioritize, or select **Use viewing activity** for automatic inference. |
 | **Show discovery** | Turn discovery on or off. |
 | **Playback tracking** | Explain and open optional Notification access for supported media-session metadata. |

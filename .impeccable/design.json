@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-17T03:12:16.7540137-04:00",
+  "generatedAt": "2026-10-17T15:44:25.9045433-04:00",
   "title": "Design System: prettTV",
   "extensions": {
     "colorMeta": {
@@ -73,6 +73,11 @@
         "name": "remote-focus",
         "value": "ViewPropertyAnimator: 140 ms, DecelerateInterpolator(), scale 1.025 for SHOW/APP/SPORT and 1.0 for HERO/COMPACT",
         "purpose": "Finite remote focus feedback; ValueAnimator.areAnimatorsEnabled() false applies the state immediately."
+      },
+      {
+        "name": "horizontal-row-travel",
+        "value": "ValueAnimator.ofInt: 180 ms, DecelerateInterpolator(), native HorizontalScrollView scroll position",
+        "purpose": "Finite remote row travel; disabled animators use an immediate scroll. Unchanged rows retain focus, art, and viewport where possible."
       }
     ],
     "breakpoints": [],
@@ -94,7 +99,13 @@
         "launcher/app/src/main/assets/app-icons/LICENSE.txt",
         "docs/surface-brief.txt",
         "docs/native-design-evidence.md",
-        "docs/validation.md"
+        "docs/validation.md",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/PersonalizationPolicy.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/PersonalizationStore.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/UpdateActivity.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/OfflineSnapshotStore.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/EpisodeCatalog.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/SportsModel.kt"
       ],
       "screenshots": {
         "selected": "docs/screenshots/C-balanced.png",
@@ -102,8 +113,8 @@
           "docs/screenshots/A-cinema.png",
           "docs/screenshots/B-quiet.png"
         ],
-        "provenance": "Final actual 1920x1080 TCL Android TV captures were recorded as prettTV-final-A.png, prettTV-final-B.png, prettTV-final-C.png, and prettTV-final-sidebar.png under the E: tool root. They are designated for the selected, alternative, and sidebar repository destinations during final packaging.",
-        "freshness": "Final v0.1.1 captures have been recorded. The prior font-scale 1.3 capture review passed. Disney+ sizing is corrected; one bounded visual confirmation is in progress.",
+        "provenance": "docs/screenshots/A-cinema.png, B-quiet.png, and C-balanced.png are actual 1920x1080 ADB captures for the 0.2.0 extension. They preserve the incumbent home world; B visibly shows Watchlist below Movies. Screenshot pixels were not modified in this documentation pass.",
+        "freshness": "Current A/B/C home evidence is inspected. The existing sidebar and other captures retain their earlier provenance. New feature dialogs, details, reminder states, and the updater are not included in this capture set.",
         "sidebar": "docs/screenshots/sidebar.png"
       },
       "gradients": [
@@ -186,20 +197,20 @@
         "rail": "Sidebar starts at View.GONE. Left from a first app reveals Library, other shelf starts reveal Shows, and the hero reveals Home. Open-rail buttons invert from colors.button-ground/colors.ivory to colors.button-focus/colors.sage-black. Left stays in the rail; vertical endpoints stop. Right or Back dismisses the overlay and restores content focus. Choosing a destination or returning focus to content also dismisses it.",
         "sidebarContentDimming": "Content ScrollView alpha is 0.45 while the overlay rail is visible and 1.0 after dismissal. This is an immediate native visibility/alpha state change, not a new motion token."
       },
-      "reviewScope": "Historical independent ship verdict covered the scored metadata-contrast and native-evidence fixes. Current TV proof covers Prime Video hide/Library/restore and cold Home. The prior font-scale 1.3 review passed; one bounded visual confirmation is in progress after Disney+ sizing correction. This is not whole-surface certification. Optional playback and RBTV helpers remain off, with no end-to-end result claimed.",
+      "reviewScope": "Finish review requested a fix to the persisted design/row contract, which omitted Watchlist and conditional New episodes. This documentation reconciles that contract to source. The final functional gate and user-approved one-hour soak checkpoint review passed as scoped in docs/validation.md; visual approval remains limited to captured Home surfaces. Earlier scoped device and visual checks keep their historical limits.",
       "brand": {
         "displayName": "prettTV",
         "placement": "Footer About prettTV · Credits; no top wordmark or rail monogram.",
         "applicationId": "dev.zane.pretttv"
       },
       "userOverride": "The latest owner instruction requires the sidebar to be hidden by default in every A/B/C layout. Left from the first card reveals the fixed overlay and dims content. Right, Back, choosing a destination, or returning focus to content dismisses it. Content uses its full width without a permanent rail column. Library opens the complete Library · All apps grid. Your apps remains a separate customizable horizontal row.",
-      "sourceDerivedStatus": "Installed v0.1.1 built with 52 tests passing. Prime Video hide/Library/restore is confirmed on the TCL TV, with Your apps counts 34 → 33 → 34. Cold Home after force-stop resolved dev.zane.pretttv to C with The Night Agent hero. Search and history independence were verified in source, not in separate device sessions. Optional helpers remain off and untested end to end.",
+      "sourceDerivedStatus": "Version 0.2.0 extends the incumbent world. Functional validation reports 202 JVM tests and 35 Android tests passing. The final functional gate and the user-approved one-hour soak checkpoint review passed; see docs/validation.md. The original two-hour run was stopped at the user's request and its native outcome remains UNRECORDED. New feature controls are documented from native source, without a visual-pass claim for uncaptured dialogs or updater surfaces.",
       "playbackEvidence": "Published engagement timestamps seed a stored baseline and subsequent timestamp-only refreshes do not promote a title. Optional supported active media sessions or the manual I watched this most recently action update local recency. Notification access is required for the optional tracker; it does not read or store notification text. Missing or ambiguous title metadata remains unknown.",
       "sportsHandoff": "Optional accessibility assistance starts only after a selected game and is bounded to 30 seconds inside supported RBTV 3.0.320 layouts. It matches both teams and kickoff time for supported leagues, stops before server selection, and leaves unsupported or unmatched events to manual selection. No deep link, game availability, channel availability, or playback success is guaranteed.",
       "packageMigration": "The implementation workflow reports successful owner-preference export/import and removal of the previous application. Preference exports remain local and excluded from publication.",
       "appIconPack": {
         "implementation": "Twelve original PNGs plus a Disney+ Android vector adapted from the pinned SVG, all drawn on the shared dark ground.",
-        "iconCount": 13,
+        "iconCount": 12,
         "mappedApps": [
           "Netflix",
           "Prime Video",
@@ -212,19 +223,66 @@
           "Pluto TV",
           "Hulu",
           "NordVPN",
-          "HBO Max",
-          "Disney+"
+          "HBO"
         ],
         "initialFit": "Contained within 72% of tile width and 68% of tile height before normal card logo fitting.",
-        "installedArtworkExceptions": [],
-        "exceptionReason": "Unmapped apps retain installed artwork. Disney+ and HBO use bundled art independent of cache state.",
         "provenanceManifest": "launcher/app/src/main/assets/app-icons/sources.json",
         "license": "launcher/app/src/main/assets/app-icons/LICENSE.txt",
-        "provenance": "Pinned URLs and hashes are recorded; twelve PNGs are unmodified. Disney foreground paths are retained, background omitted, and arc changed to cyan; the vector is marked modified."
+        "provenance": "Homarr Dashboard Icons; pinned source URLs, SHA-256 hashes, and modification flags remain in sources.json. Preserve separate native Disney drawable attribution.",
+        "nativeDisneyDrawable": "Disney+ uses ic_disney_dark composed on the native dark ground. HBO uses its attributed hbo-light asset for mapped packages. Unmapped apps retain installed artwork or label fallback."
       },
       "publication": "The owner requested a public GitHub repository when the work is finished. Selected A/B/C launcher captures may be published. Device dumps, account data, preference exports, and other-app screens remain excluded. This records the target, not a completed visibility check.",
       "appVisibility": "Hiding affects only the horizontal Your apps row. Library retains every discoverable app. TV proof: Prime Video hidden by Hold OK → Hide from Your apps row reduced the count 34 → 33; it remained in Library and offered Show in Your apps row; restoration returned 34. Search, suggestions, and viewing-history independence are source-verified rather than separate device-session results. Settings can clear all row-only hide choices.",
-      "helperValidation": "PlaybackTracker and RBTV accessibility assistance are optional and remain off on the test TV. No end-to-end playback tracking, game matching, channel availability, or stream playback success is claimed."
+      "helperValidation": "PlaybackTracker and RBTV accessibility assistance are optional and remain off on the test TV. No end-to-end playback tracking, game matching, channel availability, or stream playback success is claimed.",
+      "documentedVersion": "0.2.0",
+      "rows": {
+        "defaultOrder": [
+          "Continue watching · Shows",
+          "Continue watching · Movies",
+          "Watchlist",
+          "New episodes",
+          "Live sports",
+          "Suggestions",
+          "Discover",
+          "Trending",
+          "New releases"
+        ],
+        "conditional": "New episodes is omitted when there are no release alerts. Watchlist is present by default, including its native empty state.",
+        "customization": "Settings → Customize rows changes order, hidden state, card size, eligible title limits, and restores defaults. Saved preferences override default order.",
+        "sizeVariants": [
+          {
+            "label": "Small",
+            "visibleCards": 5,
+            "heightRef": "components.show-card-small.height"
+          },
+          {
+            "label": "Standard",
+            "visibleCards": 4,
+            "heightRef": "components.show-card.height"
+          },
+          {
+            "label": "Large",
+            "visibleCards": 3,
+            "heightRef": "components.show-card-large.height"
+          }
+        ],
+        "widthFormula": "Integer (inner - count * 20 - 46) / count; preserves a visible next-card slice.",
+        "titleLimits": "Suggestions, Discover, Trending, and New releases accept 20, 40, or 60, default 60. Watchlist pages at 60 with newer/older saved-title actions."
+      },
+      "personalContent": {
+        "watchlist": "Local saved titles, newest saved first, shared SHOW card language and Saved by you note. Empty state points to Hold OK → Add to Watchlist. Confirmed later local viewing may consume a saved entry with Undo; no availability promise.",
+        "episodes": "Follow/unfollow series through native menus. Verified release alerts produce the conditional New episodes shelf labeled Episode released · availability unconfirmed. Check status and dismiss actions are native; checks occur while Home is open.",
+        "details": "Scrollable native AlertDialog with synopsis, actual progress, source/availability text, Open / actions provider destinations, and Watchlist save/remove. Body uses the regular native face at 24 home-reference pixels. Uncaptured in current evidence.",
+        "undo": "Settings exposes the latest recorded action label. UndoHistory is bounded in-memory session history; it is not a guarantee for all operations or across restarts.",
+        "feedback": "Not interested affects recommendations and genre preference within service priorities, leaving saved titles and viewing history intact; Settings can reset feedback."
+      },
+      "statusAndUpdates": {
+        "sports": "Favorite teams use native league and checkbox dialogs. Eligible kickoff reminders reuse a full-width tonal button below the header with Starting soon and OK to dismiss. No background/playback guarantee.",
+        "offline": "Muted support text in the Home header labels offline cached content and its age. Cached recommendation data expires after seven days.",
+        "updater": "Settings → Updates opens an explicit native screen with status, release notes, Check now, Download, Install, Cancel, and Back. It never opens automatically. Downloads need user action and installation needs Android confirmation.",
+        "updaterNativeUnits": "Source-local Android dp/sp: 52 dp button height, 8 dp corners, 1 dp card-edge outline, 17 sp button label, 12 dp gaps; disabled text 0xFF7C897E. Home reference-pixel tokens are unchanged.",
+        "evidence": "New dialogs, details, reminder states, and updater surfaces are source-derived and uncaptured in the current A/B/C set."
+      }
     }
   },
   "components": [
@@ -238,7 +296,7 @@
       "name": "Show card",
       "kind": "card",
       "refersTo": "show-card",
-      "description": "PrettTvCard.Mode.SHOW: imagery, dark metadata scrim, medium title, muted detail, optional progress. Ivory focus outline and finite scale."
+      "description": "PrettTvCard.Mode.SHOW: existing imagery, dark metadata scrim, title, detail, and optional real progress. Standard remains the default; Small/Large row preferences reuse the same treatment. Watchlist and conditional New episodes reuse this component."
     },
     {
       "name": "Shared compact discovery",
@@ -249,7 +307,7 @@
       "name": "App tile",
       "kind": "card",
       "refersTo": "app-card-balanced",
-      "description": "PrettTvCard.Mode.APP: twelve mapped unmodified Homarr Dashboard Icons PNGs are composed on a dark native ground. Disney+ and HBO use stable bundled art on the shared dark ground. Unmapped apps retain installed art. Left from the first app reveals Library in the sidebar. Long OK hides or shows the app only in Your apps; Library, search, and viewing history retain it."
+      "description": "PrettTvCard.Mode.APP: attributed app assets and native Disney drawable on the dark ground, with installed art for unmapped apps. Row-only hide/show controls preserve Library, search, and history."
     },
     {
       "name": "Sports card",
@@ -278,7 +336,12 @@
     {
       "name": "Search and dialog controls",
       "kind": "input",
-      "description": "Android EditText inside AlertDialog, native menu lists, local recency correction, playback-tracking explanation, and optional game-handoff prompt. No custom HTML/CSS component or unobserved typography metrics are specified."
+      "description": "Native EditText, AlertDialog lists, checkbox selectors, and scrollable title details support search, personalization, Watchlist, following, row customization, Undo, recommendation feedback, and sports preferences. These new dialog states are source-derived and uncaptured in the current home evidence."
+    },
+    {
+      "name": "Status and official updates",
+      "kind": "custom",
+      "description": "Offline age uses muted Home support text; kickoff reminders reuse a tonal focusable banner. The explicit native update screen uses the incumbent palette and Android dp/sp controls. New states and updater dialogs have no current screenshot certification."
     }
   ],
   "narrative": {
@@ -310,7 +373,8 @@
       "Do use actual provider imagery, attributed icon assets, published progress, and labeled data sources.",
       "Do order personal history using local playback evidence and distinguish discovery, game-assistance, and app-opening paths.",
       "Do keep the six-destination sidebar hidden by default in all three layouts and make Library open the complete app grid.",
-      "Do spell the brand prettTV, keep branding and credits at the footer, and retain A and B as alternatives to selected C."
+      "Do spell the brand prettTV, keep branding and credits at the footer, and retain A and B as alternatives to selected C.",
+      "Do reuse native cards and dialogs for personal shelves, preserve user row preferences, and distinguish saved titles, release alerts, and playable availability."
     ],
     "donts": [
       "Don't add a top prettTV wordmark, top navigation, or rail monogram.",
@@ -318,7 +382,8 @@
       "Don't treat refreshed provider timestamps as proof of playback or invent progress, episode state, provider availability, or a verified sports stream link.",
       "Don't turn finite app shelves into looping rows or repeat apps to imply more content.",
       "Don't add idle animation, decorative drop shadows, or bright global accent surfaces to this quiet system.",
-      "Don't extend the confirmed hide/restore and Home checks into claims about untested playback tracking or RBTV matching."
+      "Don't extend the confirmed hide/restore and Home checks into claims about untested playback tracking or RBTV matching.",
+      "Don't treat the passed functional gate and user-approved one-hour soak review as visual certification of uncaptured 0.2.0 dialogs, or as completion of the original two-hour run."
     ]
   }
 }

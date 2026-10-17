@@ -10,13 +10,15 @@ prettTV combines content that apps publish to Android TV with optional public ca
 | --- | --- |
 | **Large feature** | Most recent eligible locally confirmed playback, using provider timestamps as an initial baseline. Falls back to discovery when no eligible watching item exists. |
 | **Continue watching · Shows / Movies** | Android TV Watch Next and app-published continuation channels, newest first within each row. |
+| **Watchlist** | Titles saved locally by you, newest additions first; 60 per page, with all saved entries retained within the storage limit. |
+| **New episodes** | Unread TVmaze releases for explicitly followed shows, after the initial baseline. Appears only when alerts exist. |
 | **Suggestions** | App feeds prioritized by your chosen services or shared viewing activity, then fallback sources. |
 | **Discover** | A balanced provider mix that excludes titles already in watching, Suggestions, Trending and New releases. |
 | **Trending** | Labeled popular/trending app channels and conservative Cinemeta Popular matches, then general catalog entries. |
 | **New releases** | Entries with supplied release dates within the past 120 days. |
-| **Live sports** | Live and upcoming ESPN fixtures, plus the selected sports-app shortcuts and any shared live-event cards. |
+| **Live sports** | Live and upcoming ESPN fixtures, favorite teams first within each group, plus sports-app shortcuts and shared live-event cards. |
 
-Content rows support up to 60 titles. Catalog listings do not guarantee a playable stream, subscription entitlement or availability in your region.
+Discovery rows offer limits of 20, 40 or 60 titles. Watchlist uses independent 60-entry pages. Catalog listings and episode releases do not guarantee a playable stream, subscription entitlement or availability in your region.
 
 ## Continue watching and the large feature
 
@@ -47,6 +49,8 @@ The general priority is selected services, other app feeds, known free services,
 
 When multiple sources share a normalized title, the preferred app source is retained. Discover also excludes titles already in watching, Suggestions, Trending and New releases. Provider balancing and Discover do not add extra catalog requests.
 
+**Not interested** removes the identified title from recommendation rows without removing it from Watchlist or Continue watching. Supplied genre metadata contributes a small, bounded ranking penalty within existing service tiers. Missing genres do not produce an inferred preference. Reset feedback or undo a supported recent change in Settings.
+
 ## Trending, new releases and destinations
 
 Trending uses explicitly labeled popular/trending app channels. It also ranks app cards that uniquely match the same title and content type in Cinemeta's Popular catalog. Unknown types and ambiguous matches are skipped. This matching changes ranking only: the provider's title, artwork and launch action stay intact.
@@ -55,9 +59,27 @@ Remaining slots follow Cinemeta's Popular order, alternating series and films. T
 
 App-published cards open the action supplied by their provider. Cinemeta cards link to Stremio. Hold OK → **About this title / source** to inspect a title's origin. General TVmaze discovery is also credited with its source links; see the [third-party notices](../THIRD_PARTY_NOTICES.md) for the catalog and artwork sources.
 
+## New-episode alerts
+
+Following a show is explicit and independent of saving it to Watchlist. prettTV matches a supplied TVmaze or IMDb identifier, or requires a unique exact title-and-premiere-year match. A title alone is insufficient. Shows without enough matching information remain followed with an unavailable-source status.
+
+The first check establishes a baseline rather than presenting an entire back catalog. Later checks use TVmaze's supplied episode timestamps, suppress duplicate and dismissed alerts, and never convert an unknown app destination into a promised episode link. An alert opens the known show destination; availability in that streaming service remains unconfirmed.
+
+Checks run only while Home is visible, at most once daily per checked show, with a bounded request budget per content refresh. Offline state retains previously available alerts. Manage follows and inspect check status through **Settings → Followed shows**; dismiss individual alerts through Hold OK.
+
+## Offline content
+
+The last successful shared-feed and catalog snapshot is saved privately for offline Home startup. Home displays an offline label and update age when the network is unavailable. Recommendation snapshots expire after seven days; sports use the shorter limits below. Empty or unavailable providers do not become fabricated content.
+
+Watchlist and followed-show preferences are stored separately and survive artwork-cache clearing. Available cached artwork can be reused during outages; unavailable artwork uses the normal card fallback. App shortcuts still launch, but their playback and login behavior depend on the individual app and connection.
+
 ## Live sports
 
 ESPN's public scoreboard feed supplies live and upcoming fixtures for NFL, college football, NBA, NHL, MLB and the Premier League. Cards use supplied broadcast logos and kickoff times; live cards include scores.
+
+Choose **Settings → Favorite teams**, then a league and teams. Favorite fixtures move first within the live group and within the upcoming group. The team directory is loaded when requested and cached for a week; league-specific IDs avoid collisions between sports.
+
+**Kickoff reminders** are optional. While Home is visible, fresh schedule data can show a dismissible reminder in the ten minutes before a favorite team's kickoff. Acknowledged reminders do not repeat for the same event/time; a changed kickoff can qualify again. No alarm opens Home, no other app is interrupted, and no stream starts automatically.
 
 | Data behavior | Limit |
 | --- | --- |

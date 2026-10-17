@@ -2,19 +2,32 @@
 
 [Documentation](README.md) · [Project home](../README.md) · [Using prettTV](usage.md)
 
-prettTV has no analytics SDK, advertising-identifier access or account collection. It does not ask for streaming credentials, use root operations or modify firmware. Its declared app permissions are Internet and TV-listings access.
+prettTV has no analytics SDK, advertising-identifier access or account collection. It does not ask for streaming credentials, use root operations or modify firmware. Its declared permissions cover Internet access, network-state checks, TV listings and user-confirmed package installation.
 
 ## Data stored on the TV
 
-App order, hidden apps and titles, confirmed playback and launch recency stay local. Hiding a title or correcting its viewing order changes prettTV on this TV; it does not change a shared streaming account.
+App order, hidden apps and titles, confirmed playback, launch recency, Watchlist, followed shows, episode-alert state, recommendation feedback, row preferences and favorite teams stay local. Hiding a title or correcting its viewing order changes prettTV on this TV; it does not change a shared streaming account. Undo is an in-memory session history.
+
+Home stores a bounded private snapshot for offline use, separate from saved titles and recovery credentials. Cached recommendations expire after seven days; sports records have shorter expiry. Saved titles remain until removed or until supported playback confirms they were started. [Watchlist behavior](usage.md#save-titles-to-watchlist) describes the distinction.
+
+Automatic cloud backup and device-to-device extraction are disabled explicitly, including Android 12's transfer rules. Explicit local settings exports include the allowlisted app, Home, playback and personalization preferences. They exclude recovery keys, device-recovery records, downloaded APKs and updater sessions. Treat an exported file as private because it can contain title history and preferences.
 
 prettTV cannot inspect other apps' credentials or reliably determine whether you are signed in. Recommendation services are selected by you or inferred from the progress apps share with Android TV. Opening an app alone is not treated as proof of a login.
 
 ## Network requests
 
-With discovery enabled, prettTV requests public catalogs, ESPN scoreboards and artwork from TVmaze, Cinemeta, Metahub and the relevant image services. App-published rows can also point to provider artwork. Those servers receive the TV's IP address and the requested URLs or catalog, show and league identifiers. prettTV does not send them account tokens or viewing history.
+With discovery enabled, prettTV requests public catalogs, ESPN scoreboards and artwork from TVmaze, Cinemeta, Metahub and the relevant image services. App-published rows can also point to provider artwork. Those servers receive the TV's IP address and the requested URLs or catalog, show and league identifiers. Catalog requests do not include streaming credentials or an uploaded viewing-history list.
 
-**Settings → Show discovery → Off** stops public catalog requests. Provider artwork may still be requested for shared content. See [content sources](content-and-sports.md) and the [third-party notices](../THIRD_PARTY_NOTICES.md) for source details.
+**Settings → Show discovery → Off** stops general discovery and scoreboard refreshes. Provider artwork, followed-show checks, explicitly requested team directories and update checks are separate:
+
+| Request | When it happens | Information sent |
+| --- | --- | --- |
+| Followed-show metadata | While Home is visible; bounded checks at most daily per checked show | TVmaze/IMDb show IDs, or a title lookup when an exact year is available. Unfollow to stop checking a show. |
+| Team directory | When the Favorite teams picker needs it; weekly cache | Requested league. Favorite team selections are applied locally. |
+| Official update check | At most daily while Home is visible, or when you choose Check now | GitHub release/asset requests and a prettTV updater user agent. |
+| APK download | Only after choosing Download | The selected official GitHub release-asset URL. |
+
+As with other HTTPS services, these servers receive the TV's IP address. No scheduled alarm wakes Home for episode or update checks. See [content sources](content-and-sports.md) and the [third-party notices](../THIRD_PARTY_NOTICES.md) for provider attribution.
 
 ## Optional access
 
@@ -25,6 +38,7 @@ The installers do not grant Notification or Accessibility access. You enable the
 | Shared viewing progress | TV listings | Read Watch Next and app-published program rows. |
 | Playback tracking | Notification access | Observe active media-session metadata for supported titles. Notification text is not read or retained. |
 | RBTV game handoff | Accessibility access | Navigate RBTV during an explicit, bounded game request. It does not intercept Home or choose a server. |
+| prettTV updates | Allow installation from prettTV, then Android's installation confirmation | Install a verified newer prettTV APK only after you choose Install. It does not update RBTV or other apps. |
 | Full stock recovery | Authorized local TCP debugging and the private setup record | Restore the recorded Home, disabled-app states and DNS after two confirmations. |
 
 Stock recovery connects only to the TV itself at `127.0.0.1:5555`, using its own private key rather than the computer's ADB key. It does not enable debugging automatically. Keep the original device-specific setup records outside GitHub and public releases. Read the [recovery guide](stock-recovery.md) for prerequisites and failure behavior.
