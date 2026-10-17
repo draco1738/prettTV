@@ -1,10 +1,29 @@
-# prettTV 0.1.9 motion candidate — 2026-10-17
+# prettTV 0.1.9 scrolling and row navigation — 2026-10-17
 
 Scroll events now coalesce artwork visibility work into at most one scan every 80 ms, with a trailing scan for the settled viewport. Stop and rebuild cancel pending scans. Assigning an unchanged bitmap no longer invalidates a card, and offscreen cards are cleared only when they actually hold artwork. Canvas drawing reuses geometry and cached typefaces. The existing 140 ms focus animation and visual design are preserved.
 
 Horizontal navigation now explicitly selects the adjacent card rather than relying on framework scrolling that can leave focus behind. The sidebar opens only from the logical first card at scroll position zero, on a fresh Left press; held Left cannot spill into it. A stale first-card focus in a scrolled row reveals the start before accepting another Left for the sidebar. Nested sports-app cards and fixed Library rows use the same boundary rules. Horizontal reveal animations last 180 ms, retarget from the current offset and respect disabled system animations. Stop/rebuild completes movement before preserving the viewport.
 
-The signed candidate and isolated test APKs build. All 95 JVM tests pass, including seven new row-navigation regressions; Android lint reports zero errors and 38 existing warnings. Scoped code reviews found no changed-path regressions. The new motion measurement and row-navigation scripts have passed PowerShell parsing; they have not yet been run. Installation, a controlled before/after hardware comparison and final on-TV verification await confirmation that the TV is idle. No frame-rate improvement or v0.1.9 device-test result is claimed at this stage. v0.1.8 remains the published release.
+The sidebar captures its return card before hiding the rail. Hiding the focused rail can synchronously move focus to the hero; capturing first prevents that callback from replacing the intended destination. The on-TV test exposed this issue in the initial candidate, and the final build passed after correction.
+
+The signed release and isolated test APKs build. All 95 JVM tests pass, including seven new row-navigation regressions; Android lint reports zero errors and 32 warnings. Scoped code reviews found no remaining changed-path regressions. v0.1.9 installed in place on the TCL as versionCode 10 with the established signing certificate. The final release APK SHA-256 is `60eaa08664b04d6b6788fa9d6c9455b98609dca11404bef8aafe1dc34340574b`.
+
+The row-navigation test reproduced held Left spilling into the sidebar on v0.1.8. On final v0.1.9 it passed reversal across nine app cards, the held-Left boundary, a fresh Left opening the sidebar, and Right returning to the original app. Two additional rapid-navigation loops and two forced cold starts passed. Three real leave-and-return cycles preserved the selected scrolled app, viewport and Home process. The temporary lifecycle fixture was removed. C Balanced and its artwork were visually checked on the TCL, then Home was returned to its initial position.
+
+The same paced C navigation script warmed the route once and measured two routes on each signed build. Android `gfxinfo` reported:
+
+| Measure | v0.1.8 | v0.1.9 |
+| --- | ---: | ---: |
+| Rendered frames | 179 | 188 |
+| Janky frames | 126 (70.39%) | 60 (31.91%) |
+| Median frame time | 46 ms | 17 ms |
+| 95th-percentile frame time | 73 ms | 28 ms |
+| 99th-percentile frame time | 93 ms | 28 ms |
+| Slow UI-thread frames | 109 | 0 |
+
+These are bounded hardware samples with the same scripted input and existing device settings, not sustained 60 fps or broad-device benchmarks. The navigation fix changes focus/scroll behavior, and animations can change frame counts. Remaining frame-deadline misses are visible in the results; no locked-frame-rate claim is made. Raw frame data remains local.
+
+Final diagnostics reported C Balanced, 36 apps, 21 watching records, 60 entries per discovery/catalog row and no feed/app refresh errors. The retained crash buffer contains no prettTV crash; retained exit reasons show package updates and requested force stops, with no crash or ANR reasons. The default Home resolver remains prettTV, and no temporary test packages remain. Every exported app and playback preference matched the pre-test export; Home preferences differed only in transient focus.
 
 # prettTV 0.1.8 stability and failure recovery — 2026-10-17
 

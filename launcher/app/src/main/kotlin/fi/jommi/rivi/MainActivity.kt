@@ -181,8 +181,11 @@ class MainActivity : Activity() {
         val running=rowMotion.values.toList(); rowMotion.clear(); running.forEach { it.end() }
     }
     private fun hideRail(restore:Boolean=true) {
+        // Hiding the focused rail can synchronously focus the hero and update lastContentFocus.
+        // Capture the intended return card before changing visibility.
+        val returnTo=if(restore)lastContentFocus ?: firstCard else null
         sidebar?.visibility=View.GONE; root.alpha=1f
-        if(restore)(lastContentFocus ?: firstCard)?.requestFocus()
+        returnTo?.requestFocus()
     }
     override fun onKeyDown(key:Int,event:KeyEvent):Boolean { if(key==KeyEvent.KEYCODE_MENU) { menu(); return true }; return super.onKeyDown(key,event) }
 
