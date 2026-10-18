@@ -1,8 +1,8 @@
-# Rounder app-card corners
+# 30-pixel app-card corners — superseded proposal
 
-[← prettTV](../../../README.md) · [Installed v0.2.1 geometry](../rounder-app-cards/README.md)
+[← prettTV](../../../README.md) · [Historical v0.2.1 geometry](../rounder-app-cards/README.md) · [Approved 36-pixel corners](../rounder-36/README.md)
 
-Rendered follow-up to the request for rounder cards. **This 30-pixel proposal is awaiting visual approval; the TV currently uses 22-pixel corners.**
+Rendered follow-up to v0.2.1's 22-pixel corners. **This 30-pixel proposal was superseded by the approved [36-pixel design for v0.2.2](../rounder-36/README.md).** The image's “Current” label refers to the historical v0.2.1 baseline.
 
 ![Current 22-pixel corners and proposed 30-pixel corners](comparison.png)
 

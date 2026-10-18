@@ -9,7 +9,7 @@
 
 ![C Balanced on the TCL TV: a large recently watched title, two discovery cards, dark app tiles and a Continue watching row.](docs/screenshots/C-balanced.png)
 
-*C · Balanced is the default. The gallery shows unedited v0.2.1 captures from the TCL TV, with real apps and provider content.*
+*C · Balanced is the default. The gallery shows unedited v0.2.2 captures from the TCL TV, with real apps, provider content and the 36-pixel Your apps corners.*
 
 ## A home that stays out of the way
 
@@ -57,7 +57,7 @@ The default bundle includes **RBTV+** and keeps an existing RBTV installation. A
 
 Choose a layout in **prettTV Settings → Layout**. Your apps, viewing history and discovery feeds are shared across all three.
 
-In v0.2.1, Your apps uses narrower tiles, rounder corners and tighter spacing in every layout, while preserving each row's height and the Library grid. The [geometry comparison](docs/previews/rounder-app-cards/README.md) and [earlier motion comparison](docs/previews/premium-focus/README.md) record the design approvals as rendered concepts. [Validation history](docs/validation.md) records the native checks and their outcomes.
+In v0.2.2, Your apps uses **36-pixel corners**, retaining v0.2.1's 208-pixel widths and 12-pixel gaps alongside the existing layout-specific heights. Library geometry and focus motion are unchanged. The [latest comparison](docs/previews/rounder-36/README.md) records the approved shape as a rendered concept; [validation history](docs/validation.md) records native checks and their outcomes.
 
 | Layout | Composition |
 | :--- | :--- |

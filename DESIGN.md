@@ -57,7 +57,7 @@ typography:
     fontSize: "19px"
 rounded:
   card: "15px"
-  app-row-card: "22px"
+  app-row-card: "36px"
   thumbnail: "10px"
   shared-panel: "16px"
   hero-action: "23px"
@@ -173,7 +173,7 @@ The hidden sidebar remains the owner's chosen navigation. It contains Home, Show
 - A hidden-by-default left overlay sidebar shared by A, B, and C.
 - Native text scaling, readable metadata, and full accessible labels behind visual truncation.
 
-The 0.2.1 implementation uses 208-reference-pixel Your apps widths, 22-pixel corners and 12-pixel gaps, alongside a finite focus spotlight and small artwork drift. Layout-specific app heights, Library geometry, palette, typography, content order, and hidden navigation remain intact. The earlier 15-pixel corners and 18-pixel app gaps were an intermediate candidate; the [rounder-card comparison](docs/previews/rounder-app-cards/README.md) records the accepted refinement.
+The 0.2.2 implementation uses 208-reference-pixel Your apps widths, 36-pixel corners and 12-pixel gaps, alongside a finite focus spotlight and small artwork drift. This patch changes only the app-row corner radius from 0.2.1's 22 pixels. Layout-specific app heights, Library geometry, palette, typography, content order, and hidden navigation remain intact. The [36-pixel comparison](docs/previews/rounder-36/README.md) records the accepted refinement; the [earlier comparison](docs/previews/rounder-app-cards/README.md) preserves the 0.2.1 design.
 
 [Validation history](docs/validation.md) records scoped checks, evidence versions and outcomes. Rendered previews document approvals; they are not native captures. Feature dialogs, details, reminder states and the updater remain outside this Home visual review. The [original native design review](docs/native-design-evidence.md) retains its historical scope. Source in `launcher/app/src/main/kotlin/fi/jommi/rivi/` defines the native components below.
 
@@ -230,7 +230,7 @@ The home is a 1920 × 1080 reference composition, scaled by display width. The r
 
 **C Balanced, selected:** a 56-pixel header precedes the upper content by 18 pixels. The feature uses `hero-balanced`, followed by a card-gap and one shared side panel (656 × 486). That panel contains a Discover heading and two compact rows (608 × 184), with 24-pixel horizontal padding. These dimensions describe C's current surface, not a mandatory composition for every future screen.
 
-The app shelf follows after a card-gap. Your apps uses 208-pixel-wide dark tiles in all three layouts, with 22-pixel corners and 12-pixel app-gap spacing. Eight complete tiles and a slice of the next fit within the 1808-pixel reference width when enough apps are present. Their heights remain 116 in A, 176 in B, and 94 in C. Every included app occurs once in this finite row, and Home returns it to its start. The sidebar's Library action opens the complete six-column Library · All apps grid later on the page. That grid retains its existing width formula, integer `(inner - 5 × 18) / 6`, 154-pixel card height, 18-pixel gaps and 15-pixel corners. Hiding an app affects only the horizontal Your apps row; it stays in Library, search, and viewing history.
+The app shelf follows after a card-gap. Your apps uses 208-pixel-wide dark tiles in all three layouts, with 36-pixel corners and 12-pixel app-gap spacing. Eight complete tiles and a slice of the next fit within the 1808-pixel reference width when enough apps are present. Their heights remain 116 in A, 176 in B, and 94 in C. Every included app occurs once in this finite row, and Home returns it to its start. The sidebar's Library action opens the complete six-column Library · All apps grid later on the page. That grid retains its existing width formula, integer `(inner - 5 × 18) / 6`, 154-pixel card height, 18-pixel gaps and 15-pixel corners. Hiding an app affects only the horizontal Your apps row; it stays in Library, search, and viewing history.
 
 Content shelves default to four complete Standard cards and a visible portion of the next. Small shows five cards, Standard four, and Large three; their heights use `show-card-small`, `show-card`, and `show-card-large`. Width is the integer result of `(inner - count × 20 - 46) / count`. Sports event cards use the same size choices. Section headers occupy 44 reference pixels, shelf wrappers allow 6 pixels above and below focus-scaled cards, and section gaps separate shelves. Settings → Customize rows reorders or hides the content shelves and restores defaults; title limits of 20, 40, or 60 apply to Suggestions, Discover, Trending, and New releases.
 
@@ -262,7 +262,7 @@ Horizontal focus travel retains its separate finite 180 ms native `ValueAnimator
 
 ## Shapes
 
-Your apps tiles use the rounder 22-pixel `app-row-card` silhouette. This override applies only to the horizontal Your apps row; Library app tiles, sports-app shortcuts, other cards and sidebar buttons retain the 15-pixel `card` silhouette. The card's clip and outline use the same radius, with the painted shape inset 3 reference pixels from the View boundary. Compact imagery has its own smaller `thumbnail` corners. The shared Discover panel and hero action retain their own radii. The previous top-navigation pill is no longer part of the current home.
+Your apps tiles use the rounder 36-pixel `app-row-card` silhouette. This override applies only to the horizontal Your apps row; Library app tiles, sports-app shortcuts, other cards and sidebar buttons retain the 15-pixel `card` silhouette. The card's clip and outline use the same radius, with the painted shape inset 3 reference pixels from the View boundary. Compact imagery has its own smaller `thumbnail` corners. The shared Discover panel and hero action retain their own radii. The previous top-navigation pill is no longer part of the current home.
 
 Resting non-compact cards use a 1-pixel card-edge outline. Focused non-hero cards use a 2.4-pixel ivory outline. Compact rows have no independent resting outline, because the shared panel contains them; focus reveals their card outline. Hero focus strengthens the action's outline instead of scaling or brightening the whole feature border.
 

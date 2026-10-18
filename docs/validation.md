@@ -6,6 +6,7 @@ Recorded results for each release, newest first. Device observations apply to th
 
 | Release | Scope | Recorded |
 | :--- | :--- | :--- |
+| [0.2.2](#pretttv-022-rounder-app-corners--2026-10-17) | Approved 36-pixel Your apps corners | 2026-10-17 |
 | [0.2.1](#pretttv-021-refined-app-cards-and-focus--2026-10-17) | Narrower, rounder app cards and finite focus treatment | 2026-10-17 |
 | [0.2.0](#pretttv-020-personal-rows-and-release-hardening--2026-10-17) | Personal rows and release hardening | 2026-10-17 |
 | [0.1.10](#pretttv-0110-stock-troubleshooting-recovery--2026-10-17) | Stock troubleshooting recovery | 2026-10-17 |
@@ -18,6 +19,18 @@ Recorded results for each release, newest first. Device observations apply to th
 | [0.1.3](#pretttv-013-discover-row--2026-10-17) | Discover row | 2026-10-17 |
 | [0.1.2](#pretttv-012-dark-tile-correction--2026-10-17) | Dark-tile correction | 2026-10-17 |
 | [0.1.1](#pretttv-011-validation--2026-10-17) | Validation | 2026-10-17 |
+
+## prettTV 0.2.2 rounder app corners — 2026-10-17
+
+The owner approved the [36-pixel corner preview](previews/rounder-36/README.md). Your apps now uses that radius for its artwork clip and outline in A/B/C. Width remains 208 reference pixels, gaps remain 12, and heights remain 116/176/94. Library, other cards, focus motion and row navigation are unchanged. The separate two-row concept is not part of this release.
+
+The signed **0.2.2 / code 14** APK has SHA-256 `0aa50401afb945d2f0398c593b890c10e47d845b7e39004db2af8739182e6e69` and the established certificate SHA-256 `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`. It installed in place, and a copy pulled from the TV matched the build hash.
+
+**202 JVM tests and all 40 Android fault/UI checks passed.** The existing card fixtures now exercise the 36-pixel radius. Android lint has zero errors and 31 existing warnings. Fresh unedited A/B/C captures were visually checked and published in the gallery; the focused C Disney+ tile was also inspected for logo containment and outline alignment. C passed reversal across nine app cards, held-Left containment, intentional sidebar entry and return.
+
+Home settings, app settings, personalization, playback identities, recency and progress were preserved. Expected changes were the navigation focus reset and two refreshed Netflix launch payloads; the corresponding destinations and every other cached playback field were unchanged. The crash buffer was unchanged, and retained exit reasons included no CRASH or ANR. Temporary test packages were removed. C Balanced and prettTV's default Home resolver remain selected; recovery was configured, unpaused and IDLE. No stock restore ran.
+
+These are bounded checks for a corner-radius change. The one-hour soak, all-layout stress/lifecycle suite and frame-time comparison were **not repeated**; their earlier results below apply to their original versions. Raw screenshots used only for inspection, device dumps and preference exports remain outside the public repository.
 
 ## prettTV 0.2.1 refined app cards and focus — 2026-10-17
 

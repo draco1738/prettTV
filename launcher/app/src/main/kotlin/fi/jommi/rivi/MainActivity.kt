@@ -680,7 +680,7 @@ class MainActivity : Activity() {
         }
         horizontalRows["your-apps"]=scroll
         entries.forEachIndexed { i,e ->
-            strip.addView(appCard(e,"favorite-${e.key}",22f),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<entries.lastIndex)rightMargin=px(12) })
+            strip.addView(appCard(e,"favorite-${e.key}",36f),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<entries.lastIndex)rightMargin=px(12) })
         }
         if(firstCard?.tag=="feature")firstCard?.nextFocusDownId=strip.getChildAt(0).id
         constrainRow(strip)
@@ -1045,7 +1045,7 @@ class MainActivity : Activity() {
         dialog(p.title,choices)
     }
     private fun credits() {
-        dialog("prettTV 0.2.1",listOf(
+        dialog("prettTV 0.2.2",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },

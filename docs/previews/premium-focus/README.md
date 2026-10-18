@@ -1,8 +1,8 @@
 # Narrower app cards — intermediate design record
 
-[← prettTV](../../../README.md) · [Latest approved geometry](../rounder-app-cards/README.md) · [Native design](../../../DESIGN.md) · [Validation history](../../validation.md)
+[← prettTV](../../../README.md) · [Historical v0.2.1 geometry](../rounder-app-cards/README.md) · [Latest approved geometry](../rounder-36/README.md) · [Native design](../../../DESIGN.md) · [Validation history](../../validation.md)
 
-These browser-rendered **C Balanced** comparisons record the intermediate **208-width / 15-radius / 18-gap** design for v0.2.1. The owner later approved [22-pixel corners and 12-pixel gaps](../rounder-app-cards/README.md), retaining the widths, heights and focus treatment shown here. These assets remain design previews, not screenshots of the installed Android app. Their “Current” and “Proposed” labels describe the earlier v0.2.0 baseline and the intermediate direction.
+These browser-rendered **C Balanced** comparisons record the intermediate **208-width / 15-radius / 18-gap** design for v0.2.1. That release used the later approved [22-pixel corners and 12-pixel gaps](../rounder-app-cards/README.md), retaining the widths, heights and focus treatment shown here. The subsequent [v0.2.2 refinement](../rounder-36/README.md) changes only the app-row radius to 36 pixels. These assets remain design previews, not screenshots of the installed Android app. Their “Current” and “Proposed” labels describe the earlier v0.2.0 baseline and the intermediate direction.
 
 The comparison shows both rows at the same scale, with enlarged views of the selected card.
 
@@ -19,7 +19,7 @@ This C comparison uses **208 × 94** app cards instead of **286 × 94**: about *
 
 ## Retained dimensions and focus treatment
 
-Your apps retains the same **208-reference-pixel width** in all three layouts. This intermediate preview shows an 18-pixel gap and 15-pixel radius; the final approved values are **12-pixel gaps and 22-pixel corners**:
+Your apps retains the same **208-reference-pixel width** in all three layouts. This intermediate preview shows an 18-pixel gap and 15-pixel radius; the final values for **v0.2.1** were **12-pixel gaps and 22-pixel corners**. The later v0.2.2 design keeps these dimensions and gaps with a 36-pixel radius:
 
 | Layout | App-card dimensions |
 | --- | --- |
