@@ -27,6 +27,7 @@ class StabilityInstrumentation:Instrumentation() {
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
             PersonalizationAndroidChecks.run(targetContext, ::test)
             DiscoveryAndroidChecks.run(targetContext, ::test)
+            WeatherRepositoryInstrumentationTest.run(this, ::test)
             test("real decoder accepts fixture and downsamples large image") {
                 withLoader { loader ->
                     check(load(loader,"good")!=null)

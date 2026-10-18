@@ -6,6 +6,7 @@ Recorded results for each release, newest first. Device observations apply to th
 
 | Release | Scope | Recorded |
 | :--- | :--- | :--- |
+| [0.2.3](#pretttv-023-weather-header--2026-10-17) | Optional weather header and bounded provider/cache checks | 2026-10-17 |
 | [0.2.2](#pretttv-022-rounder-app-corners--2026-10-17) | Approved 36-pixel Your apps corners | 2026-10-17 |
 | [0.2.1](#pretttv-021-refined-app-cards-and-focus--2026-10-17) | Narrower, rounder app cards and finite focus treatment | 2026-10-17 |
 | [0.2.0](#pretttv-020-personal-rows-and-release-hardening--2026-10-17) | Personal rows and release hardening | 2026-10-17 |
@@ -19,6 +20,29 @@ Recorded results for each release, newest first. Device observations apply to th
 | [0.1.3](#pretttv-013-discover-row--2026-10-17) | Discover row | 2026-10-17 |
 | [0.1.2](#pretttv-012-dark-tile-correction--2026-10-17) | Dark-tile correction | 2026-10-17 |
 | [0.1.1](#pretttv-011-validation--2026-10-17) | Validation | 2026-10-17 |
+
+## prettTV 0.2.3 weather header — 2026-10-17
+
+The approved design adds an optional location, condition icon and temperature beside the clock in the shared A/B/C header. It retains the 56-reference-pixel header height and existing app/card geometry. Weather starts off with no preset location; the owner can enter a US ZIP and select Fahrenheit or Celsius. Zippopotam.us resolves the ZIP, and nearby NWS stations supply observations. The [usage guide](usage.md#weather-beside-the-clock) describes refresh, stale and unavailable states; [privacy](privacy.md#weather) records requests and local storage.
+
+The signed **0.2.3 / code 15** APK has SHA-256 `e329b43b9333ff9a9688159f82d711089727da56efc1c90f4b3702fbc1d51760` and the established certificate SHA-256 `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`. It installed in place. **221 JVM tests and all 52 Android fault/UI checks passed.** Android lint reports zero errors and 31 existing warnings.
+
+The 12 new [Android weather checks](../launcher/app/src/androidTest/kotlin/fi/jommi/rivi/WeatherRepositoryInstrumentationTest.kt) run in the isolated stability package with synthetic provider responses. They cover:
+
+- Late ZIP responses after Home stops and after repository close, as two separate cases; superseded lookups commit only the newest location.
+- Invalid ZIP input and malformed responses preserving the previous location; fresh private-cache loading across stop/start without network requests.
+- Corrupt cache and malformed/null observations recovering through the bounded three-station fallback.
+- Failed refresh retaining cached data, force-refresh requests honoring Retry-After, and cancellation of a late refresh followed by a successful restart.
+- Imported locations never displaying the previous location's cache; disabled weather making no requests and expired readings remaining hidden.
+- Invalid restored weather preferences rejected before any store editor is created, plus a valid import; passive header updates preserving focus and child identity across fresh, stale, unavailable and disabled states.
+
+Live NWS observations succeeded on the installed build in A, B and C. Fresh private native captures of all three layouts were visually checked against the approved header. Remote-driven Fahrenheit/Celsius changes, weather off/on and a forced refresh preserved the selected card and viewport; hiding weather kept the clock visible. C also passed reversal across seven app cards, held-Left containment, intentional sidebar entry and return. One real leave-and-return cycle preserved the same Home process, focus and viewport against unchanged content. The public gallery retains its **v0.2.2** captures. Configured locations, weather-enabled screenshots and raw device evidence remain private.
+
+The APK pulled back from the TV matched the signed build. Only the three new weather preference keys changed in Home settings; app and personalization settings were identical. All 21 playback identities, ordering, recency, progress and other title fields were preserved, with two refreshed launch payloads retaining the same destinations. The crash buffer was unchanged and retained exit reasons included no CRASH or ANR. Temporary test packages were removed; C Balanced, Fahrenheit and prettTV's default Home resolver were restored. Recovery remained configured, unpaused and IDLE; no stock restore ran.
+
+An initial Kotlin recursive return-type inference compile failure was fixed before the passing build. Private UI-harness attempts also exposed readiness, label-case, touch-mode and assumed-focus setup problems. Those runs are not counted as passing product checks; the final checks used observed controls and captured focus baselines with remote inputs, without requiring an app-code fix.
+
+These are bounded weather-feature checks. **The one-hour soak, repeated cold-start stress suite and frame-time benchmark were not repeated.** Earlier releases' results retain their original scope.
 
 ## prettTV 0.2.2 rounder app corners — 2026-10-17
 

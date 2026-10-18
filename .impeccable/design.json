@@ -31,6 +31,10 @@
       "app-pack-ground": {
         "role": "neutral",
         "displayName": "Dark icon-pack ground"
+      },
+      "weather-sun": {
+        "role": "secondary",
+        "displayName": "Weather sun and lightning accent"
       }
     },
     "typographyMeta": {
@@ -52,7 +56,11 @@
       },
       "label": {
         "displayName": "Control label",
-        "purpose": "Utility buttons, Discover heading, and clock."
+        "purpose": "Utility buttons, Discover heading, temperature and clock."
+      },
+      "weather-location": {
+        "displayName": "Weather location",
+        "purpose": "Muted 23-reference-pixel place label beside the header temperature and clock."
       },
       "action": {
         "displayName": "Hero action",
@@ -109,6 +117,10 @@
         "launcher/app/src/main/kotlin/fi/jommi/rivi/PersonalizationStore.kt",
         "launcher/app/src/main/kotlin/fi/jommi/rivi/UpdateActivity.kt",
         "launcher/app/src/main/kotlin/fi/jommi/rivi/OfflineSnapshotStore.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/WeatherPolicy.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/WeatherCache.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/WeatherRepository.kt",
+        "launcher/app/src/main/kotlin/fi/jommi/rivi/WeatherHeaderView.kt",
         "launcher/app/src/main/kotlin/fi/jommi/rivi/EpisodeCatalog.kt",
         "launcher/app/src/main/kotlin/fi/jommi/rivi/SportsModel.kt"
       ],
@@ -118,7 +130,7 @@
           "docs/screenshots/A-cinema.png",
           "docs/screenshots/B-quiet.png"
         ],
-        "provenance": "docs/screenshots/A-cinema.png, B-quiet.png and C-balanced.png are unedited 1920x1080 ADB captures of v0.2.2 on the TCL TV, including the 208-wide Your apps tiles with 36-pixel corners and 12-pixel gaps. Scoped checks and outcomes are recorded in docs/validation.md.",
+        "provenance": "docs/screenshots/A-cinema.png, B-quiet.png and C-balanced.png remain unedited 1920x1080 ADB captures of v0.2.2 on the TCL TV, including the 208-wide Your apps tiles with 36-pixel corners and 12-pixel gaps. They predate the optional v0.2.3 weather header and do not expose its configured location. Scoped checks and outcomes are recorded in docs/validation.md.",
         "freshness": "Feature dialogs, details, reminder states and the updater remain outside this Home visual review. Existing sidebar captures retain their separately recorded provenance.",
         "sidebar": "docs/screenshots/sidebar.png"
       },
@@ -227,7 +239,7 @@
         "applicationId": "dev.zane.pretttv"
       },
       "userOverride": "The owner approved final Your apps widths of 208 reference pixels with 36-pixel corners and 12-pixel gaps across A/B/C, plus the retained finite spotlight/drift. Heights remain 116/176/94. The corner override is only for Your apps: Library, sports-app shortcuts and content-card geometry stay unchanged. The hidden-by-default sidebar remains in every layout; Left at the first card reveals it and Right, Back, a destination or returning content focus dismisses it.",
-      "sourceDerivedStatus": "Version 0.2.2 implements 208-wide Your apps cards with 36-pixel corners and 12-pixel gaps, retaining the finite spotlight and artwork drift. docs/validation.md records native checks and outcomes. Uncaptured feature dialogs and updater surfaces remain outside this Home visual review.",
+      "sourceDerivedStatus": "Version 0.2.3 adds optional US-ZIP weather beside the existing clock, retaining the shared 56-pixel header and 0.2.2 app geometry: width 208, corner radius 36 and gap 12. docs/validation.md records native checks and outcomes. The retained public gallery is v0.2.2; weather and uncaptured feature dialogs are not represented by those images.",
       "playbackEvidence": "Published engagement timestamps seed a stored baseline and subsequent timestamp-only refreshes do not promote a title. Optional supported active media sessions or the manual I watched this most recently action update local recency. Notification access is required for the optional tracker; it does not read or store notification text. Missing or ambiguous title metadata remains unknown.",
       "sportsHandoff": "Optional accessibility assistance starts only after a selected game and is bounded to 30 seconds inside supported RBTV 3.0.320 layouts. It matches both teams and kickoff time for supported leagues, stops before server selection, and leaves unsupported or unmatched events to manual selection. No deep link, game availability, channel availability, or playback success is guaranteed.",
       "packageMigration": "The implementation workflow reports successful owner-preference export/import and removal of the previous application. Preference exports remain local and excluded from publication.",
@@ -257,7 +269,19 @@
       "publication": "The owner requested a public GitHub repository when the work is finished. Selected A/B/C launcher captures may be published. Device dumps, account data, preference exports, and other-app screens remain excluded. This records the target, not a completed visibility check.",
       "appVisibility": "Hiding affects only the horizontal Your apps row. Library retains every discoverable app. TV proof: Prime Video hidden by Hold OK → Hide from Your apps row reduced the count 34 → 33; it remained in Library and offered Show in Your apps row; restoration returned 34. Search, suggestions, and viewing-history independence are source-verified rather than separate device-session results. Settings can clear all row-only hide choices.",
       "helperValidation": "PlaybackTracker and RBTV accessibility assistance are optional and remain off on the test TV. No end-to-end playback tracking, game matching, channel availability, or stream playback success is claimed.",
-      "documentedVersion": "0.2.2",
+      "documentedVersion": "0.2.3",
+      "weatherHeader": {
+        "heightReferencePixels": 56,
+        "locationTypography": "typography.weather-location: sans-serif, 23 reference pixels, colors.ui-muted",
+        "valueTypography": "typography.label: sans-serif, 26 reference pixels, colors.ivory for temperature and time",
+        "composition": "Optional location label capped at 240 reference pixels, 30x30 condition icon and temperature, followed by a quiet 1x24 divider and the existing clock. Shared by A/B/C without adding a row or moving the content below it.",
+        "icons": "Original Canvas condition marks, ivory strokes with colors.weather-sun for the sun and lightning accent. Unknown/missing conditions hide the glyph; no downloaded icons or repeating animation.",
+        "behavior": "Passive header group adds no remote-focus stop. Its accessible description retains location, reading and condition. Weather views update in place without rebuilding Home or changing content focus/viewport. The clock keeps Android's local time format and time zone.",
+        "configuration": "Weather is off by default with no embedded location. Setting a recognized five-digit US ZIP enables it; Fahrenheit is the default and Celsius is selectable. No GPS, account-address lookup or international provider fallback.",
+        "data": "Zippopotam.us supplies the ZIP place label and approximate coordinates; NWS supplies nearby station observations. Weather settings and About/credits link the providers and their data licences.",
+        "freshness": "Refreshes about every 30 minutes while Home is active. Observations older than 30 minutes append cached; readings older than two hours are no longer displayed. Without a reading, text is Updating… during a request or Unavailable afterward. These states preserve the clock. Stopping Home or changing location cancels active work and invalidates older callbacks.",
+        "publication": "The configured location and weather-enabled TV captures remain private. Public A/B/C gallery captures retain their v0.2.2 provenance."
+      },
       "appShelf": {
         "widthReferencePixels": 208,
         "gapReferencePixels": 12,

@@ -9,7 +9,7 @@
 
 ![C Balanced on the TCL TV: a large recently watched title, two discovery cards, dark app tiles and a Continue watching row.](docs/screenshots/C-balanced.png)
 
-*C · Balanced is the default. The gallery shows unedited v0.2.2 captures from the TCL TV, with real apps, provider content and the 36-pixel Your apps corners.*
+*C · Balanced is the default. The gallery retains unedited v0.2.2 TCL captures. These show the 36-pixel Your apps corners and predate the optional weather header.*
 
 ## A home that stays out of the way
 
@@ -28,6 +28,8 @@ Built on [Rivi by Jommi](https://github.com/jommi9/rivi), using native Android V
 > Viewing progress and recommendations depend on what each app shares with Android TV. prettTV does not access a universal streaming history or detect every signed-in account. [How content works →](docs/content-and-sports.md)
 
 Home also retains recent content during outages, offers undo for supported changes, and checks for official updates without installing anything automatically. [Explore the controls →](docs/usage.md)
+
+**Weather beside the clock:** v0.2.3 adds an optional location, condition icon and temperature to the existing header. Enter a US ZIP code in Weather settings and choose °F or °C. Readings come from nearby NWS observation stations; no GPS permission or Google account access is needed. [Weather settings and coverage →](docs/usage.md#weather-beside-the-clock)
 
 ## Get started
 
@@ -57,7 +59,7 @@ The default bundle includes **RBTV+** and keeps an existing RBTV installation. A
 
 Choose a layout in **prettTV Settings → Layout**. Your apps, viewing history and discovery feeds are shared across all three.
 
-In v0.2.2, Your apps uses **36-pixel corners**, retaining v0.2.1's 208-pixel widths and 12-pixel gaps alongside the existing layout-specific heights. Library geometry and focus motion are unchanged. The [latest comparison](docs/previews/rounder-36/README.md) records the approved shape as a rendered concept; [validation history](docs/validation.md) records native checks and their outcomes.
+Your apps retains the **36-pixel corners** introduced in v0.2.2, with 208-pixel widths, 12-pixel gaps and layout-specific heights. Library geometry and focus motion are unchanged. The [app-card comparison](docs/previews/rounder-36/README.md) records the approved shape as a rendered concept; [validation history](docs/validation.md) records native checks and their outcomes.
 
 | Layout | Composition |
 | :--- | :--- |

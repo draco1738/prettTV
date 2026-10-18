@@ -25,6 +25,9 @@ class MainActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var repo: AppRepository
     private lateinit var contentRepo: ContentRepository
+    private lateinit var weatherRepo: WeatherRepository
+    private var weatherHeader:WeatherHeaderView?=null
+    private var weatherLoadingDialog:AlertDialog?=null
     private lateinit var artwork: ArtworkLoader
     private val settings by lazy { getSharedPreferences("pretttv", MODE_PRIVATE) }
     private val playback by lazy { PlaybackHistory(this) }
@@ -107,6 +110,7 @@ class MainActivity : Activity() {
             if(filtered!=content || removed>0) { content=filtered; refreshHomeRows() }
             if(removed>0)Toast.makeText(this,"Started watching · removed from Watchlist. Undo in Settings.",Toast.LENGTH_LONG).show()
         }
+        weatherRepo=WeatherRepository(this) { updateWeatherHeader() }
         render(reset=true)
         if(checkSelfPermission("android.permission.READ_TV_LISTINGS")!=android.content.pm.PackageManager.PERMISSION_GRANTED && !settings.getBoolean("tvPermissionAsked",false)) {
             settings.edit().putBoolean("tvPermissionAsked",true).apply()
@@ -125,6 +129,7 @@ class MainActivity : Activity() {
         RbtvHandoffService.cancel()
         registerReceiver(tickReceiver,IntentFilter(Intent.ACTION_TIME_TICK).apply { addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED) })
         updateClock()
+        weatherRepo.start()
         if(dirty || apps.isEmpty())reload() else startContent()
         ui.post(retryArtwork)
         // onStop removes timers; preserve recovery for cards still in their failure backoff.
@@ -132,13 +137,14 @@ class MainActivity : Activity() {
     }
     override fun onStop() {
         AppUpdater.cancelHomeCheck()
-        visible=false; contentRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
+        visible=false; contentRepo.stop(); weatherRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
+        weatherLoadingDialog?.dismiss(); weatherLoadingDialog=null
         teamLoadingDialog?.dismiss(); teamLoadingDialog=null
         stopRowMotion(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); ui.removeCallbacks(retryApps); cardArt.forEach { it.request.cancel() }
         (currentFocus?.tag as? String)?.let { settings.edit().putString("focus",it).apply() }
         super.onStop()
     }
-    override fun onDestroy() { generation++; ui.removeCallbacksAndMessages(null); unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); artwork.close(); super.onDestroy() }
+    override fun onDestroy() { generation++; ui.removeCallbacksAndMessages(null); unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); weatherRepo.close(); artwork.close(); super.onDestroy() }
     override fun onConfigurationChanged(newConfig:Configuration) { super.onConfigurationChanged(newConfig); scale=resources.displayMetrics.widthPixels/1920f; render() }
     override fun onNewIntent(i:Intent?) { super.onNewIntent(i); applyIntent(i); render(reset=true) }
     override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray) {
@@ -229,6 +235,9 @@ class MainActivity : Activity() {
     }
     private fun gap(n:Int) { page.addView(View(this),LinearLayout.LayoutParams(1,px(n))) }
     private fun updateClock() { if(::clock.isInitialized)clock.text=android.text.format.DateFormat.getTimeFormat(this).format(Date()); updateHomeStatus() }
+    private fun updateWeatherHeader() {
+        if(::weatherRepo.isInitialized)weatherHeader?.bind(weatherRepo.state,weatherRepo.prefs.enabled,weatherRepo.prefs.units)
+    }
 
     private fun viewport(focus:String?=null)=Viewport(
         focus ?: (currentFocus?.tag as? String) ?: (lastContentFocus?.tag as? String) ?: settings.getString("focus",null),
@@ -293,8 +302,11 @@ class MainActivity : Activity() {
         header.addView(text("Home",36,0xFFADC1B6.toInt(),true),LinearLayout.LayoutParams(px(260),px(56)))
         homeStatus=text("",19,muted).apply { gravity=Gravity.CENTER_VERTICAL or Gravity.END }
         header.addView(homeStatus,LinearLayout.LayoutParams(0,px(56),1f))
-        clock=text("",26,ink).apply { gravity=Gravity.CENTER_VERTICAL or Gravity.END }
-        header.addView(clock,LinearLayout.LayoutParams(px(146),px(56)))
+        weatherHeader=WeatherHeaderView(this,scale)
+        header.addView(weatherHeader,LinearLayout.LayoutParams(-2,px(56)).apply { leftMargin=px(22) })
+        clock=text("",26,ink).apply { gravity=Gravity.CENTER_VERTICAL or Gravity.END; minWidth=px(146) }
+        header.addView(clock,LinearLayout.LayoutParams(-2,px(56)))
+        updateWeatherHeader()
         page.addView(header,LinearLayout.LayoutParams(-1,px(56)))
         reminderBanner=button("","kickoff-reminder") {
             visibleReminders().firstOrNull()?.let { dismissedReminders.add(SportsPolicy.reminderKey(it)); contentRepo.acknowledgeReminder(it) }
@@ -815,6 +827,7 @@ class MainActivity : Activity() {
         }
         items+="Recommendation feedback" to { feedbackSettings() }
         items+="Updates" to { safeStart(Intent(this,UpdateActivity::class.java),"Updates") }
+        items+="Weather" to { weatherSettings() }
         items+="Choose apps one by one" to { reviewApps() }
         items+="Live sports apps" to { chooseSportsApps() }
         items+="Recommendation services" to { chooseRecommendationServices() }
@@ -842,6 +855,88 @@ class MainActivity : Activity() {
         }
         items+="Return to stock Google TV" to { safeStart(Intent(this,StockRecoveryActivity::class.java),"Stock recovery") }
         dialog("prettTV",items)
+    }
+    private fun weatherSettings() {
+        val preferences=weatherRepo.prefs
+        val location=preferences.location
+        dialog("Weather",listOf(
+            "Location: ${location?.let { "${it.city}, ${it.region}" } ?: "Choose a US ZIP code"}" to { chooseWeatherZip() },
+            "Show on Home: ${if(preferences.enabled)"On" else "Off"}" to {
+                if(!preferences.enabled && location==null)chooseWeatherZip()
+                else { weatherRepo.setEnabled(!preferences.enabled);weatherSettings() }
+            },
+            "Temperature: °${preferences.units}" to {
+                weatherRepo.setUnits(if(preferences.units=="F")"C" else "F");weatherSettings()
+            },
+            "Refresh weather" to {
+                if(location==null)chooseWeatherZip()
+                else if(!preferences.enabled)Toast.makeText(this,"Turn on Show on Home to refresh weather",Toast.LENGTH_SHORT).show()
+                else { weatherRepo.refresh(force=true);Toast.makeText(this,"Weather refresh requested",Toast.LENGTH_SHORT).show() }
+            },
+            "Weather details and sources" to { weatherDetails() }
+        ))
+    }
+    private fun chooseWeatherZip() {
+        val entry=EditText(this).apply {
+            inputType=android.text.InputType.TYPE_CLASS_NUMBER
+            filters=arrayOf(android.text.InputFilter.LengthFilter(5))
+            hint="5-digit US ZIP code";setSingleLine(true);setText(weatherRepo.prefs.location?.zip.orEmpty());selectAll()
+            setTextSize(TypedValue.COMPLEX_UNIT_SP,22f)
+        }
+        val form=column().apply {
+            setPadding(px(30),px(16),px(30),px(16))
+            addView(text("Choose the area for weather on Home.",22,muted),LinearLayout.LayoutParams(-1,px(44)))
+            addView(entry,LinearLayout.LayoutParams(-1,px(64)))
+        }
+        val prompt=AlertDialog.Builder(this).setTitle("Weather location").setView(form)
+            .setPositiveButton("Save",null).setNegativeButton("Cancel",null).create()
+        prompt.setOnShowListener { prompt.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val zip=entry.text.toString().trim()
+            if(!zip.matches(Regex("[0-9]{5}"))) { entry.error="Enter a 5-digit US ZIP code";return@setOnClickListener }
+            prompt.dismiss();lookupWeatherZip(zip)
+        } }
+        prompt.show();entry.requestFocus()
+    }
+    private fun lookupWeatherZip(zip:String) {
+        fun cancel() { weatherRepo.stop();if(visible)weatherRepo.start();weatherLoadingDialog=null }
+        weatherLoadingDialog=AlertDialog.Builder(this).setTitle("Finding your weather location")
+            .setMessage("Checking this ZIP code…")
+            .setNegativeButton("Cancel") { _,_->cancel() }
+            .setOnCancelListener { cancel() }.create().also { it.setCanceledOnTouchOutside(false);it.show() }
+        weatherRepo.configureZip(zip) { result ->
+            weatherLoadingDialog?.dismiss();weatherLoadingDialog=null
+            if(!visible || isFinishing || isDestroyed)return@configureZip
+            if(result.isSuccess) {
+                weatherRepo.setEnabled(true)
+                Toast.makeText(this,"Weather location saved",Toast.LENGTH_SHORT).show()
+                weatherSettings()
+            } else AlertDialog.Builder(this).setTitle("Couldn't set weather location")
+                .setMessage("Check the ZIP code and internet connection, then try again. Your previous location has been kept.")
+                .setPositiveButton("Try again") { _,_->chooseWeatherZip() }.setNegativeButton("Close",null).show()
+        }
+    }
+    private fun weatherDetails() {
+        val state=weatherRepo.state
+        val reading=state.reading
+        val observed=reading?.let { android.text.format.DateFormat.getDateFormat(this).format(Date(it.observedAt))+" "+android.text.format.DateFormat.getTimeFormat(this).format(Date(it.observedAt)) }
+        val detail=buildString {
+            append(state.location?.let { "${it.city}, ${it.region}\n\n" } ?: "Choose a US ZIP code to enable weather.\n\n")
+            if(reading!=null) {
+                append(WeatherPolicy.formatTemperature(reading.temperatureCelsius,weatherRepo.prefs.units))
+                if(reading.description.isNotBlank())append(" · ${reading.description}")
+                append("\nNearby station: ${reading.stationName}\nObserved: $observed")
+                if(state.stale)append("\nCached reading; waiting for a fresh observation.")
+            } else append(if(state.loading)"Updating weather…" else "A recent observation is not available right now.")
+            append("\n\nWeather: National Weather Service. ZIP lookup: Zippopotam.us, with postal data from GeoNames. Weather checks run while Home is visible. No GPS or account access is used.")
+        }
+        AlertDialog.Builder(this).setTitle("Weather details").setMessage(detail)
+            .setPositiveButton("Close",null)
+            .setNeutralButton("Sources") { _,_->dialog("Weather sources",listOf(
+                "National Weather Service" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.weather.gov/documentation/services-web-api")),"Weather source") },
+                "Zippopotam.us ZIP lookup" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://api.zippopotam.us/")),"ZIP lookup source") },
+                "GeoNames postal data" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.geonames.org/export/zip/readme.txt")),"Postal data source") },
+                "Credits and licences" to { readLicense("Credits and notices","third-party-notices.txt") }
+            )) }.show()
     }
     private fun customizeRows() {
         val config=personal.rowPreferences()
@@ -1045,7 +1140,7 @@ class MainActivity : Activity() {
         dialog(p.title,choices)
     }
     private fun credits() {
-        dialog("prettTV 0.2.2",listOf(
+        dialog("prettTV 0.2.3",listOf(
             "Built on Rivi · Jommi · MIT license" to { readLicense("Rivi — Copyright (c) 2026 Jommi","rivi-license.txt") },
             "All credits and third-party notices" to { readLicense("Credits and notices","third-party-notices.txt") },
             "Kotlin / JetBrains · Apache 2.0" to { readLicense("Apache License 2.0","apache-2.0.txt") },
@@ -1053,7 +1148,7 @@ class MainActivity : Activity() {
             "Cinemeta · popular and recent titles" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/Stremio/stremio-official-addons")),"Cinemeta") },
             "ESPN · sports schedules and broadcasts" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.espn.com/")),"ESPN") },
             "Project source · github.com/draco1738/prettTV" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/draco1738/prettTV")),"Project source") },
-            "Privacy" to { AlertDialog.Builder(this).setTitle("Your home, your choice").setMessage("prettTV has no analytics, ad identifiers or registration. App arrangement, viewing records and launch recency stay on this TV. Optional helpers use active media-session metadata (Notification access) or navigate RBTV during a game request (Accessibility access). No notification text is read or retained. Helpers can be turned off in Android settings.\n\nWith discovery on, prettTV requests public catalogs and artwork from TVmaze, Stremio Cinemeta, ESPN scoreboards and their image services. Those servers receive your IP address and requested catalog/show/league IDs. Published TV rows can also link to provider artwork. Switch discovery off to stop general catalog requests. Shows you explicitly follow can still request episode data from TVmaze; unfollow them to stop those checks. Watchlist, followed shows, favorite teams and cached Home data stay on this TV. Cached recommendations expire after seven days. Update checks contact the official prettTV GitHub repository; APK downloads require your action and installation requires Android confirmation.\n\nCurrently watching uses progress that apps publish to Android TV. prettTV cannot inspect their login status or credentials. Continue watching and the hero use locally confirmed viewing first, with shared timestamps as an initial baseline. Timestamp refreshes alone do not prove playback. Supported media sessions can update local recency; otherwise hold OK on a title to correct it. Recommendations use shared viewing activity to prioritize services, without assuming an app launch proves a login. Choose your signed-in apps in Recommendation services to override this inference. Providers are balanced before row limits; general/free feeds follow your services and Stremio stays last with a purple S badge. prettTV does not remove ads inside other apps.").setPositiveButton("Close",null).show() }
+            "Privacy" to { AlertDialog.Builder(this).setTitle("Your home, your choice").setMessage("prettTV has no analytics, ad identifiers or registration. App arrangement, viewing records and launch recency stay on this TV. Optional helpers use active media-session metadata (Notification access) or navigate RBTV during a game request (Accessibility access). No notification text is read or retained. Helpers can be turned off in Android settings.\n\nWith discovery on, prettTV requests public catalogs and artwork from TVmaze, Stremio Cinemeta, ESPN scoreboards and their image services. Those servers receive your IP address and requested catalog/show/league IDs. Published TV rows can also link to provider artwork. Switch discovery off to stop general catalog requests. Shows you explicitly follow can still request episode data from TVmaze; unfollow them to stop those checks. Watchlist, followed shows, favorite teams and cached Home data stay on this TV. Cached recommendations expire after seven days. Update checks contact the official prettTV GitHub repository; APK downloads require your action and installation requires Android confirmation.\n\nOptional weather sends your chosen US ZIP code to Zippopotam.us and its area coordinates to the National Weather Service; these providers also receive your IP address. Location, units and a bounded weather cache stay on this TV. Weather does not use GPS or access streaming accounts. Turn off Show on Home in Weather settings to stop weather requests. Local settings exports include your weather location.\n\nCurrently watching uses progress that apps publish to Android TV. prettTV cannot inspect their login status or credentials. Continue watching and the hero use locally confirmed viewing first, with shared timestamps as an initial baseline. Timestamp refreshes alone do not prove playback. Supported media sessions can update local recency; otherwise hold OK on a title to correct it. Recommendations use shared viewing activity to prioritize services, without assuming an app launch proves a login. Choose your signed-in apps in Recommendation services to override this inference. Providers are balanced before row limits; general/free feeds follow your services and Stremio stays last with a purple S badge. prettTV does not remove ads inside other apps.").setPositiveButton("Close",null).show() }
         ))
     }
     private fun readLicense(title:String,file:String) {
@@ -1078,7 +1173,7 @@ class MainActivity : Activity() {
         if(args?.contains("--export-local-settings")==true) { out.println("PRETTTV_SETTINGS="+LocalSettingsTransfer.export(stores)); return }
         val restore=args?.indexOf("--restore-local-settings") ?: -1
         if(restore>=0) {
-            try { LocalSettingsTransfer.restore(args!![restore+1],stores); personal.clearUndoHistory(); layout=HomeLayout.parse(settings.getString("layout",null)); content=HomeContent(); render(reset=true); reload(); out.println("PRETTTV_SETTINGS_RESTORED") }
+            try { LocalSettingsTransfer.restore(args!![restore+1],stores); personal.clearUndoHistory(); weatherRepo.stop();if(visible)weatherRepo.start();layout=HomeLayout.parse(settings.getString("layout",null)); content=HomeContent(); render(reset=true); reload(); out.println("PRETTTV_SETTINGS_RESTORED") }
             catch(_:Exception) { out.println("PRETTTV_SETTINGS_RESTORE_FAILED") }
             return
         }
@@ -1093,6 +1188,11 @@ class MainActivity : Activity() {
             out.println("VIEWPORT_CONTENT signature=${listOf(rowValues,apps.map { it.key },content.feature).hashCode()}")
         }
         if(args?.contains("--feed-diagnostics")==true)out.println(contentRepo.diagnostics())
+        if(args?.contains("--weather-diagnostics")==true) {
+            val weather=weatherRepo.state
+            out.println("WEATHER configured=${weather.location!=null} enabled=${weatherRepo.prefs.enabled} units=${weatherRepo.prefs.units} reading=${weather.reading!=null} loading=${weather.loading} stale=${weather.stale} unavailable=${weather.error!=null}")
+            out.println("WEATHER_RENDER headerVisible=${weatherHeader?.visibility==View.VISIBLE} clockVisible=${clock.visibility==View.VISIBLE}")
+        }
         if(args?.contains("--content-diagnostics")==true)for(p in content.watching)
             out.println("WATCH ${p.packageName} | ${p.title} | ${p.id} | engagement=${p.engagedAt} | position=${p.position} | duration=${p.duration}")
     }

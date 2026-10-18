@@ -82,8 +82,8 @@ object LocalSettingsTransfer {
         values.forEach { (key,value)->
             val expected=when(name) {
                 "home"->when {
-                    key in setOf("layout","focus") || key.startsWith("hiddenTitleLabel:")->"string"
-                    key in setOf("discovery","tvPermissionAsked")->"boolean"
+                    key in setOf("layout","focus","weatherLocation","weatherUnits") || key.startsWith("hiddenTitleLabel:")->"string"
+                    key in setOf("discovery","tvPermissionAsked","weatherEnabled")->"boolean"
                     key in setOf("sportsPackages","preferredServices","hiddenHeroTitles","hiddenWatchingTitles")->"set"
                     else->null
                 }
@@ -107,6 +107,8 @@ object LocalSettingsTransfer {
                 "long"->value is Long && value>=0
                 else->true
             }) { "Invalid type for $name/$key" }
+            if(name=="home" && key=="weatherLocation")require(WeatherRepository.validateLocationJson(value as String)) { "Invalid weather location" }
+            if(name=="home" && key=="weatherUnits")require(value=="F" || value=="C") { "Invalid weather units" }
             if(name=="playback" && key=="known") {
                 val rows=JSONArray(value as String)
                 repeat(rows.length()) { index->

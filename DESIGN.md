@@ -24,6 +24,7 @@ colors:
   stremio-marker: "#8657D7"
   app-icon-fallback: "#1A1F2A"
   app-pack-ground: "#141C17"
+  weather-sun: "#D8BC72"
 typography:
   display:
     fontFamily: "sans-serif-medium"
@@ -41,6 +42,9 @@ typography:
     fontFamily: "sans-serif"
     fontSize: "26px"
   rail-label:
+    fontFamily: "sans-serif"
+    fontSize: "23px"
+  weather-location:
     fontFamily: "sans-serif"
     fontSize: "23px"
   action:
@@ -216,6 +220,7 @@ These are the actual native aliases. No downloaded face, browser fallback stack,
 - **Section:** horizontal-row headings; **support** is used for right-aligned counts and source notes.
 - **Body:** show metadata and compact descriptions. Compact descriptions occupy at most two lines, with a native baseline step of 29 reference pixels multiplied by display scale and system font scale.
 - **Label:** generic buttons, the clock, and the Discover panel heading. The smaller **rail-label** applies to all six sidebar destinations. The hero action uses the medium **action** variant.
+- **Weather location:** the muted place label beside the clock. Temperature and time retain the 26-pixel label size and ivory color.
 - **Hero detail** and **compact detail:** provider, episode, timing, and source information in their respective card modes.
 
 The frontmatter's `px` values are **1920-wide design-reference pixels, not CSS pixels or Android dp**. Layout uses `widthPixels / 1920f`. Text additionally multiplies by `resources.configuration.fontScale`; TextViews set `COMPLEX_UNIT_PX`, while Canvas text uses the same scale explicitly. Kotlin aliases, native baseline positioning, and font-scale behavior remain authoritative. Do not convert these observations into an unimplemented CSS or Material type system.
@@ -226,7 +231,11 @@ One-line labels ellipsize at the end. Cards expose the full title, detail, and a
 
 The home is a 1920 × 1080 reference composition, scaled by display width. The rail is a sibling of the content `ScrollView` in the root `FrameLayout`, but starts at `View.GONE` and occupies no permanent content column. When revealed, it is a fixed overlay and content alpha changes to 0.45. Dismissal restores content alpha to 1.0. Content shelves scroll horizontally with hidden scrollbars and no overscroll glow. There are no implemented phone breakpoints or portrait layouts.
 
-**Shared frame, source-derived:** every layout uses an inner width of 1808, 56-pixel left and right insets, a 30-pixel top inset, and a 40-pixel bottom inset. The hidden overlay rail is 150 × 970, positioned 24 pixels from the top and left, with 10-pixel horizontal padding. Six 130 × 70 destination buttons follow a 100-pixel upper spacer; 20 pixels separate them. The content header holds Home and the clock, without top navigation or search/settings icons.
+**Shared frame, source-derived:** every layout uses an inner width of 1808, 56-pixel left and right insets, a 30-pixel top inset, and a 40-pixel bottom inset. The hidden overlay rail is 150 × 970, positioned 24 pixels from the top and left, with 10-pixel horizontal padding. Six 130 × 70 destination buttons follow a 100-pixel upper spacer; 20 pixels separate them. The content header holds Home, status and the clock, without top navigation or search/settings icons.
+
+The optional v0.2.3 weather cluster shares that same 56-pixel header in A/B/C: a muted 23-pixel location label, a 30 × 30 condition icon, an ivory 26-pixel temperature, a quiet 1 × 24 divider and the existing ivory 26-pixel clock. The location label ellipsizes within 240 reference pixels; the group's accessible description retains the full location, reading and condition. Original Canvas icons use ivory strokes and a small `weather-sun` accent for sun or lightning, with no downloaded icon assets. The group is passive and adds no remote-focus stop.
+
+Weather uses the selected US ZIP's place label and nearby NWS observations. Valid stale readings append `· cached`; missing readings show `Updating…` during a request or `Unavailable` afterward, without an invented icon or temperature. The clock keeps Android's time format and time zone. Header updates preserve the Home content and remote position; weather adds no repeating animation. The published v0.2.2 A/B/C captures remain historical and do not show this cluster.
 
 **C Balanced, selected:** a 56-pixel header precedes the upper content by 18 pixels. The feature uses `hero-balanced`, followed by a card-gap and one shared side panel (656 × 486). That panel contains a Discover heading and two compact rows (608 × 184), with 24-pixel horizontal padding. These dimensions describe C's current surface, not a mandatory composition for every future screen.
 

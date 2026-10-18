@@ -94,6 +94,16 @@ Alerts mean **“episode released,” not “confirmed available in your streami
 - **Offline Home:** The last successful feed snapshot and available cached artwork remain usable during outages. Home labels offline content with its update age; stale live scores disappear. Saved titles and installed-app shortcuts remain available, though streaming still depends on the app and connection.
 - **Updates:** Open Settings → Updates to see official release notes, check manually, and choose Download or Install. Android asks for installation permission and confirmation. [Update behavior →](installation.md#updates)
 
+## Weather beside the clock
+
+Open **Settings → Weather** and enter a **five-digit US ZIP code**. Setting a location enables weather; new installations start with it off and no preset location. Choose **°F or °C**; Fahrenheit is the default. The header shows the resolved place, a small condition icon and the temperature beside the existing clock in all three layouts. Changing the weather location does not change the TV's time zone or clock format.
+
+Weather uses nearby **NWS observation stations**, with the ZIP's approximate location supplied by Zippopotam.us. US ZIP lookup and NWS station coverage are both required; some locations or stations may have no usable reading. A station reading describes its surroundings and may differ from conditions at your home. prettTV does not request GPS permission or read your Google account's address.
+
+While Home is visible, weather refreshes about every **30 minutes**. A recent saved reading can appear immediately when you return. Observations older than 30 minutes show **cached**, and readings older than two hours disappear from the header. Without a usable reading, the header shows **Updating…** during a request or **Unavailable** afterward. The clock stays usable; a missing reading never becomes a made-up zero-degree value. Weather updates do not move your selection or rebuild the content rows.
+
+Use **Refresh weather** to request an update; temporary service failures may delay retries. **Weather details and sources** shows the observation's station and time, plus provider and licence links. Turn **Show on Home** off to hide weather and stop its refreshes while retaining your location and units. Weather is independent of **Show discovery**. [Weather requests and stored data →](privacy.md#weather)
+
 ## Keep shared-account titles out of your Home
 
 Hold OK on a title and choose **Hide from large hero**, **Hide from Continue watching**, or **Hide from both**. Restore a title individually through **Settings → Hidden titles**.
@@ -110,6 +120,7 @@ If a title's viewing order is stale, hold OK → **I watched this most recently*
 | **Followed shows** | Manage episode follows and inspect release-check status. |
 | **Favorite teams / Kickoff reminders** | Prioritize team fixtures and optionally show Home-only reminders. |
 | **Updates** | Check official releases and explicitly download/install an update. |
+| **Weather** | Enter a US ZIP, choose °F/°C, or turn the optional header weather off. |
 | **Recommendation services** | Choose the signed-in services to prioritize, or select **Use viewing activity** for automatic inference. |
 | **Show discovery** | Turn discovery on or off. |
 | **Playback tracking** | Explain and open optional Notification access for supported media-session metadata. |
