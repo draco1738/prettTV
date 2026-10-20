@@ -17,7 +17,7 @@ for arg in "$@"; do
 done
 source adb/common.sh
 APK=launcher/app/build/outputs/apk/release/app-release.apk
-if [ -f prettTV-0.2.3.apk ]; then APK=prettTV-0.2.3.apk; NO_BUILD=true; fi
+if [ -f prettTV-0.3.0.apk ]; then APK=prettTV-0.3.0.apk; NO_BUILD=true; fi
 if [ "$NO_BUILD" = false ]; then
   # The Android Gradle Plugin needs JDK 17. Use JAVA_HOME if set, otherwise look for one.
   if [ -z "${JAVA_HOME:-}" ]; then
