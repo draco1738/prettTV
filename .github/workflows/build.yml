@@ -15,7 +15,7 @@ jobs:
           java-version: 17
       - name: Unit tests, Android lint and release build (debug-signed, no secrets needed)
         working-directory: launcher
-        run: ./gradlew --no-daemon :app:testReleaseUnitTest :app:lintRelease :app:assembleRelease :app:assembleStability :app:assembleStabilityAndroidTest :testapp:assembleDebug
+        run: ./gradlew --no-daemon :app:testReleaseUnitTest :app:lintRelease :app:assembleRelease :app:assembleStability :app:assembleStabilityAndroidTest :testapp:assembleDebug :webshortcut:lintRelease :webshortcut:assembleRelease
       - uses: actions/upload-artifact@v4
         with:
           name: pretttv-debug-signed-ci-build
@@ -29,4 +29,10 @@ jobs:
             launcher/app/build/reports/tests/testReleaseUnitTest/
             launcher/app/build/reports/lint-results-release.*
             launcher/app/build/test-results/testReleaseUnitTest/
+            launcher/webshortcut/build/reports/lint-results-release.*
           if-no-files-found: ignore
+      - name: Keep optional website shortcut build
+        uses: actions/upload-artifact@v4
+        with:
+          name: sevenmovies-debug-signed-ci-build
+          path: launcher/webshortcut/build/outputs/apk/release/webshortcut-release.apk

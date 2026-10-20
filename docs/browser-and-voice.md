@@ -37,6 +37,10 @@ Replace the device placeholder with the authorized device shown by `adb devices`
 
 TV Bro appears in prettTV's Library as a normal installed TV app. Hiding it from **Your apps** does not remove it from Library. Browser microphone, camera or location permission is not needed for the TV remote's system voice assistant.
 
+### Optional website tile
+
+The separate [7Movies shortcut](../launcher/webshortcut/README.md) adds a dark app tile that opens the website's Discover page in TV Bro. It reuses the selected tab and the browser's existing sessions and blocking settings. The shortcut requests no permissions and finishes after opening the browser; it is not a standalone streaming client or an official website app. It is built separately and is not added to the prettTV + RBTV bundle.
+
 ## Browser ad blocking
 
 In TV Bro, open **Settings → Main**, check **Toggle ads blocking**, and use **Update ad-blocker list**. Version 2.1.6 enables its global blocker by default and uses [EasyList](https://easylist.to/). The browser also has popup controls.
@@ -63,4 +67,4 @@ Enabling stock launcher packages can change what the Home button opens. On the t
 
 Do not enable or disable those packages as a generic voice troubleshooting step. Keep the device's working Home configuration, and verify the **actual Home button** after any launcher-related change. Use [stock recovery](stock-recovery.md) only when you intend to restore the stock setup.
 
-In the October 20, 2026 device check, the original disabled states of both stock launcher packages were restored, prettTV again resolved as Home, and the user confirmed that the remote answered a weather request and opened its forecast. This verifies that remote voice worked with prettTV on that setup; it does not verify every Gemini conversation feature. TV Bro 2.1.6 was installed, but a controlled on-device ad-blocking test was still pending at the time of this documentation update.
+In the October 20, 2026 device check, the original disabled states of both stock launcher packages were restored, prettTV again resolved as Home, and the user confirmed that the remote answered a weather request and opened its forecast. This verifies that remote voice worked with prettTV on that setup; it does not verify every Gemini conversation feature. TV Bro 2.1.6 was installed, and its toolbar subsequently reported four blocked requests on a loaded page. This confirms reported filtering activity; a controlled blocking-on/off test remains pending.

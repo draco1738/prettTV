@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">7Movies</string>
+    <string name="browser_unavailable">7Movies opens with TV Bro. Install or enable TV Bro, then try again.</string>
+    <string name="browser_blocked">Android prevented opening TV Bro. Check its app settings, then try again.</string>
+    <string name="close">Close</string>
+</resources>
