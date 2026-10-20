@@ -59,13 +59,14 @@ The installers do not grant Notification or Accessibility access. You enable the
 | Shared viewing progress | TV listings | Read Watch Next and app-published program rows. |
 | Playback tracking | Notification access | Observe active media-session metadata for supported titles. Notification text is not read or retained. |
 | RBTV game handoff | Accessibility access | Navigate RBTV during an explicit, bounded game request. It does not intercept Home or choose a server. |
+| Settings button | Accessibility key filtering | Handle the Settings key, including TCL's notification-key mapping, across apps. Subscribes only to prettTV's own window-state events and discards them. No window-content access, key logging or network requests. All unrelated keys pass through. |
 | EarthCam idle handoff | Select prettTV's EarthCam service as the system screensaver | Open the already-installed official app once when Android starts the dream; no Accessibility, overlay or account access. |
 | prettTV updates | Allow installation from prettTV, then Android's installation confirmation | Install a verified newer prettTV APK only after you choose Install. It does not update RBTV or other apps. |
 | Full stock recovery | Authorized local TCP debugging and the private setup record | Restore the recorded Home, disabled-app states and DNS after two confirmations. |
 
 Stock recovery connects only to the TV itself at `127.0.0.1:5555`, using its own private key rather than the computer's ADB key. It does not enable debugging automatically. Keep the original device-specific setup records outside GitHub and public releases. Read the [recovery guide](stock-recovery.md) for prerequisites and failure behavior.
 
-After a successful stock restore, the optional playback and game helpers pause. **Resume prettTV helpers** in prettTV Settings reactivates them using their existing Android permissions if you return to the launcher later.
+After a successful stock restore, the optional playback, game and Settings-button helpers pause. **Resume prettTV helpers** in prettTV Settings reactivates them using their existing Android permissions if you return to the launcher later.
 
 ## Companion apps and scope
 

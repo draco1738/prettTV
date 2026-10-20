@@ -10,6 +10,7 @@
 
     <!-- Package visibility (Android 11+): we must declare what we query. -->
     <queries>
+        <package android:name="com.android.tv.settings" />
         <package android:name="com.earthcam.earthcamtv.android" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -90,6 +91,12 @@
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
             <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
             <meta-data android:name="android.service.notification.default_filter_types" android:value="0" />
+        </service>
+        <!-- Optional Settings-key filtering across apps; no screen-content access. -->
+        <service android:name=".SettingsKeyService" android:label="@string/settings_key_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/settings_key_service" />
         </service>
         <!-- User-initiated, bounded navigation inside RBTV only; never intercepts Home. -->
         <service android:name=".RbtvHandoffService" android:label="@string/rbtv_helper_label"

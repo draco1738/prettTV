@@ -32,6 +32,14 @@ The default rows below Your apps are **Continue watching · Shows → Continue w
 
 The sidebar contains Home, Shows, Library, Inputs, Search and Settings. **Choose default Home app** opens Android's normal Home selection; prettTV does not intercept the Home button with an accessibility service.
 
+### Remote Settings button
+
+In Android **Settings → Accessibility**, enable **prettTV Settings button** to make the remote's Settings key work across apps. On the tested TCL firmware, the helper opens TCL's native quick-settings panel over the current app. A second press closes that panel. Other manufacturers use the normal Android Settings screen, and TCL falls back to it if its panel service cannot start.
+
+The helper handles a complete press once, including held-key repeats, and ignores Home, arrows, volume and other buttons. It requests key filtering without window-content access. Disable it in Accessibility to restore the original key handling; stock troubleshooting recovery also pauses it. Without the optional helper, prettTV handles this shortcut only while Home itself receives the key.
+
+Some TCL firmware also requires **Auto Launch / Auto Start** permission for prettTV. If the helper is enabled but cannot start, inspect that permission in the TV's app settings. The tested TCL logged a blocked service bind until this permission was allowed. The installer does not change it automatically.
+
 ## Arrange Your apps
 
 Your apps has a clear beginning and end. Each included launchable app appears once, with favorites first. It includes sideloaded apps that have an ordinary Android launch entry. Projectivy and LTvLauncher are excluded.

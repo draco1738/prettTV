@@ -2,6 +2,20 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
+## prettTV 0.3.1 Settings-button repair — 2026-10-20
+
+The signed **0.3.1 / code 17** candidate installed in place. Its **618,071-byte** APK has SHA-256 `86078c6034309bc33c78181ec2b4b4b291346adaa4d46493db684735837ba2ef` and the established release certificate `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`.
+
+**273 JVM tests passed**, including 16 Settings-key policy cases. Android lint reported **zero errors and 32 warnings**. All **three targeted Android checks passed** on the final candidate: the native TCL service intent and fallback, service metadata and disabled test component, and callback sequencing/cancellation. They ran in the isolated stability package without opening another Activity or enabling its Accessibility service. Both test packages were removed afterward. The full UI fault suite and one-hour soak were not repeated for this repair.
+
+The physical TCL remote had previously been captured sending `KEYCODE_NOTIFICATION` (83). Its stock handler selected the disabled Google TV dashboard. The repair handles that TCL alias and standard `KEYCODE_SETTINGS`, dispatches once on a matching release, and opens TCL's existing quick-settings overlay. It does not enable Google TV Home or redirect Home.
+
+Direct invocation of the native panel visibly opened it over an active Moonlight stream without ending the stream. A simulated Settings key also opened it from prettTV Home. The global helper is enabled and bound with key-filter capability; TCL's Auto Start permission had to be allowed after a logged service-bind denial. Window-content access remains disabled, and the helper discards its own-package window-state events.
+
+**Physical global-key verification is pending the owner's single-button check.** ADB-injected keys bypass Android's Accessibility input filter, so a synthetic key in another app cannot validate that path. No global physical-key success is claimed from the service binding or foreground fallback alone. The default Home still resolves to prettTV, and the Google TV launcher/setup packages remain disabled.
+
+Separately, Moonlight's observed HEVC decoder hang was mitigated by preferring H.264, and Sunshine's observed NVENC encoder timeouts were addressed with its documented high-priority configuration. The subsequent stream ran for approximately ten minutes, including a native-panel opening, without a new decoder crash or encoder timeout before a normal stream teardown. Performance stats stayed off. These observations are bounded desktop-stream checks, not a high-load gaming guarantee. See [Moonlight troubleshooting](aerial-and-moonlight.md#tcl-decoder-and-nvidia-encoder-failures).
+
 Recorded results for each release, newest first. Device observations apply to the named build and session; they are not guarantees for every TV. Historical measurements and unverified paths are retained with their original limits.
 
 | Release | Scope | Recorded |

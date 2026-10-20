@@ -4,7 +4,7 @@
 
 **Aerial Views** adds a video screensaver. **Moonlight** streams games and the desktop from a PC running **Sunshine**. These are optional third-party apps, installed separately from prettTV. Their APKs and the PC host are not included in the prettTV bundle, and prettTV remains the Home launcher.
 
-For live camera viewing, the current source also includes an optional [EarthCam idle handoff](earthcam-idle.md), awaiting TCL validation. Aerial Views remains an alternative with native screensaver behavior.
+For live camera viewing, v0.3.0 includes an optional [EarthCam idle handoff](earthcam-idle.md), verified on the TCL through automatic idle activation and Home exit. Aerial Views was removed from that TV after the replacement passed; it remains a separately installable alternative with native screensaver behavior.
 
 ## Official downloads
 
@@ -75,3 +75,11 @@ These are starting settings, not a performance guarantee. Leave automatic host d
 The **PC must be on and awake**, with Sunshine running and a capturable display available. Moonlight does not run the PC games on the TV itself. The [Moonlight setup guide](https://github.com/moonlight-stream/moonlight-docs/wiki/Setup-Guide) and [Sunshine configuration reference](https://docs.lizardbyte.dev/projects/sunshine/latest/md_docs_2configuration.html) cover pairing and further tuning.
 
 Choose **Desktop** or **Steam** after opening the paired PC in Moonlight. Hold the remote's **Back** button to leave a stream. A short press can be sent to the streamed application instead.
+
+### TCL decoder and NVIDIA encoder failures
+
+The October 20 investigation found two separate failures. Moonlight's MediaTek HEVC decoder stalled for about 20 seconds and crashed. **Advanced Settings → Change codec settings → Prefer H.264** moved the stream to the TV's hardware AVC decoder. Resolution, frame rate, bitrate, pairing and the disabled performance overlay were retained.
+
+A subsequent failure came from the PC: Sunshine reported NVENC encode-wait timeouts and empty video packets. Applying **`nvenc_realtime_hags = disabled`** in Sunshine and restarting Sunshine changed the encoder from realtime to high GPU priority. This is Sunshine's [documented workaround for NVIDIA freezes with HAGS](https://docs.lizardbyte.dev/projects/sunshine/latest/md_docs_2configuration.html#nvenc_realtime_hags). It does not turn off hardware encoding or change Windows HAGS globally.
+
+These are responses to observed failures, not universal tuning requirements. A [related Moonlight TCL report](https://github.com/moonlight-stream/moonlight-android/issues/1602) also describes decoder problems when system overlays appear, including with H.264. Check both client and host logs when a stream fails; a normal stream exit after opening another full-screen app is different from a decoder crash. The performance overlay remains off on this setup.

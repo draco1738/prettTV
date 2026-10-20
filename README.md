@@ -29,7 +29,9 @@ Built on [Rivi by Jommi](https://github.com/jommi9/rivi), using native Android V
 
 Home also retains recent content during outages, offers undo for supported changes, and checks for official updates without installing anything automatically. [Explore the controls →](docs/usage.md)
 
-**New in v0.3.0:** [Blind Pick and Rabbit Hole](docs/original-apps.md) add concealed choices and title connections at the bottom of Library. Library also uses consistent dark cards with readable app marks. The upper Your apps row stays unchanged. The optional [EarthCam idle handoff](docs/earthcam-idle.md) reached live playback after ten minutes without input on the TCL, with repeated system **Start now** activation and **Home** exit also verified.
+**New in v0.3.1:** The optional [Settings-button helper](docs/usage.md#remote-settings-button) restores access to TCL's native quick-settings panel across apps, with standard Android Settings as a fallback. It leaves Home and other buttons alone and does not read screen content.
+
+**Added in v0.3.0:** [Blind Pick and Rabbit Hole](docs/original-apps.md) add concealed choices and title connections at the bottom of Library. Library also uses consistent dark cards with readable app marks. The upper Your apps row stays unchanged. The optional [EarthCam idle handoff](docs/earthcam-idle.md) reached live playback after ten minutes without input on the TCL, with repeated system **Start now** activation and **Home** exit also verified.
 
 **Weather beside the clock:** v0.2.3 adds an optional location, condition icon and temperature to the existing header. Enter a US ZIP code in Weather settings and choose °F or °C. Readings come from nearby NWS observation stations; no GPS permission or Google account access is needed. [Weather settings and coverage →](docs/usage.md#weather-beside-the-clock)
 

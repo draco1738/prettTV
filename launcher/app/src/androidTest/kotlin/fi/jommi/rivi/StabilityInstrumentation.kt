@@ -19,12 +19,18 @@ import java.util.concurrent.atomic.AtomicReference
 
 /** Runs real Android decoders and worker queues in a separate app ID, never the owner's Home. */
 class StabilityInstrumentation:Instrumentation() {
-    override fun onCreate(arguments:Bundle?) { super.onCreate(arguments);start() }
+    private var settingsKeysOnly=false
+    override fun onCreate(arguments:Bundle?) { settingsKeysOnly=arguments?.getString("settingsKeysOnly")=="true";super.onCreate(arguments);start() }
     override fun onStart() {
         var passed=0
         try {
             check(targetContext.packageName=="dev.zane.pretttv.stability") { "Refusing to run against the production Home" }
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
+            if(settingsKeysOnly) {
+                SettingsKeyAndroidChecks.run(this,::test)
+                finish(Activity.RESULT_OK,Bundle().apply { putString("stream","SETTINGS KEYS PASS: $passed Android tests\n");putInt("passed",passed) })
+                return
+            }
             PersonalizationAndroidChecks.run(targetContext, ::test)
             DiscoveryAndroidChecks.run(targetContext, ::test)
             WeatherRepositoryInstrumentationTest.run(this, ::test)
@@ -167,6 +173,7 @@ class StabilityInstrumentation:Instrumentation() {
                 }
             }
             CardFocusAndroidChecks.run(this, ::test)
+            SettingsKeyAndroidChecks.run(this, ::test)
             HomeFeatureAndroidChecks.run(this, ::test)
             UpdateAndroidChecks.run(this, ::test)
             finish(Activity.RESULT_OK,Bundle().apply { putString("stream","STABILITY PASS: $passed Android fault tests\n");putInt("passed",passed) })

@@ -26,6 +26,7 @@ class MainActivity : Activity() {
     private lateinit var repo: AppRepository
     private lateinit var contentRepo: ContentRepository
     private lateinit var weatherRepo: WeatherRepository
+    private val settingsKeys=SettingsKeyPolicy(Build.MANUFACTURER)
     private var weatherHeader:WeatherHeaderView?=null
     private var weatherLoadingDialog:AlertDialog?=null
     private lateinit var artwork: ArtworkLoader
@@ -137,6 +138,7 @@ class MainActivity : Activity() {
         ui.postDelayed(retryArtwork,30_000)
     }
     override fun onStop() {
+        settingsKeys.reset()
         AppUpdater.cancelHomeCheck()
         visible=false; contentRepo.stop(); weatherRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
         weatherLoadingDialog?.dismiss(); weatherLoadingDialog=null
@@ -158,6 +160,14 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() { if(sidebar?.visibility==View.VISIBLE)hideRail() else { firstCard?.requestFocus(); root.smoothScrollTo(0,0) } }
     override fun dispatchKeyEvent(event:KeyEvent):Boolean {
+        // The global helper consumes its gestures before they reach this foreground fallback.
+        val settingsKey=settingsKeys.handle(event.action,event.keyCode,event.repeatCount,event.deviceId,event.downTime,
+            event.isCanceled,StockRecoveryStore.paused(this))
+        if(settingsKey!=SettingsKeyPolicy.Decision.PASS) {
+            if(settingsKey==SettingsKeyPolicy.Decision.OPEN_SETTINGS && !TvSettingsLauncher.open(this))
+                Toast.makeText(this,"Could not open TV settings",Toast.LENGTH_SHORT).show()
+            return true
+        }
         if(event.action==KeyEvent.ACTION_DOWN && sidebar?.visibility!=View.VISIBLE &&
             (event.keyCode==KeyEvent.KEYCODE_DPAD_LEFT || event.keyCode==KeyEvent.KEYCODE_DPAD_RIGHT)) {
             val row=focusRows[currentFocus]

@@ -5,6 +5,9 @@
     <string name="playback_tracker_label">prettTV playback tracking</string>
     <string name="rbtv_helper_label">prettTV game handoff</string>
     <string name="rbtv_helper_desc">After you select a sports event in prettTV, find its two teams and start time in RBTV and open the matching game. Stops before selecting a server. Reads and operates RBTV only during this request, for up to 30 seconds. It does not intercept Home or operate other apps.</string>
+    <string name="settings_key_service_label">prettTV Settings button</string>
+    <string name="settings_key_service_summary">Open TV settings from any app</string>
+    <string name="settings_key_service_desc">When enabled, releasing the remote Settings button opens TV settings from any app. On TCL TVs, this also handles the remote button reported as Notification. Other buttons, including Home, pass through. The helper receives key events but does not log them, read screen content or change settings. Turn it off here to restore the TV default button behavior.</string>
     <string name="favourites">Favourites</string>
     <string name="all_apps">All apps</string>
     <string name="settings">Settings</string>
