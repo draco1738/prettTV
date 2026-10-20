@@ -59,4 +59,6 @@ After a successful stock restore, the optional playback and game helpers pause. 
 
 These statements describe prettTV. They do not apply to RBTV+ or any other installed streaming app. RBTV is a separate third-party application with its own terms and permissions; prettTV's MIT license does not cover it. The [companion-app review](companion-apps.md) records the inspected build and the limits of that review.
 
+Optional TV Bro browsing, filter-list downloads and Google remote voice requests are handled by those apps and their service providers, outside prettTV. Browser permissions and any device-level Private DNS provider have their own scope; prettTV does not configure them or claim that their activity stays on the TV. See [Browser and remote voice](browser-and-voice.md).
+
 prettTV does not remove advertising inside other apps. Its APK and installer do not disable system launchers. A separate device setup may have changed Google TV Home, other apps or DNS; [full troubleshooting recovery](stock-recovery.md) restores only the original recorded changes, while keeping installed apps and logins.

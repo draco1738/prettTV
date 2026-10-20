@@ -9,6 +9,7 @@ Start with installation, then make the home screen your own. These guides descri
 | Guide | What you will find |
 | :--- | :--- |
 | [Installation](installation.md) | Download the bundle, connect through ADB, choose Home, update or uninstall. |
+| [Browser and remote voice](browser-and-voice.md) | Add TV Bro, configure browser filtering and keep remote voice working with prettTV as Home. |
 | [Using prettTV](usage.md) | Remote controls, Watchlist, row customization, undo, episode follows and settings. |
 | [Content and live sports](content-and-sports.md) | Viewing order, recommendations, release alerts, favorite teams, offline data and RBTV handoff. |
 | [Privacy and permissions](privacy.md) | What stays on the TV, what uses the network and which access is optional. |

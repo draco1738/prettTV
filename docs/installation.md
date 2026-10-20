@@ -84,6 +84,8 @@ Optional setup:
 
 See [Stock recovery](stock-recovery.md) before relying on the last option. A fresh installation cannot infer your TV's original app and DNS settings.
 
+For an optional browser, see [TV Bro, ad blocking and remote voice](browser-and-voice.md). TV Bro is installed separately from the release bundle. Keep your working Home selection when troubleshooting voice; enabling a stock launcher can change what the Home button opens.
+
 ## Updates
 
 Starting with **prettTV 0.2.0**, open **Settings → Updates**:
