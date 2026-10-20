@@ -6,6 +6,7 @@ Recorded results for each release, newest first. Device observations apply to th
 
 | Release | Scope | Recorded |
 | :--- | :--- | :--- |
+| [0.3.0](#pretttv-030-library-experiences-and-earthcam--2026-10-20) | Library experiences, dark Library marks, EarthCam idle playback and recovery focus | 2026-10-20 |
 | [0.2.3](#pretttv-023-weather-header--2026-10-17) | Optional weather header and bounded provider/cache checks | 2026-10-17 |
 | [0.2.2](#pretttv-022-rounder-app-corners--2026-10-17) | Approved 36-pixel Your apps corners | 2026-10-17 |
 | [0.2.1](#pretttv-021-refined-app-cards-and-focus--2026-10-17) | Narrower, rounder app cards and finite focus treatment | 2026-10-17 |
@@ -20,6 +21,32 @@ Recorded results for each release, newest first. Device observations apply to th
 | [0.1.3](#pretttv-013-discover-row--2026-10-17) | Discover row | 2026-10-17 |
 | [0.1.2](#pretttv-012-dark-tile-correction--2026-10-17) | Dark-tile correction | 2026-10-17 |
 | [0.1.1](#pretttv-011-validation--2026-10-17) | Validation | 2026-10-17 |
+
+## prettTV 0.3.0 Library experiences and EarthCam — 2026-10-20
+
+Version **0.3.0 / code 16** adds Blind Pick and Rabbit Hole at the bottom of Library, after installed apps, plus consistent dark Library cards and readable app marks. The upper Your apps row, C Balanced default and hidden sidebar behavior are unchanged. [Original apps](original-apps.md) describes the metadata sources and limits.
+
+The final source passed **257 JVM tests across 23 suites**, with zero failures, errors or skips. Android lint reported **zero errors and 32 warnings**. All **54 Android fault tests passed** on the final build, including the regression that requires Cancel to hold initial recovery-dialog focus in both D-pad and touch modes.
+
+The signed APK is **614,723 bytes**, with SHA-256 `99051800b08dd13df235ab561a1a1d936f09d08f12a340cd54833f0de709654a` and the established certificate SHA-256 `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`. It installed in place on the TCL, retaining prettTV as default Home, C Balanced and the hidden sidebar.
+
+Native review found a nearly invisible black Pluto wordmark on the dark Library surface. The correction lifts that mark to ivory while retaining its colored rings. Review also found that Blind Pick's freeform summaries could reveal an alternate title or characters. Concealed cards now use only structured media type, genres, runtime and year; a regression covers the summary leak.
+
+Native checks verified Library's six-column layout, labels and glyphs, including the ivory Paramount mark, Disney mark and corrected ivory Pluto wordmark with its colored rings. Blind Pick passed reveal/details, shuffle, media-type selection and a 30-minute filter with no qualifying results. Its concealed visible and accessibility text contained only the structured clues. Rabbit Hole passed title-chooser pagination, changing the starting title, Back navigation and empty connection states. Positive live relationships were not demonstrated: some shared-provider titles lacked enough metadata to establish a connection.
+
+The final build passed two navigation cycles with **94 guarded inputs and two cold starts**, plus **three app-return lifecycle cycles**. The temporary lifecycle fixture was removed.
+
+EarthCam checks verified normal app launch and the actual system **Start now** control. Both reached a playing media session with visible video changes, and **Home** returned to prettTV. A repeated system activation on the final APK after the cooldown also reached EarthCam in the foreground with a playing session and a working Home exit. A natural idle trial then left the TV untouched for ten minutes with its existing idle timer. EarthCam appeared in the foreground with a **PLAYING** session, advancing playback and two visibly different live camera frames; Home returned to prettTV. These checks establish observed playback, not merely a dispatched launch intent.
+
+Aerial Views was uninstalled after the replacement passed these checks, and its package was confirmed absent. The selected prettTV EarthCam screensaver service still resolved afterward.
+
+Two earlier Android reruns stopped after 39 tests at the recovery dialog's initial Cancel-focus assertion, including a retry after remote input was restored. Investigation found that Cancel could not take focus in touch mode. The correction makes Cancel focusable in both input modes and requests its focus after dialog attachment; the final regression passed without weakening the focus assertion. On the production build, **Settings → Return to stock Google TV** opened with Cancel focused in touch mode, and remote OK canceled it. Continue was never selected and no stock restore ran. Recovery remained configured, unpaused and IDLE.
+
+The final crash buffer was unchanged from the precheck baseline, and retained exit records contained no CRASH or ANR. prettTV remained the default Home; the stock Google TV launcher and setup components remained disabled. Home was verified in the foreground, then the TV was returned to its original asleep state.
+
+No Google account / Google TV Watchlist synchronization is claimed. The prior read-only investigation found no rows in the standard Watch Next provider and no accessible Google cloud-watchlist interface. prettTV's local Watchlist remains separate. Personal titles, configured locations, native captures and raw device evidence remain private; the public gallery retains its v0.2.2 captures.
+
+The [earlier candidate entry](#030-candidate--local-checks-october-20-2026) records the predeployment local review. This release has not repeated the one-hour soak or frame-time benchmark; historical results retain their original scope.
 
 ## prettTV 0.2.3 weather header — 2026-10-17
 
@@ -285,7 +312,9 @@ The panel is 60 Hz; sustained 60 fps is not claimed. A historical 0.1.0 navigati
 Final scoped visual confirmation: Disney+ sizing resolved across A/B/C; the expanded sidebar capture includes Library and focused Home; no material regression observed. The final release was re-signed with a prettTV-named certificate and reinstalled with every backed-up preference value compared successfully. Signing-certificate SHA-256: `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`.
 
 Publication checks: GitHub Actions passed for release source bff82461576d81404589a63ab51acd85ad42ae51. Public repository access and an unauthenticated download of prettTV-0.1.1-with-RBTV.zip were verified; the downloaded SHA-256 matches e7f02cc4bb0f7ea955cd2382b823ebd19d6850d3b874091efb0fecd70743fae3. The retired release/tag and old-named branch were removed after local backups. Historical source commits remain intact.
-# 0.3.0 candidate · local checks, October 20, 2026
+## 0.3.0 candidate · local checks, October 20, 2026
+
+This entry records the earlier local candidate before deployment. The [current 0.3.0 entry](#pretttv-030-library-experiences-and-earthcam--2026-10-20) records subsequent work.
 
 This candidate adds Library-only Blind Pick and Rabbit Hole, consistent dark Library cards and glyphs, a contrast correction for the known monochrome Paramount mark, and an optional EarthCam idle handoff. It has **not yet passed on-TV validation or been deployed**.
 

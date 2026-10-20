@@ -1,7 +1,6 @@
 package fi.jommi.rivi
 
 import java.util.Locale
-import java.text.Normalizer
 import kotlin.math.ceil
 import kotlin.random.Random
 
@@ -76,7 +75,7 @@ internal object BlindPickPolicy {
         }
     }
 
-    /** Provider summaries are retained only after concealing title variants and HTML markup. */
+    /** Structured facts only: summaries can identify a title through aliases, characters or plot. */
     fun clue(program: Program, metadata: TitleMetadata? = null): String {
         val type = when (DiscoveryCandidates.type(program)) {
             DiscoveryMediaType.MOVIE -> "Movie"
@@ -87,50 +86,7 @@ internal object BlindPickPolicy {
             .joinToString(" / ") { it.replaceFirstChar { c -> c.titlecase(Locale.ROOT) } }
         val runtime = DiscoveryCandidates.runtime(program, metadata)?.let { "$it min" } ?: "Runtime unavailable"
         val year = DiscoveryCandidates.year(program, metadata)?.toString().orEmpty()
-        val facts = listOf(type, genres, runtime, year).filter { it.isNotBlank() }.joinToString(" · ")
-        // Very short titles often double as ordinary words. Omit the summary in that case.
-        val summary = if (program.title.trim().length <= 3) "" else plainText(program.summary)
-            .replace(Regex("\\s+"), " ").trim()
-        val text = listOf(facts, summary).filter { it.isNotBlank() }.joinToString("\n\n")
-        // Redact before truncating, so a title spanning the preview boundary cannot leak.
-        return concealTitle(text, program.title).take(600)
-    }
-
-    private fun concealTitle(text: String, title: String): String {
-        val plain = plainText(text)
-        val words = Regex("[\\p{L}\\p{N}]+").findAll(plainText(title)).map { it.value }.toList()
-        if (words.isEmpty()) return plain
-        // Hyphenated names and possessives are commonly republished with different punctuation.
-        // Match the complete canonical word sequence, never a loose substring of another word.
-        val pattern = words.joinToString("[^\\p{L}\\p{N}]*") { Regex.escape(it) }
-        return plain.replace(Regex("(?<![\\p{L}\\p{N}])$pattern(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE), "this pick")
-    }
-
-    private val entities = mapOf(
-        "amp" to "&", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'",
-        "nbsp" to " ", "ensp" to " ", "emsp" to " ", "thinsp" to " ",
-        "lsquo" to "'", "rsquo" to "'", "sbquo" to "'", "ldquo" to "\"", "rdquo" to "\"",
-        "hyphen" to "-", "dash" to "-", "ndash" to "-", "mdash" to "-", "minus" to "-",
-        "hellip" to "…", "bull" to "•", "middot" to "·", "trade" to "™", "reg" to "®", "copy" to "©",
-    )
-
-    private fun plainText(value: String): String {
-        var decoded = value
-        // Some feeds escape an already escaped summary. Decode before stripping tags/redacting.
-        repeat(3) {
-            decoded = decoded.replace(Regex("&(#[xX][0-9a-fA-F]{1,8}|#[0-9]{1,10}|[a-zA-Z]{2,12});")) { match ->
-                val entity = match.groupValues[1]
-                if (entity.startsWith("#")) {
-                    val code = if (entity.startsWith("#x", ignoreCase = true)) entity.substring(2).toIntOrNull(16)
-                        else entity.substring(1).toIntOrNull()
-                    if (code != null && Character.isValidCodePoint(code) && code !in 0xD800..0xDFFF && code >= 32)
-                        String(Character.toChars(code)) else " "
-                } else entities[entity.lowercase(Locale.ROOT)] ?: " "
-            }
-        }
-        return Normalizer.normalize(decoded, Normalizer.Form.NFKC)
-            .replace(Regex("[‘’‛ʼ＇`´]"), "'")
-            .replace(Regex("<[^>]*>"), " ")
+        return listOf(type, genres, runtime, year).filter { it.isNotBlank() }.joinToString(" · ")
     }
 }
 

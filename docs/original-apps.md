@@ -5,11 +5,11 @@
 Two original prettTV experiences for finding a movie or TV show. Their tiles sit at the **bottom of Library · All apps**, after installed apps. They do not appear in the upper **Your apps** row and need no separate APK or account.
 
 > [!NOTE]
-> These features describe the current source build. Check [validation history](validation.md) and the release notes for the build you install; earlier TV results do not validate these additions.
+> Available in v0.3.0. Check [validation history](validation.md) for completed checks and remaining limits on the build you install.
 
 ## Blind Pick
 
-Choose **Movies + TV**, **Movies** or **TV shows**, then a mood and available time. Blind Pick presents up to three concealed choices. Each shows a short clue and available genre, year and runtime information while keeping the title and artwork hidden.
+Choose **Movies + TV**, **Movies** or **TV shows**, then a mood and available time. Blind Pick presents up to three concealed choices. Each shows only its media type and available genres, runtime and year. Titles, artwork and plot summaries stay hidden until reveal; summaries can expose a title through an alternate name or a character.
 
 | Control | What it does |
 | --- | --- |

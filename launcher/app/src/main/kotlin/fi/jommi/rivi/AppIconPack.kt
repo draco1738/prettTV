@@ -49,11 +49,21 @@ object AppIconPack {
         } else {
             val name=icons[pkg]
             if(name==null)null else context.assets.open("app-icons/$name.png").use { input ->
-                val source=BitmapFactory.decodeStream(input) ?: return@use null
+                val source=BitmapFactory.decodeStream(input,null,BitmapFactory.Options().apply {
+                    inMutable=pkg=="tv.pluto.android"
+                }) ?: return@use null
                 try {
                     var left=source.width; var top=source.height; var right=-1; var bottom=-1
                     val pixels=IntArray(source.width*source.height)
                     source.getPixels(pixels,0,source.width,0,0,source.width,source.height)
+                    if(pkg=="tv.pluto.android") {
+                        // Lift the black wordmark and TV disc on the Library's dark surface.
+                        // Keep the original alpha edges and colored brand rings intact.
+                        for(i in pixels.indices)if((pixels[i] and 0x00FFFFFF)==0) {
+                            pixels[i]=(pixels[i] and 0xFF000000.toInt()) or 0x00F4F1E9
+                        }
+                        source.setPixels(pixels,0,source.width,0,0,source.width,source.height)
+                    }
                     for(y in 0 until source.height)for(x in 0 until source.width)if((pixels[y*source.width+x] ushr 24)>32) {
                         left=minOf(left,x); right=maxOf(right,x); top=minOf(top,y); bottom=maxOf(bottom,y)
                     }

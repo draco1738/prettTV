@@ -135,26 +135,30 @@ class StabilityInstrumentation:Instrumentation() {
                 check(key.isFile && key.canonicalPath.startsWith(targetContext.noBackupFilesDir.canonicalPath+java.io.File.separator))
                 check(!StockRecoverySession.busy)
             }
-            test("first recovery confirmation defaults to Cancel and cancels without connecting") {
+            test("first recovery confirmation defaults to Cancel in D-pad and touch modes without connecting") {
                 val prefs=targetContext.getSharedPreferences("stock-recovery",Context.MODE_PRIVATE)
                 val priorPlan=prefs.getString("plan",null)
                 val priorStatus=prefs.getString("status",null)
                 var activity:Activity?=null
                 try {
                     check(prefs.edit().putString("plan",recoveryRecord().toString()).putString("status","isolated cancellation fixture").commit())
-                    runOnMainSync { StockRecoverySession.cancel() }
-                    activity=startActivitySync(Intent(targetContext,StockRecoveryActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    waitForIdleSync()
-                    val cancel=waitForNode("Cancel")
-                    check(cancel.isFocused) { "Recovery must initially focus Cancel" }
-                    check(waitForNode("Return to stock? · 1 of 2").isVisibleToUser)
-                    check(StockRecoverySession.state.phase==StockRecoverySession.Phase.IDLE)
-                    check(cancel.performAction(AccessibilityNodeInfo.ACTION_CLICK))
-                    waitForIdleSync()
-                    check(StockRecoverySession.state.phase==StockRecoverySession.Phase.IDLE)
-                    check(prefs.getString("status",null)=="isolated cancellation fixture")
+                    for(touchMode in listOf(false,true)) {
+                        setInTouchMode(touchMode)
+                        runOnMainSync { StockRecoverySession.cancel() }
+                        activity=startActivitySync(Intent(targetContext,StockRecoveryActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        waitForIdleSync()
+                        val cancel=waitForNode("Cancel")
+                        check(cancel.isFocused) { "Recovery must initially focus Cancel (touchMode=$touchMode)" }
+                        check(waitForNode("Return to stock? · 1 of 2").isVisibleToUser)
+                        check(StockRecoverySession.state.phase==StockRecoverySession.Phase.IDLE)
+                        check(cancel.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+                        waitForIdleSync()
+                        check(StockRecoverySession.state.phase==StockRecoverySession.Phase.IDLE)
+                        check(prefs.getString("status",null)=="isolated cancellation fixture")
+                    }
                 } finally {
                     activity?.let { screen -> runOnMainSync { if(!screen.isFinishing)screen.finish() } }
+                    setInTouchMode(false)
                     runOnMainSync { StockRecoverySession.cancel() }
                     check(prefs.edit().apply {
                         if(priorPlan==null)remove("plan") else putString("plan",priorPlan)

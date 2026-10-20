@@ -85,7 +85,12 @@ class StockRecoveryActivity : Activity() {
         dialog.setOnShowListener {
             val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             positive.isEnabled = false
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus()
+            val cancel = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+            // Touch input can leave the window in touch mode when this TV dialog opens.
+            // Keep the safe default focusable in both modes, including its first layout.
+            cancel.isFocusableInTouchMode = true
+            cancel.requestFocus()
+            cancel.post { if (dialog.isShowing) cancel.requestFocus() }
             ui.postDelayed({ if (dialog.isShowing) positive.isEnabled = true }, 1200)
             positive.setOnClickListener { dialog.dismiss(); accept() }
         }

@@ -86,55 +86,64 @@ class DiscoveryExperiencesPolicyTest {
             BlindPickFilters(mediaType = DiscoveryMediaType.SHOW)).map { it.program })
     }
 
-    @Test fun hiddenTitleCannotLeakThroughSummaryOrAccessibilityText() {
+    @Test fun unrevealedCluesContainOnlyStructuredFacts() {
         val secret = program("Hidden Harbor", genres = "Mystery").copy(
             summary = "<b>HIDDEN HARBOR</b> follows an investigator. Hidden   Harbor has a secret.",
             duration = 90 * 60_000L,
+            releaseYear = 2024,
         )
         val pick = BlindPickPolicy.pick(listOf(secret)).single()
-        assertFalse(pick.clue.contains("Hidden Harbor", ignoreCase = true))
-        assertFalse(pick.accessibilityLabel.contains("Hidden Harbor", ignoreCase = true))
-        assertFalse(pick.clue.contains("<b>"))
-        assertTrue(pick.clue.contains("investigator"))
+        assertEquals("Movie · Mystery · 90 min · 2024", pick.clue)
+        assertEquals("Mystery pick 1. ${pick.clue}", pick.accessibilityLabel)
         assertEquals(secret, pick.program) // The actual reveal and launch still retain exact metadata.
     }
 
-    @Test fun shortTitlesDoNotProduceUnusableRedactedPlotText() {
+    @Test fun synopsisAliasesAndCharacterNamesCannotLeakBeforeOrAfterEnrichment() {
+        val secret = program("Attack on Titan", type = "series", genres = "Action").copy(
+            summary = "Attack on Titan (Shingeki no Kyojin) follows Eren Jaeger, Mikasa Ackerman, " +
+                "and Armin Arlert as they fight Titans.",
+        )
+        val enriched = TitleMetadata(genres = listOf("Action", "Anime"), runtimeMinutes = 24, year = 2013,
+            cast = listOf("Yuki Kaji"), sourceName = "Attack on Titan (Shingeki no Kyojin)")
+        val initial = BlindPickPolicy.pick(listOf(secret)).single()
+        val updated = BlindPickPolicy.pick(listOf(secret), metadata = metadata(secret to enriched)).single()
+        assertEquals("TV show · Action · Runtime unavailable", initial.clue)
+        assertEquals("TV show · Action / Anime · 24 min · 2013", updated.clue)
+        assertEquals(updated.clue, BlindPickPolicy.clue(secret, enriched))
+        for (pick in listOf(initial, updated)) {
+            assertEquals("Mystery pick 1. ${pick.clue}", pick.accessibilityLabel)
+            for (identity in listOf("Attack on Titan", "Shingeki no Kyojin", "Eren Jaeger",
+                    "Mikasa Ackerman", "Armin Arlert", "Titans", "Yuki Kaji")) {
+                assertFalse(pick.clue.contains(identity, ignoreCase = true))
+                assertFalse(pick.accessibilityLabel.contains(identity, ignoreCase = true))
+            }
+            assertEquals(secret, pick.program)
+        }
+    }
+
+    @Test fun partialMetadataStillProducesUsefulCluesWithoutSynopsisFallback() {
         val p = program("It", genres = "Horror").copy(summary = "It follows a town where it appears.")
-        val clue = BlindPickPolicy.clue(p)
-        assertFalse(clue.contains("follows"))
-        assertTrue(clue.contains("Horror"))
+        assertEquals("Movie · Horror · Runtime unavailable", BlindPickPolicy.clue(p))
+        val unknown = program("Unknown identity", type = "", genres = "").copy(summary = "An identifying plot.")
+        assertEquals("Unclassified title · Runtime unavailable", BlindPickPolicy.clue(unknown))
     }
 
-    @Test fun titleConcealmentHandlesHyphensPossessivesAndUnicodePunctuation() {
+    @Test fun synopsisPunctuationAndMarkupNeverEnterConcealedClues() {
         val spider = program("Spider-Man").copy(
-            summary = "Spider Man protects a city. SPIDER–MAN returns. SpiderMan faces a choice. Ｓｐｉｄｅｒ－Ｍａｎ helps a friend.",
+            summary = "Spider Man protects a city. SPIDER–MAN returns. SpiderMan faces a choice. " +
+                "Ｓｐｉｄｅｒ－Ｍａｎ helps a friend. &lt;b&gt;Spider&#x2011;Man&lt;/b&gt; " +
+                "Spider&#45;Man and Spider&hyphen;Man return. Spider&nbsp;Man meets a friend. " +
+                "Spider&amp;ndash;Man faces a choice.",
         )
-        val spiderPick = BlindPickPolicy.pick(listOf(spider)).single()
-        assertFalse(spiderPick.clue.contains("spider", ignoreCase = true))
-        assertFalse(spiderPick.accessibilityLabel.contains("spider", ignoreCase = true))
-        assertTrue(spiderPick.clue.contains("protects a city"))
         val queen = program("The Queen’s Gambit").copy(
-            summary = "The Queen's Gambit follows a player. The Queens Gambit explores competition. The Queenʼs Gambit continues.",
+            summary = "The Queen's Gambit follows a player. The Queens Gambit explores competition. " +
+                "The Queenʼs Gambit continues. The Queen&rsquo;s Gambit follows a chess player.",
         )
-        val queenPick = BlindPickPolicy.pick(listOf(queen)).single()
-        assertFalse(queenPick.clue.contains("gambit", ignoreCase = true))
-        assertFalse(queenPick.accessibilityLabel.contains("gambit", ignoreCase = true))
-        assertTrue(queenPick.clue.contains("follows a player"))
-    }
-
-    @Test fun titleConcealmentDecodesNamedNumericAndEscapedHtmlBeforeRedaction() {
-        val p = program("Spider-Man").copy(summary =
-            "&lt;b&gt;Spider&#x2011;Man&lt;/b&gt; protects a city. Spider&#45;Man and Spider&hyphen;Man return. " +
-                "Spider&nbsp;Man meets a friend. Spider&amp;ndash;Man faces a choice.")
-        val pick = BlindPickPolicy.pick(listOf(p)).single()
-        assertFalse(pick.clue.contains("spider", ignoreCase = true))
-        assertFalse(pick.accessibilityLabel.contains("spider", ignoreCase = true))
-        assertFalse(pick.clue.contains("<b>"))
-        assertFalse(pick.clue.contains("&"))
-        assertTrue(pick.clue.contains("meets a friend"))
-        val queen = program("The Queen’s Gambit").copy(summary = "The Queen&rsquo;s Gambit follows a chess player.")
-        assertFalse(BlindPickPolicy.clue(queen).contains("gambit", ignoreCase = true))
+        for (program in listOf(spider, queen)) {
+            val pick = BlindPickPolicy.pick(listOf(program)).single()
+            assertEquals("Movie · Drama · Runtime unavailable", pick.clue)
+            assertEquals("Mystery pick 1. ${pick.clue}", pick.accessibilityLabel)
+        }
     }
 
     @Test fun rabbitHoleUsesPublishedConnectionsAndRejectsProviderOnlyFiller() {
