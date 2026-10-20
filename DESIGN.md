@@ -339,6 +339,14 @@ This screen uses Android dp/sp rather than the home's 1920-wide reference units:
 
 ## Do's and Don'ts
 
+### Library and original experiences · 0.3.0 source
+
+The bottom Library retains six columns, 154-reference-pixel cards, 15-pixel corners and 18-pixel gaps. All Library cards now use #1F2A22 with #647368 outlines, a contained logo region up to 64 pixels high and a separate 24-pixel ivory name. Missing artwork uses an initial plus the app name. Real installed icons replace full banners for unmapped apps. The known monochrome Paramount silhouette is ivory; full-color brands keep their colors. Focus keeps the existing finite spotlight, scale and ivory outline. The top Your apps geometry is unchanged.
+
+Blind Pick and Rabbit Hole appear after installed apps in Library only. Their original glyphs depict three concealed cards with a reveal spark and a rabbit emerging from a portal. Their native activity uses the established sage-black/ivory controls, three mystery cards with strict filters, or a starting title and factual relationship filters. It does not add animated backgrounds or accounts.
+
+The rendered proposals live in `docs/previews/original-apps` and `docs/previews/library-glyphs`. They are design previews, not TV captures. The source changes require native rendering and remote checks during the authorized deployment window; earlier Home screenshots do not validate these additions.
+
 ### Do:
 
 - **Do** preserve the sage-black ground, fine visible card edges, and color-pop app marks.

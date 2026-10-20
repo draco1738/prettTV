@@ -285,3 +285,14 @@ The panel is 60 Hz; sustained 60 fps is not claimed. A historical 0.1.0 navigati
 Final scoped visual confirmation: Disney+ sizing resolved across A/B/C; the expanded sidebar capture includes Library and focused Home; no material regression observed. The final release was re-signed with a prettTV-named certificate and reinstalled with every backed-up preference value compared successfully. Signing-certificate SHA-256: `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`.
 
 Publication checks: GitHub Actions passed for release source bff82461576d81404589a63ab51acd85ad42ae51. Public repository access and an unauthenticated download of prettTV-0.1.1-with-RBTV.zip were verified; the downloaded SHA-256 matches e7f02cc4bb0f7ea955cd2382b823ebd19d6850d3b874091efb0fecd70743fae3. The retired release/tag and old-named branch were removed after local backups. Historical source commits remain intact.
+# 0.3.0 candidate · local checks, October 20, 2026
+
+This candidate adds Library-only Blind Pick and Rabbit Hole, consistent dark Library cards and glyphs, a contrast correction for the known monochrome Paramount mark, and an optional EarthCam idle handoff. It has **not yet passed on-TV validation or been deployed**.
+
+The final local source passed **257 JVM tests** with zero failures, errors or skips. Android lint reported **zero errors and 32 warnings**: 22 retained upstream unused resources, four programmatic-view constructors, three TV orientation locks, two existing vector raster warnings and the Disney vector path warning. Release, isolated stability target, Android instrumentation and lifecycle-fixture APKs built successfully. The production APK is 616,683 bytes and verifies with the existing production certificate.
+
+Static review found and corrected metadata work on the UI thread, runtime/filter refresh behavior, lost artwork after returning from another app, relationship filtering after result limits, cross-provider dismissal handling and EarthCam's silently rejected-launch fallback. Regression coverage includes metadata identity/limits, concealed-title variants, strict filter behavior, verified cross-provider relationships, cooldown bounds and dismissal migration. The new Android storage checks have been compiled, not run on the TV.
+
+Native visual, focus/navigation and lifecycle checks, actual EarthCam camera playback and system idle activation remain pending the owner's deployment window. Aerial Views remains installed until the replacement is verified. Rendered proposals are labeled as mockups; no personal TV captures are published by this candidate.
+
+The Google account / Google TV Watchlist is not synchronized. Read-only investigation found no rows in the TV's standard Watch Next provider and no accessible Google cloud-watchlist interface. The existing local Watchlist is preserved; an account import requires a separately accessible user-authorized source.

@@ -10,6 +10,7 @@
 
     <!-- Package visibility (Android 11+): we must declare what we query. -->
     <queries>
+        <package android:name="com.earthcam.earthcamtv.android" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
@@ -45,6 +46,10 @@
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode|locale|layoutDirection|density|fontScale|smallestScreenSize" />
         <receiver android:name=".UpdateInstallReceiver" android:exported="false" />
 
+        <activity android:name=".DiscoveryActivity" android:exported="false"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode|locale|layoutDirection|density|fontScale|smallestScreenSize" />
+
         <activity android:name=".StockRecoveryActivity" android:exported="false" android:launchMode="singleTask"
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode|locale|layoutDirection|density|fontScale|smallestScreenSize" />
@@ -70,6 +75,15 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Optional system idle handoff into the separately installed official EarthCam app. -->
+        <service android:name=".EarthCamDreamService" android:label="@string/earthcam_idle"
+            android:permission="android.permission.BIND_DREAM_SERVICE" android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
 
         <!-- Optional media-session access; no notification payload is consumed. -->
         <service android:name=".PlaybackTracker" android:label="@string/playback_tracker_label"

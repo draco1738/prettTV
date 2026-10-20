@@ -43,11 +43,13 @@ data class RowPreferences(
 
 data class SavedTitle(val key: String, val program: Program, val savedAt: Long)
 data class FollowedShow(val key: String, val program: Program, val followedAt: Long)
-data class DismissedRecommendation(val key: String, val genres: Set<String>)
+data class DismissedRecommendation(val key: String, val genres: Set<String>, val titleKey: String = "")
 
 data class RecommendationFeedback(
     val dismissed: Set<String> = emptySet(),
     val genreCounts: Map<String, Int> = emptyMap(),
+    /** Opt-in title exclusions for discovery experiences; Home still uses exact identity below. */
+    val dismissedTitleKeys: Set<String> = emptySet(),
 ) {
     fun isDismissed(program: Program) = ContentIdentity.key(program) in dismissed
     fun penalty(program: Program): Int = PersonalizationPolicy.genres(program)
@@ -70,7 +72,42 @@ object PersonalizationPolicy {
     fun feedback(dismissals: Collection<DismissedRecommendation>) = RecommendationFeedback(
         dismissals.map { it.key }.toSet(),
         dismissals.flatMap { it.genres }.groupingBy { it }.eachCount().mapValues { it.value.coerceAtMost(2) },
+        dismissals.map(::dismissedTitleKey).filter { it.isNotBlank() }.toSet(),
     )
+
+    internal fun dismissedTitleKey(item: DismissedRecommendation): String =
+        normalizeTitle(item.titleKey).ifBlank { legacyProviderTitle(item.key) }
+
+    /** Fill older canonical-ID records only from an exact identity seen before feed filtering. */
+    internal fun rememberDismissedTitles(items: List<DismissedRecommendation>, programs: List<Program>): List<DismissedRecommendation> {
+        val known = programs.filter { it.title.isNotBlank() }.distinctBy(ContentIdentity::key)
+            .associate { ContentIdentity.key(it) to it.titleKey }
+        return items.map { item ->
+            val title = dismissedTitleKey(item).ifBlank { known[item.key].orEmpty() }
+            if (title == item.titleKey) item else item.copy(titleKey = title)
+        }
+    }
+
+    private fun normalizeTitle(value: String) = value.trim().replace(Regex("\\s+"), " ").lowercase(Locale.ROOT)
+
+    /** The old provider key embeds exact UTF-16 lengths; canonical IDs never imply a title. */
+    private fun legacyProviderTitle(key: String): String {
+        if (!key.startsWith("provider:")) return ""
+        val packageLengthEnd = key.indexOf(':', "provider:".length)
+        if (packageLengthEnd < 0) return ""
+        val packageLength = key.substring("provider:".length, packageLengthEnd).toIntOrNull() ?: return ""
+        if (packageLength <= 0 || packageLength > key.length - packageLengthEnd - 1) return ""
+        val packageEnd = packageLengthEnd + 1 + packageLength
+        if (packageEnd >= key.length || key[packageEnd] != ':') return ""
+        val typeEnd = key.indexOf(':', packageEnd + 1)
+        if (typeEnd <= packageEnd + 1) return ""
+        val titleLengthEnd = key.indexOf(':', typeEnd + 1)
+        if (titleLengthEnd < 0) return ""
+        val titleLength = key.substring(typeEnd + 1, titleLengthEnd).toIntOrNull() ?: return ""
+        val title = key.substring(titleLengthEnd + 1)
+        if (titleLength <= 0 || title.length != titleLength) return ""
+        return normalizeTitle(title)
+    }
 }
 
 /** A paused session keeps its event; periodic position samples are not new playback. */

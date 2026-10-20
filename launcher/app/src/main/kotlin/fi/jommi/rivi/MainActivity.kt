@@ -72,6 +72,7 @@ class MainActivity : Activity() {
     private var pendingViewport:Viewport?=null
     private var viewportRevision=0
     private val appCards = HashMap<String, MutableList<PrettTvCard>>()
+    private val originalAppArt by lazy { OriginalApp.entries.associateWith { OriginalAppArtwork.render(this,it) } }
     private data class CardArt(val card:PrettTvCard,val url:String,val w:Int,val h:Int,val request:ArtworkRequest=ArtworkRequest())
     private val cardArt=ArrayList<CardArt>()
     private val ui = Handler(Looper.getMainLooper())
@@ -667,8 +668,8 @@ class MainActivity : Activity() {
         val byKey=apps.associateBy { it.key }
         return (arranged.favourites+arranged.rest).mapNotNull { byKey[it] }.distinctBy { it.key }
     }
-    private fun appCard(e:AppEntry,key:String,cornerRadius:Float=15f):PrettTvCard=PrettTvCard(this,scale,PrettTvCard.Mode.APP,cornerRadius).apply {
-        title=e.label; contentDescription=e.label; logoBounds=e.logoBounds; art=e.bitmap; register(this,key)
+    private fun appCard(e:AppEntry,key:String,cornerRadius:Float=15f,library:Boolean=false):PrettTvCard=PrettTvCard(this,scale,if(library)PrettTvCard.Mode.LIBRARY else PrettTvCard.Mode.APP,cornerRadius).apply {
+        title=e.label; contentDescription=e.label; logoBounds=e.logoBounds; art=if(library)e.libraryBitmap else e.bitmap; register(this,key)
         appCards.getOrPut(e.key){ArrayList()}.add(this)
         setOnClickListener { launch(e) }; setOnLongClickListener { appMenu(e,key); true }
         if(appAnchor==null)appAnchor=this
@@ -704,10 +705,23 @@ class MainActivity : Activity() {
         val all=orderedApps(); val width=(inner-5*18)/6
         all.chunked(6).forEach { entries ->
             val strip=row()
-            entries.forEachIndexed { i,e -> strip.addView(appCard(e,"app-${e.key}"),LinearLayout.LayoutParams(px(width),px(154)).apply { if(i<5)rightMargin=px(18) }) }
+            entries.forEachIndexed { i,e -> strip.addView(appCard(e,"app-${e.key}",library=true),LinearLayout.LayoutParams(px(width),px(154)).apply { if(i<5)rightMargin=px(18) }) }
             page.addView(strip,LinearLayout.LayoutParams(-1,px(154)).apply { bottomMargin=px(20) }); constrainRow(strip)
         }
         all.firstOrNull()?.let { libraryAnchor=focusables["app-${it.key}"] }
+        val originals=row()
+        OriginalApp.entries.forEach { app ->
+            val card=PrettTvCard(this,scale,PrettTvCard.Mode.LIBRARY).apply {
+                title=app.label; art=originalAppArt[app]; contentDescription=app.label
+                register(this,"app-original-${app.route}")
+                setOnClickListener { safeStart(Intent(this@MainActivity,DiscoveryActivity::class.java)
+                    .putExtra("originalApp",app.route),app.label) }
+            }
+            originals.addView(card,LinearLayout.LayoutParams(px(width),px(154)).apply { rightMargin=px(18) })
+            if(libraryAnchor==null)libraryAnchor=card
+        }
+        page.addView(originals,LinearLayout.LayoutParams(-1,px(154)).apply { bottomMargin=px(20) })
+        constrainRow(originals)
     }
     private fun constrainRow(row:LinearLayout) {
         val cards=ArrayList<View>()
@@ -740,11 +754,14 @@ class MainActivity : Activity() {
             } ?: return@post
             if(g!=generation)return@post
             val input=AppRefreshWork.attempt({repo.inputsEntry()}) { }
-            found.forEach { it.bitmap=previous[it.key]?.bitmap; it.logoBounds=previous[it.key]?.logoBounds }
+            found.forEach { it.bitmap=previous[it.key]?.bitmap; it.logoBounds=previous[it.key]?.logoBounds; it.libraryBitmap=previous[it.key]?.libraryBitmap }
             ui.post { if(g==generation) { appLoadError=false; appDiscoveryComplete=true; apps=found; inputs=input; render(); if(visible)startContent() } }
-            AppRefreshWork.each(found,{g==generation},{e -> repo.loadTile(e,320,180,0f)}, { e,image ->
+            AppRefreshWork.each(found,{g==generation},{e ->
+                e.libraryBitmap=repo.loadLibraryMark(e)
+                repo.loadTile(e,320,180,0f)
+            }, { e,image ->
                 e.bitmap=image
-                ui.post { if(g==generation)appCards[e.key]?.forEach { it.logoBounds=e.logoBounds; it.art=image } }
+                ui.post { if(g==generation)appCards[e.key]?.forEach { it.logoBounds=e.logoBounds; it.art=if(it.isLibraryCard)e.libraryBitmap else image } }
             }, { _,e -> android.util.Log.w("PrettTvApps","Icon failed: ${e.javaClass.simpleName}") })
             if(g==generation)AppRefreshWork.attempt({repo.pruneCache(found.map { repo.cacheName(it,320,180,0f) }.toSet())}) { }
         }

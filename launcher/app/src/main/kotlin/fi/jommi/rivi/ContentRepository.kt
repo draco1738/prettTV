@@ -142,6 +142,9 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 val catalogRows=if(previews.size<4)snapshot.seeds else emptyList()
                 val catalogBrowse=snapshot.browse()
                 val releases=snapshot.recent(System.currentTimeMillis())
+                // Older feedback records may contain only a canonical ID. Remember the exact
+                // source title before filtering it away so discovery experiences can hide copies.
+                personal.rememberDismissedTitles(watching+previews+catalogRows+catalogBrowse+releases)
                 val cleanWatching=ContentPolicy.clean(watching,excluded)
                 val cleanReleases=ContentPolicy.clean(releases,excluded).filterNot { feedback.isDismissed(it) }
                 val rows=RecommendationPolicy.build(previews,catalogRows+catalogBrowse,catalogBrowse,cleanWatching,cleanReleases,services,priority,excluded,feedback=feedback)

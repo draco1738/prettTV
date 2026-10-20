@@ -4,6 +4,8 @@
 
 **Aerial Views** adds a video screensaver. **Moonlight** streams games and the desktop from a PC running **Sunshine**. These are optional third-party apps, installed separately from prettTV. Their APKs and the PC host are not included in the prettTV bundle, and prettTV remains the Home launcher.
 
+For live camera viewing, the current source also includes an optional [EarthCam idle handoff](earthcam-idle.md), awaiting TCL validation. Aerial Views remains an alternative with native screensaver behavior.
+
 ## Official downloads
 
 | Component | Runs on | Version selected for the October 20, 2026 setup |

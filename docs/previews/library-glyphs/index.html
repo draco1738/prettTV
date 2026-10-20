@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>prettTV Library · Glyph and card refinement</title>
+<style>
+  :root { color-scheme:dark; --bg:#0F1510; --card:#1F2A22; --text:#F4F1E9; --muted:#B2C0B5; --edge:#647368; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Arial,sans-serif; }
+  ::selection { background:#CDD9C7; color:var(--bg); }
+  .screen { width:1920px; height:1080px; padding:48px 56px 38px; position:relative; overflow:hidden; }
+  .top { display:flex; align-items:center; justify-content:space-between; height:58px; }
+  h1 { font-size:42px; font-weight:500; margin:0; letter-spacing:-.8px; }
+  .sample { color:var(--muted); font-size:20px; }
+  .intro { font-size:26px; line-height:1.4; color:var(--muted); margin:22px 0 35px; }
+  h2 { font-size:27px; font-weight:500; margin:0 0 23px; }
+  .row { display:grid; grid-template-columns:repeat(6,1fr); gap:18px; }
+  .card { position:relative; height:154px; border:1.5px solid var(--edge); border-radius:15px; background:var(--card); display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:17px 20px 12px; }
+  .logo { height:76px; width:194px; display:flex; align-items:center; justify-content:center; }
+  .logo img { display:block; width:194px; height:64px; object-fit:contain; }
+  .logo img[src*="paramount-plus-light"] { filter:brightness(0) invert(1); }
+  .logo.original img { width:64px; height:64px; }
+  .logo svg { width:64px; height:64px; fill:none; stroke-width:2.8; stroke-linecap:round; stroke-linejoin:round; }
+  .label { margin-top:13px; font-size:24px; line-height:29px; color:var(--text); text-align:center; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card.focus { border:2.5px solid var(--text); padding:16px 19px 11px; background:linear-gradient(145deg,#354138,var(--card) 72%); }
+  .card.focus .label { font-weight:500; }
+  .current { background:#1A221D; border:1px solid #4B584B; padding:0; justify-content:center; }
+  .current img { display:block; width:200px; height:89px; object-fit:contain; }
+  .current .old-original { width:274px; height:154px; max-width:none; max-height:none; }
+  .compare-current { margin-top:47px; }
+  .compare-proposed { margin-top:42px; }
+  .caption { font-size:22px; line-height:1.4; color:var(--muted); margin:18px 0 0; }
+  .detail-row { display:grid; grid-template-columns:1fr 1fr; gap:40px; padding-top:35px; margin-top:40px; border-top:1px solid #354032; }
+  .detail { display:flex; align-items:center; gap:25px; }
+  .detail img { width:96px; height:96px; }
+  .detail h3 { font-size:28px; font-weight:500; margin:0 0 9px; }
+  .detail p { color:var(--muted); font-size:23px; line-height:1.35; margin:0; max-width:620px; }
+  .footer { position:absolute; left:56px; right:56px; bottom:39px; display:flex; justify-content:space-between; color:var(--muted); font-size:21px; }
+  .grid { display:grid; grid-template-columns:repeat(6,1fr); gap:20px 18px; }
+  .library-rule { margin:43px 0 28px; border:none; border-top:1px solid #354032; }
+  .hidden { display:none; }
+</style>
+<body>
+<main id="comparison" class="screen">
+  <header class="top"><h1>Clearer icons. One dark card style.</h1><span class="sample">Rendered comparison · Not a TV capture</span></header>
+  <p class="intro">Keep familiar brand marks. Give every Library app the same shape, contrast and readable name.</p>
+  <section class="compare-current"><h2>Current treatment · Reconstructed from the app source</h2><div class="row">
+    <div class="card current"><svg class="old-original" viewBox="0 0 320 180"><g fill="none" stroke="#E0BE7B" stroke-width="4" stroke-linecap="round"><rect x="135" y="31" width="55" height="65" rx="9"/><path d="M126 43v59m13 5h37m-22-43h18m-9-9v18"/></g><text x="160" y="151" font-family="Arial,sans-serif" font-size="28" text-anchor="middle" fill="#F4F1E9">Blind Pick</text></svg></div>
+    <div class="card current"><svg class="old-original" viewBox="0 0 320 180"><g fill="none" stroke="#A5C8C6" stroke-width="4" stroke-linecap="round"><path d="m137 55 23 26m9-5 21-31m-21 46 28 14"/><circle cx="131" cy="48" r="11"/><circle cx="164" cy="85" r="12"/><circle cx="195" cy="37" r="9"/><circle cx="206" cy="109" r="9"/></g><text x="160" y="151" font-family="Arial,sans-serif" font-size="28" text-anchor="middle" fill="#F4F1E9">Rabbit Hole</text></svg></div>
+    <div class="card current"><img src="../../../launcher/app/src/main/assets/app-icons/netflix.png" alt="Netflix"></div>
+    <div class="card current"><img src="../../../launcher/app/src/main/assets/app-icons/prime-video-light.png" alt="Prime Video"></div>
+    <div class="card current"><img src="../../../launcher/app/src/main/assets/app-icons/youtube.png" alt="YouTube"></div>
+    <div class="card current"><img src="../../../launcher/app/src/main/assets/app-icons/paramount-plus-light.png" alt="Paramount+"></div>
+  </div><p class="caption">Built-in icons are abstract; most artwork tiles have no separate name.</p></section>
+  <section class="compare-proposed"><h2>Proposed · Consistent card, recognizable glyph, visible label</h2><div class="row">
+    <div class="card focus"><div class="logo original"><img src="blind-pick.svg" alt=""></div><div class="label">Blind Pick</div></div>
+    <div class="card"><div class="logo original"><img src="rabbit-hole.svg" alt=""></div><div class="label">Rabbit Hole</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/netflix.png" alt=""></div><div class="label">Netflix</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/prime-video-light.png" alt=""></div><div class="label">Prime Video</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/youtube.png" alt=""></div><div class="label">YouTube</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/paramount-plus-light.png" alt=""></div><div class="label">Paramount+</div></div>
+  </div></section>
+  <div class="detail-row">
+    <section class="detail"><img src="blind-pick.svg" alt=""><div><h3>Blind Pick</h3><p>Three face-down cards, with a small reveal spark.</p></div></section>
+    <section class="detail"><img src="rabbit-hole.svg" alt=""><div><h3>Rabbit Hole</h3><p>A rabbit peeking through a portal. Readable at TV distance.</p></div></section>
+  </div>
+  <footer class="footer"><span>Original glyphs · Existing brand marks and colors retained</span><span>Bottom Library only</span></footer>
+</main>
+<main id="library" class="screen hidden">
+  <header class="top"><h1>Library · All apps</h1><span class="sample">Rendered proposal · Illustrative app selection</span></header>
+  <p class="intro">Open any app, including apps hidden from Your apps.</p>
+  <div class="grid">
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/netflix.png" alt=""></div><div class="label">Netflix</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/prime-video-light.png" alt=""></div><div class="label">Prime Video</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/youtube.png" alt=""></div><div class="label">YouTube</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/apple-tv-plus-light.png" alt=""></div><div class="label">Apple TV</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/hbo-light.png" alt=""></div><div class="label">HBO Max</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/stremio.png" alt=""></div><div class="label">Stremio</div></div>
+    <div class="card"><div class="logo"><svg viewBox="0 0 64 64" stroke="#98C4D8" aria-label="Generic camera and globe preview symbol"><circle cx="32" cy="30" r="22"/><ellipse cx="32" cy="30" rx="10" ry="22"/><path d="M11 22h42M10 36h44M22 57h20"/><rect x="37" y="39" width="23" height="17" rx="3" fill="#1F2A22"/><path d="m45 43 8 5-8 5Z" fill="#98C4D8" stroke="none"/></svg></div><div class="label">EarthCamTV3</div></div>
+    <div class="card"><div class="logo"><svg viewBox="0 0 64 64" stroke="#B4B5EE" aria-label="Generic game-streaming preview symbol"><path d="M38 5a14 14 0 1 0 18 18A14 14 0 0 1 38 5Z"/><path d="M17 30h30c7 0 10 8 12 20 1 6-5 9-9 5l-7-7H21l-7 7c-4 4-10 1-9-5 2-12 5-20 12-20Z" fill="#1F2A22"/><path d="M15 39h12M21 33v12M43 37v1M50 43v1"/></svg></div><div class="label">Moonlight</div></div>
+    <div class="card"><div class="logo"><svg viewBox="0 0 64 64" stroke="#A9CABA" aria-label="Generic browser preview symbol"><rect x="5" y="10" width="54" height="43" rx="5"/><path d="M5 21h54M12 16h1m5 0h1"/><circle cx="32" cy="37" r="12"/><ellipse cx="32" cy="37" rx="5" ry="12"/><path d="M20 37h24"/></svg></div><div class="label">TV Bro</div></div>
+    <div class="card"><div class="logo"><svg viewBox="0 0 64 64" stroke="#D8BC72" aria-label="Generic live sports preview symbol"><rect x="5" y="11" width="54" height="42" rx="4"/><path d="M5 23h10v18H5m54-18H49v18h10M32 11v42"/><circle cx="32" cy="32" r="10"/><path d="m29 26 9 6-9 6Z" fill="#D8BC72" stroke="none"/></svg></div><div class="label">RBTV+</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/crunchyroll.png" alt=""></div><div class="label">Crunchyroll</div></div>
+    <div class="card"><div class="logo"><img src="../../../launcher/app/src/main/assets/app-icons/paramount-plus-light.png" alt=""></div><div class="label">Paramount+</div></div>
+    <div class="card focus"><div class="logo original"><img src="blind-pick.svg" alt=""></div><div class="label">Blind Pick</div></div>
+    <div class="card"><div class="logo original"><img src="rabbit-hole.svg" alt=""></div><div class="label">Rabbit Hole</div></div>
+  </div>
+  <hr class="library-rule">
+  <p class="caption">Blind Pick and Rabbit Hole live here in Library. The top Your apps row keeps its current layout.</p>
+  <p class="caption">EarthCamTV3, Moonlight, TV Bro and RBTV+ use generic preview symbols here, not official app marks.</p>
+  <footer class="footer"><span>About prettTV · Credits</span><span>Same dark surface, size, border and label position across every app</span></footer>
+</main>
+<script>
+const selected = new URLSearchParams(location.search).get('screen') || 'comparison';
+document.querySelectorAll('.screen').forEach(el => el.classList.toggle('hidden', el.id !== selected));
+</script>
+</body>
+</html>

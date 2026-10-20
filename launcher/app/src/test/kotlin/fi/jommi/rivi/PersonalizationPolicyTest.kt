@@ -102,6 +102,45 @@ class PersonalizationPolicyTest {
         assertEquals(cards.drop(3), result.drop(3))
     }
 
+    @Test fun dismissedTitleKeysPersistIndependentlyOfHomeIdentityFiltering() {
+        val first = program().copy(imdbId = "tt1234567", genres = "Drama")
+        val otherProvider = program(pkg = "other")
+        val feedback = PersonalizationPolicy.feedback(listOf(DismissedRecommendation(
+            ContentIdentity.key(first), PersonalizationPolicy.genres(first), " THE   SHOW ",
+        )))
+        assertEquals(setOf(first.titleKey), feedback.dismissedTitleKeys)
+        assertTrue(feedback.isDismissed(first))
+        assertFalse(feedback.isDismissed(otherProvider)) // Existing Home behavior stays exact.
+        assertTrue(otherProvider.titleKey in feedback.dismissedTitleKeys)
+        assertEquals(mapOf("drama" to 1), feedback.genreCounts)
+    }
+
+    @Test fun legacyProviderDismissalRecoversLengthPrefixedTitleWithoutNeedingFeedRows() {
+        val p = program(title = "The:  Show 😀", pkg = "provider:with:colons")
+        val feedback = PersonalizationPolicy.feedback(listOf(DismissedRecommendation(ContentIdentity.key(p), emptySet())))
+        assertEquals(setOf(p.titleKey), feedback.dismissedTitleKeys)
+        val malformed = listOf("provider:999999999999:x:series:4:show", "provider:1:x:series:99:show",
+            "provider:1:x:series:4:show:extra", "provider:-1:x:series:4:show", "provider:1:x::4:show",
+            "imdb:series:tt1234567", "tvmaze:series:123")
+        assertTrue(PersonalizationPolicy.feedback(malformed.map { DismissedRecommendation(it, emptySet()) })
+            .dismissedTitleKeys.isEmpty())
+    }
+
+    @Test fun legacyCanonicalDismissalBackfillsOnlyFromAnExactIdentityAndKeepsExplicitTitle() {
+        val p = program().copy(imdbId = "tt1234567")
+        val original = DismissedRecommendation(ContentIdentity.key(p), setOf("drama"))
+        assertTrue(PersonalizationPolicy.feedback(listOf(original)).dismissedTitleKeys.isEmpty())
+        val mismatched = PersonalizationPolicy.rememberDismissedTitles(listOf(original),
+            listOf(p.copy(imdbId = "tt1234568")))
+        assertEquals(listOf(original), mismatched)
+        val backfilled = PersonalizationPolicy.rememberDismissedTitles(listOf(original), listOf(p))
+        assertEquals(setOf(p.titleKey), PersonalizationPolicy.feedback(backfilled).dismissedTitleKeys)
+        assertEquals(backfilled, PersonalizationPolicy.rememberDismissedTitles(backfilled,
+            listOf(p.copy(title = "A changed localized title"))))
+        assertEquals(original.key, backfilled.single().key)
+        assertEquals(original.genres, backfilled.single().genres)
+    }
+
     @Test fun feedbackCannotPromoteFreePlutoOrStremioAheadOfPaidService() {
         val paid = program("Paid").copy(genres = "Drama")
         val free = program("Free", "com.tubitv")

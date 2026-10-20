@@ -49,7 +49,18 @@ Hiding an app only changes Your apps. It stays available in Library, search and 
 
 SportioTV and HD Streamz were removed at the owner's request and are not included in the release. See [companion apps](companion-apps.md) for what the installation bundle includes.
 
+## Original apps in Library
+
+The current source build adds **Blind Pick** and **Rabbit Hole** at the bottom of **Library · All apps**, after the installed apps. These are built into prettTV and stay out of the upper Your apps row.
+
+- **Blind Pick:** Choose movies, TV shows or both, a genre-based mood and a time limit. Reveal up to three mystery choices, then open their app or save one to Watchlist.
+- **Rabbit Hole:** Start with a title and follow published cast/director connections, shared genres or release periods. Select a result to keep exploring; hold OK for watching and saving actions. Back retraces the recent path.
+
+Both use your available listings and preferred-service order, exclude hidden/dismissed titles and leave missing facts unavailable. [Full controls, sources and limits →](original-apps.md)
+
 ## Save titles to Watchlist
+
+This row currently contains prettTV's local saved titles. It does **not** synchronize the Google account / Google TV Watchlist. The tested TV does not publish that cloud list through Android's shared Watch Next provider.
 
 Hold OK on a title → **Add to Watchlist**. Your saved titles appear in their own row, newest additions first. Each entry retains its source app and available artwork. Saving here does not change a streaming app's own watchlist.
 

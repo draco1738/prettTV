@@ -17,7 +17,8 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         val regularTypeface:Typeface=Typeface.create("sans-serif",Typeface.NORMAL)
         val mediumTypeface:Typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL)
     }
-    enum class Mode { HERO, SHOW, COMPACT, APP, SPORT }
+    enum class Mode { HERO, SHOW, COMPACT, APP, LIBRARY, SPORT }
+    val isLibraryCard get()=mode==Mode.LIBRARY
     var title=""
     var detail=""
     var summary=""
@@ -108,7 +109,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         val w=width.toFloat(); val h=height.toFloat(); val inset=s(if(mode==Mode.HERO)38f else 22f)
         val compact=mode==Mode.COMPACT; val image=art
         c.save(); c.clipPath(shape)
-        if(!compact)c.drawColor(if(mode==Mode.APP)appGround else 0xFF1C241E.toInt())
+        if(!compact)c.drawColor(when(mode) { Mode.APP->appGround; Mode.LIBRARY->0xFF1F2A22.toInt(); else->0xFF1C241E.toInt() })
         if(compact && isFocused)c.drawColor(0x0DFFFFFF)
         val artW=if(compact)w*.52f else w
         val artH=if(compact)h-s(12f) else h
@@ -124,6 +125,11 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
                 appMatrix.setScale(ratio,ratio); appMatrix.postTranslate(w/2-cx*ratio+drift,h/2-cy*ratio)
                 appShader?.setLocalMatrix(appMatrix); imagePaint.shader=appShader
                 c.drawRect(rect,imagePaint); imagePaint.shader=null
+            } else if(mode==Mode.LIBRARY) {
+                val ratio=minOf(w*.70f/image.width,s(64f)/image.height)
+                val dw=image.width*ratio; val dh=image.height*ratio
+                imageDestination.set((w-dw)/2+drift,s(55f)-dh/2,(w+dw)/2+drift,s(55f)+dh/2)
+                c.drawBitmap(image,null,imageDestination,imagePaint)
             } else if(mode==Mode.SPORT) {
                 val ratio=minOf(w*.50f/image.width,h*.33f/image.height)
                 val dw=image.width*ratio; val dh=image.height*ratio
@@ -184,6 +190,16 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
                 line(c,detail,inset,h-s(21f),22f,w-2*inset,muted)
             }
             Mode.APP -> if(image==null)line(c,title,inset,h/2+s(10f),27f,w-2*inset,bold=true)
+            Mode.LIBRARY -> {
+                if(image==null) {
+                    text.textAlign=Paint.Align.CENTER
+                    line(c,title.trim().take(1).uppercase(),w/2,s(74f),46f,w-s(40f),ivory,true)
+                    text.textAlign=Paint.Align.LEFT
+                }
+                text.textAlign=Paint.Align.CENTER
+                line(c,title,w/2,h-s(24f),24f,w-s(32f),ivory)
+                text.textAlign=Paint.Align.LEFT
+            }
         }
         if(progress>0 && mode==Mode.SHOW) {
             paint.color=0xFF435448.toInt(); c.drawRect(inset,h-s(9f),w-inset,h-s(5f),paint)
@@ -191,7 +207,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         }
         c.restore()
         paint.style=Paint.Style.STROKE
-        paint.color=if(isFocused && mode!=Mode.HERO)ivory else 0xFF4B584B.toInt()
+        paint.color=if(isFocused && mode!=Mode.HERO)ivory else if(mode==Mode.LIBRARY)0xFF647368.toInt() else 0xFF4B584B.toInt()
         paint.strokeWidth=s(if(isFocused && mode!=Mode.HERO)2.4f else 1f)
         if(!compact || isFocused)c.drawRoundRect(rect,s(cornerRadius),s(cornerRadius),paint)
         paint.style=Paint.Style.FILL

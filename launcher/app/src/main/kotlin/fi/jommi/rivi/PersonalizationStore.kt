@@ -50,6 +50,7 @@ class PersonalizationStore(context: Context) {
             array(state,"dismissed")?.let { items -> repeat(items.length()) {
                 val item=items.optJSONObject(it) ?: error("Invalid recommendation feedback")
                 require(item.opt("key") is String); strings(array(item,"genres"))
+                if (item.has("titleKey")) require(item.opt("titleKey") is String) { "Invalid dismissed title" }
             } }
             objectValue(state,"rows")?.let { rows ->
                 strings(array(rows,"order")); strings(array(rows,"hidden"))
@@ -84,6 +85,11 @@ class PersonalizationStore(context: Context) {
     fun isFollowed(program: Program) = read().followed.any { it.key == ContentIdentity.key(program) }
     fun rowPreferences() = read().rows
     fun recommendationFeedback() = PersonalizationPolicy.feedback(read().dismissed)
+    /** Migration only: supply raw feed rows before recommendation exclusions are applied. */
+    fun rememberDismissedTitles(programs: List<Program>) {
+        if (programs.isEmpty() || read().dismissed.all { it.titleKey.isNotBlank() }) return
+        update { state -> state.copy(dismissed = PersonalizationPolicy.rememberDismissedTitles(state.dismissed, programs)) }
+    }
     fun favoriteTeams() = read().teams
     fun kickoffRemindersEnabled() = read().reminders
     fun canUndo() = history.canUndo()
@@ -184,7 +190,7 @@ class PersonalizationStore(context: Context) {
         val key = ContentIdentity.key(program)
         update { state ->
             if (state.dismissed.any { it.key == key }) state
-            else state.copy(dismissed = state.dismissed + DismissedRecommendation(key, PersonalizationPolicy.genres(program)))
+            else state.copy(dismissed = state.dismissed + DismissedRecommendation(key, PersonalizationPolicy.genres(program), program.titleKey))
         } ?: return
         history.add("Not interested") { update { it.copy(dismissed = it.dismissed.filterNot { item -> item.key == key }) } }
     }
@@ -261,7 +267,9 @@ class PersonalizationStore(context: Context) {
     private fun encode(state: State) = JSONObject().put("version", VERSION)
         .put("watchlist", JSONArray().apply { state.saved.forEach { put(JSONObject().put("program", programJson(it.program)).put("savedAt", it.savedAt)) } })
         .put("followed", JSONArray().apply { state.followed.forEach { put(JSONObject().put("program", programJson(it.program)).put("followedAt", it.followedAt)) } })
-        .put("dismissed", JSONArray().apply { state.dismissed.forEach { put(JSONObject().put("key", it.key).put("genres", JSONArray(it.genres.toList()))) } })
+        .put("dismissed", JSONArray().apply { state.dismissed.forEach {
+            put(JSONObject().put("key", it.key).put("genres", JSONArray(it.genres.toList())).put("titleKey", PersonalizationPolicy.dismissedTitleKey(it)))
+        } })
         .put("rows", JSONObject().put("order", JSONArray(state.rows.order)).put("hidden", JSONArray(state.rows.hidden.toList()))
             .put("sizes", JSONObject().apply { state.rows.sizes.forEach { (key, size) -> put(key, size.name) } })
             .put("limits", JSONObject().apply { state.rows.limits.forEach { (key, count) -> put(key, count) } }))
@@ -284,7 +292,9 @@ class PersonalizationStore(context: Context) {
                 }
             }.distinctBy { it.key },
             dismissed = objects(json.optJSONArray("dismissed")).mapNotNull { item ->
-                item.optString("key").takeIf { it.isNotBlank() }?.let { DismissedRecommendation(it, strings(item.optJSONArray("genres")).toSet()) }
+                item.optString("key").takeIf { it.isNotBlank() }?.let {
+                    DismissedRecommendation(it, strings(item.optJSONArray("genres")).toSet(), item.opt("titleKey") as? String ?: "")
+                }?.let { it.copy(titleKey = PersonalizationPolicy.dismissedTitleKey(it)) }
             }.distinctBy { it.key },
             rows = RowPreferences(strings(rows.optJSONArray("order")), strings(rows.optJSONArray("hidden")).toSet(),
                 sizes.keys().asSequence().mapNotNull { key -> RowCardSize.entries.firstOrNull { it.name == sizes.optString(key) }?.let { key to it } }.toMap(),

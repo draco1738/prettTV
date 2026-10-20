@@ -29,6 +29,8 @@ Built on [Rivi by Jommi](https://github.com/jommi9/rivi), using native Android V
 
 Home also retains recent content during outages, offers undo for supported changes, and checks for official updates without installing anything automatically. [Explore the controls →](docs/usage.md)
 
+**New in the source build:** [Blind Pick and Rabbit Hole](docs/original-apps.md) add mystery choices and title connections at the bottom of Library. The upper Your apps row stays unchanged. An optional [EarthCam idle handoff](docs/earthcam-idle.md) is also implemented, with TCL activation and playback validation pending.
+
 **Weather beside the clock:** v0.2.3 adds an optional location, condition icon and temperature to the existing header. Enter a US ZIP code in Weather settings and choose °F or °C. Readings come from nearby NWS observation stations; no GPS permission or Google account access is needed. [Weather settings and coverage →](docs/usage.md#weather-beside-the-clock)
 
 ## Get started

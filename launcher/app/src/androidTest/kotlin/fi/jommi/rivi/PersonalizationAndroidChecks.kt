@@ -70,6 +70,7 @@ internal object PersonalizationAndroidChecks {
                 check(recreated.watchlist() == listOf(program))
                 check(recreated.isFollowed(program))
                 check(recreated.recommendationFeedback().isDismissed(program))
+                check(recreated.recommendationFeedback().dismissedTitleKeys == setOf(program.titleKey))
                 check(recreated.rowPreferences().order.first() == "watchlist")
                 check(recreated.rowPreferences().size("watchlist") == RowCardSize.LARGE)
                 check(recreated.favoriteTeams() == setOf("football/nfl:33") && recreated.kickoffRemindersEnabled())
@@ -77,6 +78,41 @@ internal object PersonalizationAndroidChecks {
                 val before = recreated.exportJson()
                 check(!recreated.importJson("{broken") && !recreated.importJson("""{"version":999}"""))
                 check(recreated.exportJson() == before)
+            }
+            test("Dismissed title exclusions survive restart reset undo and malformed imports") {
+                val store = fresh()
+                val p = card("Hidden across providers").copy(imdbId = "tt1234567")
+                store.dismissRecommendation(p)
+                check(PersonalizationStore(context).recommendationFeedback().dismissedTitleKeys == setOf(p.titleKey))
+                store.resetRecommendationFeedback()
+                check(store.recommendationFeedback().dismissedTitleKeys.isEmpty())
+                check(store.undo() != null)
+                check(store.recommendationFeedback().dismissedTitleKeys == setOf(p.titleKey))
+                val before = store.exportJson()
+                val invalid = JSONObject(before).apply { getJSONArray("dismissed").getJSONObject(0).put("titleKey", 42) }
+                check(!store.importJson(invalid.toString()) && store.exportJson() == before)
+                check(store.undo() != null)
+                check(store.recommendationFeedback().dismissed.isEmpty())
+                check(store.recommendationFeedback().dismissedTitleKeys.isEmpty())
+            }
+            test("Legacy dismissals recover provider titles and migrate exact canonical feed matches without undo entries") {
+                val store = fresh()
+                val provider = card("Legacy provider")
+                val canonical = card("Legacy canonical").copy(imdbId = "tt1234567")
+                val legacy = JSONObject().put("version", 1).put("dismissed", JSONArray().apply {
+                    listOf(provider, canonical).forEach { put(JSONObject().put("key", ContentIdentity.key(it)).put("genres", JSONArray())) }
+                })
+                check(store.importJson(legacy.toString()))
+                check(store.recommendationFeedback().dismissedTitleKeys == setOf(provider.titleKey))
+                store.rememberDismissedTitles(listOf(canonical.copy(imdbId = "tt1234568")))
+                check(store.recommendationFeedback().dismissedTitleKeys == setOf(provider.titleKey))
+                store.rememberDismissedTitles(listOf(canonical))
+                check(PersonalizationStore(context).recommendationFeedback().dismissedTitleKeys == setOf(provider.titleKey, canonical.titleKey))
+                check(!store.canUndo())
+                val exported = store.exportJson()
+                val recreated = fresh()
+                check(recreated.importJson(exported))
+                check(recreated.recommendationFeedback().dismissedTitleKeys == setOf(provider.titleKey, canonical.titleKey))
             }
             test("Malformed stored state recovers and future state is never overwritten") {
                 val store = fresh()

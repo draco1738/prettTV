@@ -26,9 +26,13 @@ Kotlin 2.1.0, retained Kotlin standard-library code and JetBrains annotations 13
 
 Optional general show discovery uses [TVmaze's public API](https://www.tvmaze.com/api). TVmaze licenses API data under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); show records retain their TVmaze source URLs. prettTV selects and reformats title/genre information and selects episode stills for landscape artwork; any adapted TVmaze data remains under CC BY-SA 4.0, separate from the MIT application code. Hold OK on a show for its source, or use About → TVmaze. This is general discovery, not access to the user's streaming accounts. Show artwork, streaming-service names and app icons remain the property of their respective rights holders. Installed-app icons come from those apps; catalog imagery is fetched from its source rather than copied out of PLUI. There is no endorsement by these companies.
 
+Blind Pick and Rabbit Hole also use optional TVmaze show genres, cast/director credits, runtimes and original years. prettTV reduces those records to bounded local facts and compares them with other title records; adapted TVmaze data keeps the same CC BY-SA 4.0 terms. Rabbit Hole's **Catalog sources** control links to TVmaze and the matched starting show's source when available.
+
 ## Cinemeta / Stremio and Metahub
 
 Optional Trending and New releases use Stremio's public [Cinemeta catalog](https://v3-cinemeta.strem.io/manifest.json), with artwork URLs supplied by the catalog (including Metahub). prettTV reformats those records and links titles to the installed Stremio app. Cinemeta's Popular order supplies Trending; it is not an independently measured trend score. New releases uses supplied release dates within the past 120 days. These requests disclose the device's IP and requested catalog/artwork identifiers to those services. No account tokens or viewing history are sent by prettTV. No Stremio code is bundled; third-party catalog content and artwork retain their respective rights. This project does not use WatchHub's restricted availability API. The purple S badge identifies Stremio destinations.
+
+The original Library experiences use Cinemeta's public movie/series metadata for optional cast, director, genre, runtime and year facts. The [Stremio metadata specification](https://github.com/Stremio/stremio-addon-sdk/blob/master/docs/api/responses/meta.md) documents these fields. Requested title identifiers are visible to the provider; prettTV does not send account credentials or a complete viewing-history list.
 
 Installed Netflix, Prime Video and YouTube banners are transformed locally into dark tiles, keeping recognizable logo accents. Their trademarks and original art remain owned by their respective rights holders; transformed banners are not bundled in the repository or APK.
 
@@ -62,3 +66,7 @@ Selected unmodified PNGs from [Homarr Labs Dashboard Icons](https://github.com/h
 ## RBTV+
 
 RBTV+ is a separate third-party application, not part of prettTV's MIT source or APK. Its installer is included in the default two-app installation bundle and attached to the release as requested. See docs/companion-apps.md for source, version, signature and SHA-256. No RBTV source code is copied into prettTV. Installed version 3.0.320 has no verified external game/channel interface; prettTV’s independently written, optional accessibility helper can navigate the visible RBTV catalog for a matching pair of teams and kickoff time; it leaves server choice to the user. No RBTV implementation or decompiled source is included.
+
+## EarthCamTV — EarthCam, Inc.
+
+The optional [EarthCam idle handoff](docs/earthcam-idle.md) is independently written prettTV code that opens the separately installed official [EarthCamTV 3](https://www.earthcam.com/apps/) app. EarthCam retains its software, camera-content and trademark rights. Its APK, implementation, account data and stream URLs are not distributed in prettTV. The handoff does not purchase or bypass EarthCam subscriptions, alter its settings or imply endorsement.
