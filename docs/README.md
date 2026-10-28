@@ -11,7 +11,7 @@ Start with installation, then make the home screen your own. These guides descri
 | [Installation](installation.md) | Download the bundle, connect through ADB, choose Home, update or uninstall. |
 | [Browser and remote voice](browser-and-voice.md) | Add TV Bro, configure browser filtering and keep remote voice working with prettTV as Home. |
 | [Screensaver and PC streaming](aerial-and-moonlight.md) | Set up optional Aerial Views and Moonlight with a Sunshine PC host. |
-| [EarthCam idle handoff](earthcam-idle.md) | Open the official EarthCam app when the system screensaver starts; source implementation awaiting TCL validation. |
+| [EarthCam idle handoff](earthcam-idle.md) | Configure the optional screensaver handoff and read the recorded TCL camera-playback and Home-exit checks. |
 | [Using prettTV](usage.md) | Remote controls, Watchlist, row customization, undo, episode follows and settings. |
 | [Blind Pick and Rabbit Hole](original-apps.md) | Original Library experiences for mystery picks and connections between movies and shows. |
 | [Content and live sports](content-and-sports.md) | Viewing order, recommendations, release alerts, favorite teams, offline data and RBTV handoff. |

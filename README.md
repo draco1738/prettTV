@@ -1,151 +1,189 @@
 # prettTV
 
-**A quieter home for Android TV.** Your apps, viewing progress and something new to watch, in three native layouts.
+**A quieter home for Android TV.** Your apps, recent viewing and something new to watch, in three native layouts built for a remote.
 
-[**Download the latest release**](https://github.com/draco1738/prettTV/releases/latest) · [Installation](docs/installation.md) · [Documentation](docs/README.md) · [Credits](THIRD_PARTY_NOTICES.md)
+[**Download**](https://github.com/draco1738/prettTV/releases/latest) · [Install](#install-pretttv) · [Layouts](#three-layouts-one-home) · [User guide](docs/usage.md) · [Documentation](docs/README.md)
 
-[![Build](https://github.com/draco1738/prettTV/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/draco1738/prettTV/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/draco1738/prettTV?style=flat&color=adc1b6)](https://github.com/draco1738/prettTV/releases/latest)
+[![Release](https://img.shields.io/github/v/release/draco1738/prettTV?style=flat&color=adc1b6)](https://github.com/draco1738/prettTV/releases/latest) [![Build](https://github.com/draco1738/prettTV/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/draco1738/prettTV/actions/workflows/build.yml) [![License: MIT](https://img.shields.io/badge/code-MIT-adc1b6)](LICENSE)
 
-![C Balanced on the TCL TV: a large recently watched title, two discovery cards, dark app tiles and a Continue watching row.](docs/screenshots/C-balanced.png)
+![prettTV 0.4.0 in C Balanced: persistent top navigation, a recently watched title, two discovery cards, dark app tiles and Continue watching.](docs/screenshots/C-balanced.png)
 
-*C · Balanced is the default. The A/B/C gallery shows 0.4.0 running on the TCL TV, including persistent top navigation and the refined Home cards. These are device captures, not rendered mockups.*
+*C · Balanced, running on the TCL TV. Every screenshot on this page is an unedited capture of the released 0.4.0 build.*
 
-**0.4.0 source:** Six visual refinements and persistent opaque top navigation are implemented here. See the [versioned validation record](docs/validation.md) for actual checks, evidence and limitations; earlier results do not certify a newer build.
+## Make Home yours
 
-## A home that stays out of the way
+- **Return to your viewing.** A large resume feature in Cinema and Balanced follows the latest eligible viewing record. Separate Shows and Movies rows bring recent progress forward, with episode details and remaining time when an app supplies them.
+- **Keep every app within reach.** A single finite Your apps row has a clear beginning and end, rounded dark cards and color accents. Arrange favorites or hide a shortcut from this row while keeping it in Library.
+- **Find something worth watching.** Suggestions, Discover, Trending and New releases offer up to 60 titles per row. Choose the services to prioritize, hide shared-account titles and dismiss recommendations you do not want.
+- **Save and follow.** Keep a dedicated local Watchlist, follow identifiable shows for new-episode alerts, and undo supported recent changes.
+- **Choose your own layout.** Cinema, Quiet and Balanced share persistent Home, Shows, Library, Inputs, Search and Settings navigation. Optional location, weather and time sit together at the top right.
+- **Move without losing your place.** Focus uses a subtle spotlight and brief artwork movement. Selected-title details occupy reserved space; refreshes retain usable content and artwork, and app actions return to the originating card.
 
-- **Pick your layout.** Cinema, Quiet or Balanced, with persistent Home, Shows, Library, Inputs, Search and Settings navigation above the content.
-- **Put recent viewing first.** A large feature and separate Shows and Movies rows use supported app progress and locally confirmed playback.
-- **Keep your apps close.** Narrower dark tiles with softer corners and tighter spacing, favorites first, and a finite row with a clear start and end. Hide an app from the row while keeping it in Library.
-- **Follow the focus.** A soft ivory spotlight, a small artwork shift and reserved metadata space make the selected card clear without moving the rows. Each movement settles; cards do not animate continuously while idle.
-- **Save something for later.** A dedicated Watchlist row keeps your saved titles and their app destinations. Follow shows separately for new-episode alerts.
-- **Make the rows yours.** Reorder or hide content rows, choose card sizes, and browse 20, 40 or 60 discovery titles per row. Suggestions, Discover and Trending put preferred services first.
-- **Follow your teams.** Favorite teams move up Live sports, with optional kickoff reminders while Home is visible.
-- **Keep shared accounts personal.** Hide individual titles from the feature or Continue watching without changing anyone else's streaming account.
+Open **Settings → Customize rows** to reorder or hide content sections, choose card sizes, and set discovery limits to **20, 40 or 60**. The default order is:
 
-Built on [Rivi by Jommi](https://github.com/jommi9/rivi), using native Android Views/Canvas, progressive artwork loading and bounded caches. No third-party UI framework or analytics SDK.
+**Continue watching · Shows → Continue watching · Movies → Watchlist → New episodes when available → Live sports → Suggestions → Discover → Trending → New releases.**
 
-> [!NOTE]
-> Viewing progress and recommendations depend on what each app shares with Android TV. prettTV does not access a universal streaming history or detect every signed-in account. [How content works →](docs/content-and-sports.md)
+Library remains below the content rows. [Explore all controls →](docs/usage.md)
 
-Home also retains recent content during outages, offers undo for supported changes, and checks for official updates without installing anything automatically. [Explore the controls →](docs/usage.md)
+## Three layouts, one Home
 
-**In 0.4.0:** The hero separates the title, supplied episode details, valid progress/remaining time and source app around one clear action. Hold OK opens a compact dark app panel with Open focused first; Force stop retains its separate Cancel-first confirmation. Stronger section headings, brief hold/end feedback, and refreshes that retain cards and artwork complete the six refinements. The opaque top bar stays visible in every layout; weather freshness is available in Settings without a cached label beside the temperature.
+Switch through **prettTV Settings → Layout**. Apps, saved titles, viewing records and row preferences are shared across layouts.
 
-Continue watching reorders promptly by supported recency while keeping the selected title focused. The hero follows the latest eligible record. Observed changes in provider progress remain separate from confirmed local playback: timestamp refreshes alone never promote a title, and provider observations do not automatically remove titles from Watchlist. Choosing Home in the top bar resets the page and all rows to their default start, matching the remote's Home action.
+| Layout | What leads the screen |
+| :--- | :--- |
+| **A · Cinema** | A wide feature, followed by apps and content rows. |
+| **B · Quiet** | Apps first, followed by content rows. |
+| **C · Balanced** | A large feature, two discovery cards and a compact app row. **Default.** |
 
-**Added in v0.3.2:** Hold OK on an installed app in Your apps or Library to choose [Force stop](docs/usage.md#restart-an-apps-connections). Confirm to close that app, then choose Done or Open app to reconnect. Logins and saved data are kept. Direct stopping requires the existing authorized TV-local recovery connection; otherwise App info provides Android's control. Home and essential TV services are protected. [Validation results →](docs/validation.md)
+<details>
+<summary><strong>A · Cinema</strong></summary>
 
-**Added in v0.3.1:** The optional [Settings-button helper](docs/usage.md#remote-settings-button) restores access to TCL's native quick-settings panel across apps, with standard Android Settings as a fallback. It leaves Home and other buttons alone and does not read screen content.
+![A Cinema on the TCL TV, showing the wide feature and app row.](docs/screenshots/A-cinema.png)
 
-**Added in v0.3.0:** [Blind Pick and Rabbit Hole](docs/original-apps.md) add concealed choices and title connections at the bottom of Library. Library also uses consistent dark cards with readable app marks. The upper Your apps row stays unchanged. The optional [EarthCam idle handoff](docs/earthcam-idle.md) reached live playback after ten minutes without input on the TCL, with repeated system **Start now** activation and **Home** exit also verified.
+</details>
 
-**Weather beside the clock:** v0.2.3 adds an optional location, condition icon and temperature to the existing header. Enter a US ZIP code in Weather settings and choose °F or °C. Readings come from nearby NWS observation stations; no GPS permission or Google account access is needed. [Weather settings and coverage →](docs/usage.md#weather-beside-the-clock)
+<details>
+<summary><strong>B · Quiet</strong></summary>
 
-## Get started
+![B Quiet on the TCL TV, with apps first and separate viewing rows below.](docs/screenshots/B-quiet.png)
 
-You need **Android TV 8.0 or newer** and a computer with an authorized **ADB** connection.
+</details>
 
-1. Download and extract the **`prettTV-…-with-RBTV.zip`** bundle from [Releases](https://github.com/draco1738/prettTV/releases/latest).
-2. Open a terminal in the extracted folder and run the command for your computer, replacing `TV_SERIAL_OR_ADDRESS` with the device shown by `adb devices`.
-3. In prettTV, allow **TV listings**, then use **Settings → Choose default Home app**. C Balanced is selected by default.
+<details>
+<summary><strong>Navigation that stays visible</strong></summary>
+
+The opaque top bar stays in place as content scrolls. Left and Right stop at row boundaries; Up from the first content card reaches navigation.
+
+![Persistent navigation while browsing toward Library on the TCL TV.](docs/screenshots/top-navigation.png)
+
+</details>
+
+<details>
+<summary><strong>App actions, right beside the selected card</strong></summary>
+
+Hold OK to open, arrange or hide a shortcut, inspect App info, or request Force stop. Open is selected first; Force stop has its own Cancel-first confirmation.
+
+![The contextual Netflix app-action panel on the TCL TV.](docs/screenshots/app-actions.png)
+
+</details>
+
+## Install prettTV
+
+You need **Android TV 8.0 / API 26 or newer**, a computer with Android platform-tools (`adb`), and a debugging connection authorized on the TV. The release bundle needs no build tools.
+
+1. Download **`prettTV-<version>-with-RBTV.zip`** from [GitHub Releases](https://github.com/draco1738/prettTV/releases/latest) and extract it.
+2. Run `adb devices`, then use an entry listed as `device` in the command below. Run it from the extracted folder.
+3. Allow **TV listings** when prettTV asks. Open **Settings → Choose default Home app** and select prettTV in Android's settings.
 
 **Windows · PowerShell**
 
 ```powershell
-.\install.ps1 -Tv 'TV_SERIAL_OR_ADDRESS'
+.\install.ps1 -Tv 'TV_SERIAL_FROM_ADB_DEVICES'
 ```
 
 **macOS / Linux · Bash**
 
-```bash
-TV='TV_SERIAL_OR_ADDRESS' bash ./install.sh
+```sh
+TV='TV_SERIAL_FROM_ADB_DEVICES' bash ./install.sh
 ```
 
-The default bundle includes **RBTV+** and keeps an existing RBTV installation. Add `-LauncherOnly` on Windows or `--launcher-only` in Bash to skip it. A standalone prettTV APK installs or updates only the launcher.
+The default bundle includes **RBTV+ 3.0.320**. The installer verifies the pinned companion checksum before a fresh installation and preserves any existing RBTV installation and its data. To skip the companion, add **`-LauncherOnly`** in PowerShell or **`--launcher-only`** in Bash. The standalone prettTV APK installs only the launcher.
 
-[Full installation guide](docs/installation.md) · [RBTV provenance and limits](docs/companion-apps.md)
+The installers keep other launchers in place and leave Home selection and optional special access to you. RBTV is separate third-party software with its own terms and permissions; prettTV's MIT license does not cover it.
 
-## Three layouts, one library
+[Installation and connection help](docs/installation.md) · [RBTV provenance and limits](docs/companion-apps.md)
 
-Choose a layout in **prettTV Settings → Layout**. Your apps, viewing history and discovery feeds are shared across all three.
+### Already using prettTV?
 
-Your apps retains the **36-pixel corners** introduced in v0.2.2, with 208-pixel widths, 12-pixel gaps and layout-specific heights. Library geometry and focus motion are unchanged. The [app-card comparison](docs/previews/rounder-36/README.md) records the approved shape as a rendered concept; [validation history](docs/validation.md) records native checks and their outcomes.
+Open **Settings → Updates** to check release notes, download and install a newer official build. The updater verifies the APK's package, version, checksum and signing certificate before Android asks for installation confirmation. Compatible signed upgrades preserve settings; updating prettTV does not update RBTV.
 
-| Layout | Composition |
-| :--- | :--- |
-| **A · Cinema** | A wide feature puts the current title first. |
-| **B · Quiet** | Apps first, with content rows below. |
-| **C · Balanced** | A large feature, two discovery cards and a compact app row. **Default.** |
-
-<details>
-<summary><strong>View A · Cinema</strong></summary>
-
-![prettTV 0.4.0 A Cinema captured on the TCL TV.](docs/screenshots/A-cinema.png)
-
-</details>
-
-<details>
-<summary><strong>View B · Quiet</strong></summary>
-
-![prettTV 0.4.0 B Quiet captured on the TCL TV.](docs/screenshots/B-quiet.png)
-
-</details>
-
-<details>
-<summary><strong>Persistent navigation and app actions</strong></summary>
-
-The opaque top bar remains visible while content scrolls. Hold OK on an installed app to open its contextual action panel with Open selected first.
-
-![prettTV 0.4.0 persistent top navigation on the TCL TV.](docs/screenshots/top-navigation.png)
-
-![prettTV 0.4.0 anchored app-action panel on the TCL TV.](docs/screenshots/app-actions.png)
-
-</details>
-
-<details>
-<summary><strong>Explore the content rows</strong></summary>
-
-Continue watching · Shows → Continue watching · Movies → Watchlist → New episodes when available → Live sports → Suggestions → Discover → Trending → New releases.
-
-This is the default order; **Settings → Customize rows** lets you change it. The separate discovery capture below is historical: it predates the additional rows and 0.4.0 navigation.
-
-![Suggestions, Discover and Trending on the TCL TV.](docs/screenshots/discover-row.png)
-
-</details>
+Use the signed APK from [Releases](https://github.com/draco1738/prettTV/releases/latest) for an in-place release update. Ordinary source builds and GitHub CI artifacts use debug certificates and cannot replace a differently signed installation. [Update and signing details →](docs/installation.md#updates)
 
 ## Just a remote
 
 | Control | Action |
 | :--- | :--- |
 | **Arrows / OK** | Move between cards / open the selected item. |
-| **Hold OK** | Arrange apps; save, follow, dismiss or inspect a title; correct recent viewing. |
-| **Left / Right at row ends** | Stop at the first / last card; rows do not wrap. |
-| **Up from the first content card / Down from navigation** | Reach the top bar / return to the remembered content card. |
-| **Back from content** | Return to the top. |
+| **Hold OK on an app** | Open its action panel: launch, arrange, hide from Your apps, Force stop or App info, as applicable. |
+| **Hold OK on a title** | View details, save, follow, hide, dismiss or correct recent viewing, as applicable. |
+| **Left / Right at a row boundary** | Stop at the beginning or end; rows do not wrap. |
+| **Up from the first content card** | Reach the persistent navigation bar. |
+| **Down from navigation** | Return to the remembered content card. |
+| **Home** | Reset the page and horizontal rows to their default start. |
+| **Back** | Close the current panel or return content to the top. |
 | **Menu** | Open prettTV Settings. |
 
-[App arrangement, title controls and settings →](docs/usage.md)
+Hiding an app from **Your apps** does not remove it from Library. Hiding a title from the hero or Continue watching stays local to this TV and does not change anyone else's streaming account. [App and title controls →](docs/usage.md)
 
-## Recovery, when you need it
+## Viewing history, Watchlist and discovery
 
-**Settings → Return to stock Google TV** requires two confirmations. It restores the recorded TCL/Google app states, original Private DNS and Google TV Home while retaining streaming apps, logins and prettTV.
+prettTV uses program rows that apps publish to Android TV, supported playback evidence and explicit local corrections. It does not ask for streaming credentials or have access to a universal account-wide viewing history.
 
-Full recovery needs the original private setup record and authorized local TCP debugging. It is available once those prerequisites are configured; it is not a factory reset.
+Meaningful progress and episode changes can move a title forward; timestamp-only refreshes do not. Continue watching applies new ordering while keeping the selected title focused, and the hero follows the newest eligible record. Delayed or shared-account updates cannot establish exactly when or who watched. If a record is stale, hold OK and choose **I watched this most recently**.
 
-[Set up stock recovery](docs/stock-recovery.md) · [Privacy and permissions](docs/privacy.md) · [Uninstall safely](docs/installation.md#restore-or-uninstall)
+**Watchlist is local to prettTV. It does not synchronize with Google account / Google TV Watchlist.** Hold OK on a title to save it. Supported confirmed playback can remove a started title, with Undo available; a provider progress observation alone does not consume a saved entry.
 
-## Build, verify, contribute
+Choose **Settings → Recommendation services** to prioritize your services explicitly, or use inference from shared viewing activity. Android does not reliably expose which streaming accounts are signed in. Provider coverage, subscriptions and regional availability vary; a listed title does not guarantee playback.
 
-Use **JDK 17**, **Android SDK 34** and **build-tools 35.0.0**. The [development guide](docs/development.md) covers source builds, signing and the test setup.
+[Content sources and ordering](docs/content-and-sports.md) · [Watchlist and episode follows](docs/usage.md#save-titles-to-watchlist)
 
-Release checks cover JVM tests, Android lint, isolated device tests, navigation, lifecycle, failure handling and measured scrolling. [Validation history](docs/validation.md) records completed checks and their limitations for each release; earlier results do not certify a newer build.
+## More to explore
+
+| Feature | How it works |
+| :--- | :--- |
+| **Blind Pick** | Reveal mystery movie/show choices filtered by type, mood and available runtime. Open a result or save it. |
+| **Rabbit Hole** | Explore published cast/director, genre and release connections from a starting title. Missing metadata stays unavailable. |
+| **Live sports** | Browse live/upcoming fixtures, prioritize favorite teams and enable optional Home-only kickoff reminders. The optional RBTV helper matches supported games and leaves server selection to you. |
+| **Weather** | Enter a US ZIP and choose °F or °C. Nearby NWS observations appear beside the clock; freshness remains in Weather details. No GPS permission is needed. |
+| **Offline Home** | Reuse recent content and available artwork during outages, with age/error information and expiry rules. Streaming still needs the app's connection. |
+| **EarthCam idle handoff** | Optionally open the separately installed EarthCamTV app when Android starts the selected screensaver. EarthCam owns camera playback. |
+
+**Blind Pick and Rabbit Hole live at the bottom of Library**, after installed apps. They are built into prettTV and stay out of the upper Your apps row. EarthCam and other optional apps are not part of the release bundle.
+
+[Original Library experiences](docs/original-apps.md) · [Sports handoff](docs/content-and-sports.md) · [Weather](docs/usage.md#weather-beside-the-clock) · [EarthCam](docs/earthcam-idle.md)
+
+## Troubleshooting and recovery
+
+**Restart one app:** Hold OK on an eligible app → **Force stop** → confirm. After a verified stop, choose **Done** or **Open app**. Saved data and logins are kept. Direct stopping requires the existing authorized TV-local recovery connection; **App info** provides Android's controls when that setup is unavailable. Home and essential TV services are protected. This closes an app's connections; it does not reset the TV network or guarantee a fix for playback problems.
+
+**Repair the remote Settings shortcut:** The optional Settings-button helper opens TCL's native quick-settings panel on supported devices and uses standard Android Settings elsewhere. Its Accessibility key filter leaves unrelated buttons alone and does not read screen content. [Setup and limits →](docs/usage.md#remote-settings-button)
+
+**Return to stock:** The button at the bottom of prettTV Settings requires **two confirmations**. With the original private setup record and authorized local TCP debugging configured, it restores recorded TCL/Google app states, Private DNS and Google TV Home while retaining installed streaming apps, logins and prettTV. It is a troubleshooting restore, not a factory reset; a fresh install cannot reconstruct an unknown baseline.
+
+[Configure stock recovery](docs/stock-recovery.md) · [Select another Home or uninstall](docs/installation.md#restore-or-uninstall)
+
+## Privacy and implementation
+
+prettTV uses **Kotlin and native Android Views/Canvas**, progressive artwork loading and bounded caches. Focus effects finish and settle instead of animating continuously. There is no third-party UI framework or analytics SDK.
+
+Personalization and viewing records are stored locally. Catalog, artwork, weather and update requests contact their respective providers, which receive normal connection/request information. Optional playback, game-handoff and Settings-button access is enabled separately in Android settings. prettTV does not remove advertising inside other apps, and its privacy statements do not cover those apps.
+
+[Privacy, stored data and optional permissions →](docs/privacy.md)
+
+## Build, verify and contribute
+
+Use **JDK 17**, **Android SDK platform 34**, **build-tools 35.0.0** and the included Gradle wrapper. See [Development](docs/development.md) for build commands, signing and the source map; [Stability testing](docs/stability-testing.md) describes isolated device checks.
+
+The released **0.4.0** build has the following recorded results:
+
+| Check | Result |
+| :--- | :--- |
+| JVM tests | **334 passed** across 29 suites. |
+| Targeted Android checks on the TCL TV | **51 passed**, including navigation, refresh, viewing order, focus and normal/enlarged-text dialog checks. |
+| Android lint | **0 errors**, 32 existing warnings. |
+| Installed release artifact | Pulled back from the TV and matched to the signed release SHA-256. |
+| GitHub build | [Passed on the release commit](https://github.com/draco1738/prettTV/actions/runs/40660510276). |
+
+These are bounded release checks. The historical one-hour soak and frame-time benchmark were **not repeated for 0.4.0**; no universal app coverage or sustained frame-rate guarantee is implied. CI builds the Android test APKs but does not run them on a TV. [Full versioned evidence →](docs/validation.md)
+
+For a bug report, include the prettTV version, TV model/Android version, layout, reproduction steps and expected behavior. Keep account details, private recovery records and raw preference exports out of public issues. For contributions, describe the behavior changed and the checks actually run; preserve existing source and asset attribution.
+
+[Report an issue](https://github.com/draco1738/prettTV/issues) · [Source](launcher/app/src/main) · [Tests](launcher/app/src/test) · [Design reference](DESIGN.md)
 
 ## Built with credit
 
-prettTV is derived from **Rivi v0.15**, Copyright © 2026 Jommi, under the [MIT License](LICENSE). Its source history, original notices and [upstream README](docs/upstream-rivi-readme.md) are retained.
+prettTV is derived from **[Rivi v0.15 by Jommi](https://github.com/jommi9/rivi)**, Copyright © 2026 Jommi, under the [MIT License](LICENSE). Rivi supplied the native Android foundation, app discovery/caching and remote-navigation patterns. Its original notices, source history and [upstream README](docs/upstream-rivi-readme.md) are retained.
 
-[PLUI by Smartago](https://github.com/smartago/plui-tv-launcher) and stock Google TV informed the design. Their implementation and artwork are not redistributed. App icons, data providers, artwork and the separate RBTV companion retain their respective rights and attribution.
+**[PLUI by Smartago](https://github.com/smartago/plui-tv-launcher)** and stock Google TV informed the design. Their implementations and artwork are not redistributed. App icons, catalog data, show artwork and companion software retain their own rights and licenses.
 
-[Full credits and third-party notices →](THIRD_PARTY_NOTICES.md)
+[Full credits and third-party notices](THIRD_PARTY_NOTICES.md) · [App-icon sources](launcher/app/src/main/assets/app-icons/sources.json) · [Documentation index](docs/README.md)

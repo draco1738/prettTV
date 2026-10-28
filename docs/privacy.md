@@ -48,7 +48,7 @@ Weather is off until you set a location. It uses only the US ZIP you enter, not 
 
 The TV privately stores the selected ZIP, resolved place and coordinates, enabled state and units. A separate bounded cache holds the recent station reading and its observation time. Cached readings become stale after 30 minutes and are no longer displayed after two hours. Network work runs only while Home is active; stopping Home or changing the location cancels the active request and rejects outdated results. Turning weather off stops its refreshes independently of the discovery setting; it retains the saved location, units and cache for later use.
 
-There is no bundled personal ZIP or automatic location lookup on a new installation. Public gallery images retain their historical v0.2.2 captures rather than exposing the configured weather location. Provider and data-licence attribution is in [third-party notices](../THIRD_PARTY_NOTICES.md#zip-lookup--zippopotamus-and-geonames).
+There is no bundled personal ZIP or automatic location lookup on a new installation. The owner-approved 0.4.0 gallery contains actual TV captures, including the displayed weather location; it is not a preset for new installations. Provider and data-licence attribution is in [third-party notices](../THIRD_PARTY_NOTICES.md#zip-lookup--zippopotamus-and-geonames).
 
 ## Optional access
 
