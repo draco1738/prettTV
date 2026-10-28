@@ -11,7 +11,9 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.TextView
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.Signature
@@ -250,7 +252,11 @@ private object ForceStopAndroidChecks {
         val priorSettings=LocalSettingsTransfer.export(stores)
         var activity:Activity?=null
         var home:MainActivity?=null
-        fun main(block:()->Unit)=instrumentation.runOnMainSync(block)
+        fun main(block:()->Unit) {
+            val failure=AtomicReference<Throwable?>()
+            instrumentation.runOnMainSync { try { block() } catch(problem:Throwable) { failure.set(problem) } }
+            failure.get()?.let { throw it }
+        }
         fun panel(screen:Activity)=AppForceStopActivity::class.java.getDeclaredField("modal").apply { isAccessible=true }.get(screen) as AlertDialog
         fun open(target:String=FIXTURE):Activity {
             check(StockRecoveryStore(context).plan()==null) { "The isolated fixture must have no recovery setup" }
@@ -269,12 +275,51 @@ private object ForceStopAndroidChecks {
             error("Force-stop UI did not reach its expected isolated state")
         }
         fun state(condition:()->Boolean):Boolean { var answer=false; main { answer=condition() }; return answer }
+        fun visibleText(root:View,text:String):Boolean =
+            root is TextView && root.isShown && root.text.toString()==text ||
+                root is ViewGroup && (0 until root.childCount).any { visibleText(root.getChildAt(it),text) }
+        fun accessibleNodes():List<AccessibilityNodeInfo> {
+            val root=instrumentation.uiAutomation.rootInActiveWindow ?: return emptyList()
+            val queue=java.util.ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
+            val result=ArrayList<AccessibilityNodeInfo>()
+            while(queue.isNotEmpty() && result.size<160) {
+                val node=queue.removeFirst(); result.add(node)
+                repeat(node.childCount) { node.getChild(it)?.let(queue::addLast) }
+            }
+            return result
+        }
         fun click(text:String) {
-            waitFor {
-                var node=instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText(text)
-                    ?.firstOrNull { it.text?.toString()==text }
-                while(node!=null && !node.isClickable)node=node.parent
-                node?.performAction(AccessibilityNodeInfo.ACTION_CLICK)==true
+            try {
+                waitFor {
+                    var nativeDialog=false
+                    var clicked=false
+                    main {
+                        val screen=activity
+                        if(screen is AppForceStopActivity && !screen.isFinishing && !screen.isDestroyed) {
+                            val dialog=panel(screen)
+                            if(dialog.isShowing) {
+                                nativeDialog=true
+                                val button=listOf(AlertDialog.BUTTON_NEGATIVE,AlertDialog.BUTTON_POSITIVE,AlertDialog.BUTTON_NEUTRAL)
+                                    .mapNotNull(dialog::getButton).singleOrNull { it.text.toString().equals(text,ignoreCase=true) }
+                                if(button!=null && button.isShown && button.isEnabled)clicked=button.performClick()
+                            }
+                        }
+                    }
+                    if(nativeDialog)clicked else {
+                        // App-menu routing still exercises the real accessibility list. TV
+                        // themes may transform exposed action text to uppercase.
+                        var node=accessibleNodes().firstOrNull {
+                            it.isVisibleToUser && it.isEnabled && it.text?.toString()?.equals(text,ignoreCase=true)==true
+                        }
+                        while(node!=null && !node.isClickable)node=node.parent
+                        node?.takeIf { it.isVisibleToUser && it.isEnabled }?.performAction(AccessibilityNodeInfo.ACTION_CLICK)==true
+                    }
+                }
+            } catch(failure:IllegalStateException) {
+                val snapshot=runCatching { accessibleNodes().take(60).joinToString("\n") {
+                    "${it.packageName}/${it.className}: text=${it.text?.toString()?.take(100)} visible=${it.isVisibleToUser} enabled=${it.isEnabled} clickable=${it.isClickable}"
+                } }.getOrElse { "Accessibility snapshot unavailable: ${it.message}" }
+                throw IllegalStateException("Could not click '$text'. Active accessibility root:\n${snapshot.ifEmpty { "<none>" }}",failure)
             }
             instrumentation.waitForIdleSync()
         }
@@ -337,22 +382,40 @@ private object ForceStopAndroidChecks {
                 }
                 val before=AppForceStopSession.state
                 val screen=open(context.packageName)
-                waitFor { state { panel(screen).isShowing && panel(screen).getButton(AlertDialog.BUTTON_NEGATIVE).isFocused } }
-                check(instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText("App cannot be stopped")?.isNotEmpty()==true)
+                // Window focus and the accessibility service's active-window snapshot can
+                // update on different frames. Inspect the rendered dialog on the UI thread.
+                waitFor { state {
+                    val dialog=panel(screen)
+                    dialog.isShowing && dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isFocused &&
+                        dialog.window?.decorView?.let { visibleText(it,"App cannot be stopped") }==true
+                } }
                 check(AppForceStopSession.state===before && !AppForceStopSession.busy)
                 click("Done"); close(screen)
             }
             test("Force-stop confirmation defaults to Cancel and both Cancel and Back leave the target untouched") {
+                val fixtureLabel=context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(FIXTURE,0)).toString().take(100)
+                fun describe(value:AppForceStopSession.State)="${System.identityHashCode(value)}:$value"
                 for(touchMode in listOf(false,true))for(useBack in listOf(false,true)) {
                     instrumentation.setInTouchMode(touchMode)
                     val before=AppForceStopSession.state
                     val screen=open()
-                    waitFor { state { panel(screen).getButton(AlertDialog.BUTTON_NEGATIVE).isFocused } }
-                    check(AppForceStopSession.state===before && !AppForceStopSession.busy)
+                    waitFor { state {
+                        val dialog=panel(screen)
+                        val decor=dialog.window?.decorView
+                        dialog.isShowing && decor?.hasWindowFocus()==true &&
+                            visibleText(decor,"Force stop $fixtureLabel?") &&
+                            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).let { it.isFocused && it.isShown && it.text.toString()=="Cancel" } &&
+                            dialog.getButton(AlertDialog.BUTTON_POSITIVE).let { it.isShown && it.text.toString()=="Force stop" }
+                    } }
+                    check(AppForceStopSession.state===before && !AppForceStopSession.busy) {
+                        "Confirmation opening changed state (touchMode=$touchMode useBack=$useBack): before=${describe(before)} after=${describe(AppForceStopSession.state)} busy=${AppForceStopSession.busy}"
+                    }
                     if(useBack)instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK) else click("Cancel")
                     instrumentation.waitForIdleSync()
                     waitFor { state { screen.isFinishing || screen.isDestroyed } }
-                    check(AppForceStopSession.state===before && !AppForceStopSession.busy)
+                    check(AppForceStopSession.state===before && !AppForceStopSession.busy) {
+                        "Cancellation changed state (touchMode=$touchMode useBack=$useBack): before=${describe(before)} after=${describe(AppForceStopSession.state)} busy=${AppForceStopSession.busy}"
+                    }
                 }
                 instrumentation.setInTouchMode(false)
             }
@@ -398,7 +461,7 @@ private object ForceStopAndroidChecks {
                 }
                 click("Done"); close(replacement)
             }
-            test("Both Your apps and Library long-press menus open a separate cancellable force-stop confirmation") {
+            test("Your apps and Library force-stop menus restore the originating tile and viewport after Cancel") {
                 check(stores.getValue("home").edit().clear().putBoolean("discovery",false).putBoolean("tvPermissionAsked",true).commit())
                 check(stores.getValue("apps").edit().clear().commit())
                 val screen=instrumentation.startActivitySync(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
@@ -409,12 +472,53 @@ private object ForceStopAndroidChecks {
                 @Suppress("UNCHECKED_CAST")
                 val apps=field("apps") as List<AppEntry>
                 val fixture=apps.single { it.packageName==FIXTURE }
-                for(prefix in listOf("favorite-","app-")) {
+                fun viewport():Pair<Int,Map<String,Int>> {
+                    @Suppress("UNCHECKED_CAST") val rows=field("horizontalRows") as Map<String,View>
+                    return (field("root") as View).scrollY to rows.mapValues { it.value.scrollX }
+                }
+                fun stableViewport():Pair<Int,Map<String,Int>> {
+                    var previous:Pair<Int,Map<String,Int>>?=null
+                    var stable=0
+                    waitFor {
+                        var current:Pair<Int,Map<String,Int>>?=null
+                        main { current=viewport() }
+                        if(current==previous)stable++ else { previous=current; stable=0 }
+                        stable>=4
+                    }
+                    return checkNotNull(previous)
+                }
+                for(prefix in listOf("favorite-","app-"))for(touchMenu in listOf(false,true)) {
+                    val origin=prefix+fixture.key
                     val before=AppForceStopSession.state
+                    instrumentation.setInTouchMode(false)
+                    // appDiscoveryComplete is set before render's first pre-draw restores
+                    // focus. Do not target an unmeasured or background Home window.
+                    waitFor { state {
+                        @Suppress("UNCHECKED_CAST") val views=field("focusables") as Map<String,View>
+                        val tile=views[origin]
+                        screen.hasWindowFocus() && screen.window.decorView.isAttachedToWindow &&
+                            field("pendingViewport")==null && tile!=null && tile.isAttachedToWindow &&
+                            tile.isLaidOut && !tile.isLayoutRequested && tile.width>0 && tile.height>0
+                    } }
                     main {
                         @Suppress("UNCHECKED_CAST") val views=field("focusables") as Map<String,View>
-                        val tile=views[prefix+fixture.key] ?: error("Fixture tile absent from $prefix")
-                        check(tile.performLongClick())
+                        val tile=views[origin] ?: error("Fixture tile absent from $origin")
+                        check(!tile.isFocusableInTouchMode) { "The app action permanently changed the tile's touch-focus policy" }
+                        check(tile.requestFocusFromTouch()) {
+                            "Fixture focus failed: origin=$origin window=${screen.hasWindowFocus()} attached=${tile.isAttachedToWindow} touch=${tile.isInTouchMode} shown=${tile.isShown}"
+                        }
+                    }
+                    waitFor { state { screen.currentFocus?.tag==origin && !screen.window.decorView.isInTouchMode } }
+                    val beforeViewport=stableViewport()
+                    // A touch selection clears ordinary D-pad focus. The app action must
+                    // preserve this tile even when its confirmation is then cancelled by OK.
+                    instrumentation.setInTouchMode(touchMenu)
+                    if(touchMenu)waitFor { state {
+                        screen.window.decorView.isInTouchMode && screen.currentFocus?.tag!=origin
+                    } }
+                    main {
+                        @Suppress("UNCHECKED_CAST") val views=field("focusables") as Map<String,View>
+                        check(views.getValue(origin).performLongClick())
                     }
                     val monitor=instrumentation.addMonitor(AppForceStopActivity::class.java.name,null,false)
                     try {
@@ -423,8 +527,15 @@ private object ForceStopAndroidChecks {
                         activity=confirmation
                         waitFor { state { panel(confirmation).getButton(AlertDialog.BUTTON_NEGATIVE).isFocused } }
                         check(AppForceStopSession.state===before && !AppForceStopSession.busy)
-                        click("Cancel")
+                        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
                         waitFor { state { screen.hasWindowFocus() } }
+                        val afterViewport=stableViewport()
+                        check(state { screen.currentFocus?.tag==origin }) {
+                            "Cancel lost originating app focus: $origin (touchMenu=$touchMenu)"
+                        }
+                        check(afterViewport==beforeViewport) {
+                            "Cancel moved Home or its rows: $beforeViewport -> $afterViewport (origin=$origin, touchMenu=$touchMenu)"
+                        }
                         check(AppForceStopSession.state===before && !AppForceStopSession.busy)
                     } finally { instrumentation.removeMonitor(monitor) }
                 }

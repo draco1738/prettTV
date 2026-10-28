@@ -832,6 +832,9 @@ class MainActivity : Activity() {
         if(e.key in prefs.hidden)items+="Show in Your apps row" to { prefs.hidden=prefs.hidden-e.key; changed() }
         else items+="Hide from Your apps row" to { prefs.hidden=prefs.hidden+e.key; changed() }
         if(AppForceStopSession.canOffer(this,e.packageName))items+="Force stop" to {
+            // Touch menu selection clears D-pad focus. Keep the originating tile selected
+            // before the separate activity opens so Cancel returns to the same place.
+            focusables[origin]?.requestFocusFromTouch()
             safeStart(Intent(this,AppForceStopActivity::class.java).putExtra(AppForceStopActivity.EXTRA_PACKAGE,e.packageName),"Force stop")
         }
         items+="App info" to { safeStart(repo.appInfoIntent(e.packageName),e.label) }

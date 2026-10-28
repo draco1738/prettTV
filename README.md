@@ -29,7 +29,7 @@ Built on [Rivi by Jommi](https://github.com/jommi9/rivi), using native Android V
 
 Home also retains recent content during outages, offers undo for supported changes, and checks for official updates without installing anything automatically. [Explore the controls →](docs/usage.md)
 
-**0.3.2 candidate:** Hold OK on an installed app in Your apps or Library to choose [Force stop](docs/usage.md#restart-an-apps-connections). Confirm to close that app, then choose Open app to reconnect. Logins and saved data are kept. Direct stopping requires the existing TV-local recovery connection; otherwise App info provides Android's control. Device validation and release publication are still pending.
+**Added in v0.3.2:** Hold OK on an installed app in Your apps or Library to choose [Force stop](docs/usage.md#restart-an-apps-connections). Confirm to close that app, then choose Done or Open app to reconnect. Logins and saved data are kept. Direct stopping requires the existing authorized TV-local recovery connection; otherwise App info provides Android's control. Home and essential TV services are protected. [Validation results →](docs/validation.md)
 
 **Added in v0.3.1:** The optional [Settings-button helper](docs/usage.md#remote-settings-button) restores access to TCL's native quick-settings panel across apps, with standard Android Settings as a fallback. It leaves Home and other buttons alone and does not read screen content.
 
