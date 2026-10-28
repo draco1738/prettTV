@@ -21,7 +21,7 @@ if (-not $Tv) {
     $Tv = $devices[0]
 }
 if ((Invoke-Adb -Arguments @('shell','pm','list','features') | Out-String) -notmatch 'android.software.leanback') { throw 'The selected device is not Android TV.' }
-$apk = Join-Path $PSScriptRoot 'prettTV-0.3.2.apk'
+$apk = Join-Path $PSScriptRoot 'prettTV-0.4.0.apk'
 if (-not (Test-Path -LiteralPath $apk)) {
     $apk = Join-Path $PSScriptRoot 'launcher/app/build/outputs/apk/release/app-release.apk'
     if (-not $NoBuild) {

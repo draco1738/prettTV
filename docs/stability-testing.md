@@ -4,6 +4,10 @@
 
 Use these checks to reproduce build validation, artwork failures and remote navigation behavior. For recorded outcomes, see the [validation record](validation.md).
 
+**0.4.0** changes navigation, visual feedback and recency updates. The requirements below describe the repeatable checks; the [versioned validation record](validation.md) identifies actual outcomes and scope. Historical sidebar results remain valid only for their recorded versions.
+
+The earlier approved one-hour soak belongs to its historical release record. It is not a fresh 0.4.0 soak. Read the exact native run counts and completed checks from the current version's validation entry; an expected runner count or a dispatched test command is not a passed result.
+
 | Check | What it covers | Device requirement |
 |---|---|---|
 | [Build checks](#build-checks) | Unit tests, lint and test APKs | Computer only |
@@ -109,10 +113,22 @@ The separate row-navigation check requires:
 
 1. Left revisits the cards selected while moving right, in reverse order.
 2. Held Left stops at the first card.
-3. A fresh Left opens the sidebar.
-4. Right returns to that same card.
+3. A fresh Left also stays at the first card; no sidebar opens. Right stays at the last card.
+4. Up from the first content card reaches the persistent top bar; Down returns to the remembered content card and viewport.
+5. Header Left/Right stop at its first/last destinations. Its opaque background stays fixed while Home scrolls in all A/B/C layouts.
 
 This is a navigation regression check, not a frame-rate measurement. Both scripts require an idle TV already displaying prettTV.
+
+## Visual refinement checks for 0.4.0
+
+- Compare A/B/C native captures at normal and enlarged system font scales. Check the fixed 88-pixel navigation bar, labels, weather/time, horizontal navigation overflow, hero text/actions, and app-panel scrolling. The weather header must not append cached; Weather settings must retain freshness information.
+- Verify hero resume/source/remaining-time output for valid, missing and invalid provider metadata. Recommendations and app-only destinations must not imply personal history or exact-second resume.
+- Open app actions near both screen edges and in Library. Open receives initial focus; the selected card remains visible where space permits. Back and cancellation restore the originating card and viewport. Force stop confirmation starts on Cancel; results start on Done. At font scales 1.0 and 1.3, assert that each action's full bounds are visible and its label is not clipped; long title/message content must scroll independently of the action column.
+- Hold and release OK, move focus during a hold, change windows, and detach/recreate cards. No canceled hold should launch an app, no held repeat should confirm Force stop, and no feedback or animation should continue while idle. Check finite boundary responses in both directions.
+- Exercise a delayed refresh, source failure, offline transition, superseding refresh and cancellation. Keep populated rows/artwork, distinguish service failure from offline connectivity, clear Updating, reject stale artwork callbacks, and preserve the existing expiry policies.
+- Move within a recommendation row while its order update is deferred. Metadata may change in place, but focus and row motion must not jump. Status-only updates must not reset scrolling. Flush deferred ordering when focus leaves the row; remove expired content without prolonging its validity.
+- Change Continue watching recency while a title is selected. Apply chronological order immediately, keep that title focused, and update the hero to the latest eligible record. Keep provider-progress observations separate from confirmed local playback: timestamp-only refreshes must not promote titles and observations must not consume Watchlist.
+- Scroll several rows away from their initial positions, then choose Home in the header. Verify the page and every row return to their default start, matching the remote Home action.
 
 ## Final feature-release gate
 
@@ -122,7 +138,7 @@ After integration, run the final candidate through the following checks and reco
 | --- | --- |
 | Static checks | Successful build and full tests; no lint errors or new unexplained warnings. Review existing warnings individually. |
 | Failure handling | Malformed/restored preferences, duplicate identities, corrupt snapshots/artwork, interrupted writes/downloads, cancellation and rejected updates. Use isolated fixtures for simulated low storage and corruption. |
-| Remote navigation | At least 500 scripted actions per layout, including held-key boundaries, direction reversals, sidebar return, options, hiding, arranging, undo and Watchlist paging. |
+| Remote navigation | At least 500 scripted actions per layout, including held-key boundaries, direction reversals, top-bar/content return, options, hiding, arranging, undo and Watchlist paging. |
 | Lifecycle | 25 cold starts and 50 leave/return cycles across A, B and C; preserved settings and usable focus. |
 | Soak | At least one hour with navigation and idle periods; record process continuity, memory trend, frame statistics and refresh diagnostics. |
 | Performance | Identical warmed before/after routes, frame-time percentiles, janky-frame counts, startup timing and memory. Investigate repeatable regressions. |

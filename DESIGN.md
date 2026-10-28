@@ -13,12 +13,14 @@ colors:
   panel-divider: "#354032"
   button-ground: "#1B2922"
   button-focus: "#CDD9C7"
-  rail-ground: "#15221B"
-  rail-heading: "#ADC1B6"
+  navigation-ground: "#19221A"
+  navigation-selected: "#303D30"
+  action-panel-ground: "#202C21"
+  action-panel-edge: "#73816A"
   empty-ground: "#171F18"
   empty-focus: "#263126"
   empty-edge: "#364033"
-  hero-action-edge: "#89958A"
+  hero-action-ground: "#CEDAC6"
   hero-progress-track: "#414840"
   row-progress-track: "#435448"
   stremio-marker: "#8657D7"
@@ -33,17 +35,17 @@ typography:
     fontFamily: "sans-serif-medium"
     fontSize: "29px"
   section:
-    fontFamily: "sans-serif"
-    fontSize: "24px"
+    fontFamily: "sans-serif-medium"
+    fontSize: "28px"
   body:
     fontFamily: "sans-serif"
     fontSize: "22px"
   label:
     fontFamily: "sans-serif"
     fontSize: "26px"
-  rail-label:
+  navigation-label:
     fontFamily: "sans-serif"
-    fontSize: "23px"
+    fontSize: "26px"
   weather-location:
     fontFamily: "sans-serif"
     fontSize: "23px"
@@ -133,22 +135,20 @@ components:
     typography: "{typography.label}"
     rounded: "{rounded.card}"
     padding: "0px 17px"
-  rail-button:
-    backgroundColor: "{colors.button-ground}"
+  navigation-button:
+    backgroundColor: "{colors.navigation-ground}"
     textColor: "{colors.ivory}"
-    typography: "{typography.rail-label}"
+    typography: "{typography.navigation-label}"
     rounded: "{rounded.card}"
-    padding: "0px 6px"
-    width: "130px"
-    height: "70px"
-  rail-button-focused:
+    padding: "0px 22px"
+    height: "56px"
+  navigation-button-focused:
     backgroundColor: "{colors.button-focus}"
     textColor: "{colors.sage-black}"
-    typography: "{typography.rail-label}"
+    typography: "{typography.navigation-label}"
     rounded: "{rounded.card}"
-    padding: "0px 6px"
-    width: "130px"
-    height: "70px"
+    padding: "0px 22px"
+    height: "56px"
   empty-row:
     backgroundColor: "{colors.empty-ground}"
     textColor: "{colors.ivory}"
@@ -159,7 +159,9 @@ components:
 
 # Design System: prettTV
 
-The installed-app long-press menu includes **Force stop** for eligible apps. Its separate native confirmation defaults to Cancel, keeps the existing dark dialog theme and returns to the same Home context. A verified stop offers Done and Open app; a failed connection offers App info. The operation never silently relaunches the app or redraws/reorders the app row. Labels describe stopping an app, not clearing its data or resetting the TV network.
+This document describes **0.4.0** source behavior. Actual native visual and release outcomes belong to the [versioned validation record](docs/validation.md); earlier captures and passed checks remain historical evidence, not certification of a newer build.
+
+The installed-app long-press panel includes **Force stop** for eligible apps. It opens with **Open** focused. Force stop uses a separate native confirmation that defaults to **Cancel**, retains Home behind its solid dark surface and returns to the same context. A verified stop offers **Done** first and **Open app**; a failed connection offers **App info** where available. The operation never silently relaunches the app or redraws/reorders the app row. Labels describe stopping an app, not clearing its data or resetting the TV network.
 
 ## Overview
 
@@ -167,21 +169,21 @@ The installed-app long-press menu includes **Force stop** for eligible apps. Its
 
 The owner's direction is dark sage and black, lightweight and attractive, with subtle contrast and colored app logos. The interface feels restrained and cinematic: the dark ground recedes, real artwork supplies the color, and a small number of ivory focus treatments make the next remote action clear from a couch.
 
-This is the native Android TV system: Kotlin Android Views, Canvas cards, native dialogs, and the device's system sans-serif aliases. C Balanced is the selected home; A Cinema and B Quiet remain available. The owner has chosen a left sidebar that is hidden by default in all three layouts and appears as a fixed overlay on request. The exact brand spelling is prettTV, appearing in the footer's About/Credits entry, with no top wordmark or rail monogram.
+This is the native Android TV system: Kotlin Android Views, Canvas cards, native dialogs, and the device's system sans-serif aliases. C Balanced is the selected home; A Cinema and B Quiet remain available. The owner's latest direction replaces the sidebar with persistent opaque horizontal navigation in all three layouts. The exact brand spelling is prettTV, appearing in the footer's About/Credits entry, with no top wordmark.
 
-The hidden sidebar remains the owner's chosen navigation. It contains Home, Shows, Library, Inputs, Search, and Settings. Left from the first card reveals it and dims content; Right, Back, or choosing a destination dismisses it. The content keeps its full width when the rail is closed. The Android application ID is `dev.zane.pretttv`.
+The top bar contains Home, Shows, Library, Inputs, Search, and Settings; location, condition, temperature and clock sit to the right. It stays visible while the content scrolls. Left and Right remain finite at row boundaries. Up from the first content card reaches navigation; Down from navigation returns to the remembered content card. The Android application ID is `dev.zane.pretttv`.
 
 **Key Characteristics:**
 
 - Sage-black ground, gentle tonal separation, and fine visible card edges.
 - Actual provider artwork, attributed app icons, and installed-app marks supply the color.
 - A clear remote focus state, finite rows, and quiet finite motion.
-- A hidden-by-default left overlay sidebar shared by A, B, and C.
+- A persistent opaque horizontal navigation bar shared by A, B, and C.
 - Native text scaling, readable metadata, and full accessible labels behind visual truncation.
 
-The 0.2.2 implementation uses 208-reference-pixel Your apps widths, 36-pixel corners and 12-pixel gaps, alongside a finite focus spotlight and small artwork drift. This patch changes only the app-row corner radius from 0.2.1's 22 pixels. Layout-specific app heights, Library geometry, palette, typography, content order, and hidden navigation remain intact. The [36-pixel comparison](docs/previews/rounder-36/README.md) records the accepted refinement; the [earlier comparison](docs/previews/rounder-app-cards/README.md) preserves the 0.2.1 design.
+The current source retains the 208-reference-pixel Your apps widths, 36-pixel corners and 12-pixel gaps introduced in 0.2.2, alongside the finite focus spotlight and small artwork drift. Layout-specific app heights, Library geometry and content order remain intact. The [36-pixel comparison](docs/previews/rounder-36/README.md) records that historical refinement; the [earlier comparison](docs/previews/rounder-app-cards/README.md) preserves the 0.2.1 design. Version 0.4.0 additionally changes navigation, hero hierarchy, contextual app actions, selected metadata, section typography and refresh/interaction feedback.
 
-[Validation history](docs/validation.md) records scoped checks, evidence versions and outcomes. Rendered previews document approvals; they are not native captures. Feature dialogs, details, reminder states and the updater remain outside this Home visual review. The [original native design review](docs/native-design-evidence.md) retains its historical scope. Source in `launcher/app/src/main/kotlin/fi/jommi/rivi/` defines the native components below.
+[Validation history](docs/validation.md) records scoped checks, evidence versions and outcomes. Rendered previews document approvals; they are not native captures. The 0.4.0 gallery contains actual A/B/C, top-navigation and app-action captures; uncaptured details, reminder states and updater screens are not certified by that gallery. The [native design evidence](docs/native-design-evidence.md) distinguishes current source/captures from the original review's historical scope. Source in `launcher/app/src/main/kotlin/fi/jommi/rivi/` defines the native components below.
 
 ## Colors
 
@@ -190,7 +192,7 @@ The palette is a family of green-black surfaces, warm ivory text, and muted sage
 ### Primary
 
 - **Ivory** is the principal text, card focus outline, and progress fill. Its contrast provides the strongest card interaction cue.
-- **Pale sage focus** (`button-focus`) fills focused utility and rail buttons; their text switches to sage-black.
+- **Pale sage focus** (`button-focus`) fills focused utility and navigation buttons; their text switches to sage-black.
 
 ### Secondary
 
@@ -200,9 +202,9 @@ The palette is a family of green-black surfaces, warm ivory text, and muted sage
 ### Neutral
 
 - **Sage-black** is the rendered home background. **Card ground** fills unloaded cards and sports cards.
-- **UI muted** and **card muted** preserve the implementation's distinct supporting-text assignments. **Rail heading** colors the Home heading above content.
+- **UI muted** and **card muted** preserve the implementation's distinct supporting-text assignments. Navigation uses a solid green-black ground and a quiet selected-page fill.
 - **Card edge** quietly separates adjacent dark surfaces. The shared panel uses a restrained diagonal **panel start → panel end** gradient and a **panel divider**.
-- **Button ground**, **rail ground**, and **empty ground** distinguish utility regions. Their focused treatments are recorded separately.
+- **Button ground**, **navigation ground**, and **empty ground** distinguish utility regions. Their focused treatments are recorded separately. Contextual app panels use a solid `action-panel-ground` with a fine `action-panel-edge` outline.
 - **App pack ground** is the dark native tile behind the mapped icon pack. **App icon fallback** is used when an unmapped app supplies an icon without a banner. Other app tiles derive their ground from installed artwork.
 
 **The Color-Pop Rule.** Keep the surrounding interface subdued so real app marks and still imagery carry the color.
@@ -221,7 +223,7 @@ These are the actual native aliases. No downloaded face, browser fallback stack,
 - **Title:** show, compact-discovery, and sports titles.
 - **Section:** horizontal-row headings; **support** is used for right-aligned counts and source notes.
 - **Body:** show metadata and compact descriptions. Compact descriptions occupy at most two lines, with a native baseline step of 29 reference pixels multiplied by display scale and system font scale.
-- **Label:** generic buttons, the clock, and the Discover panel heading. The smaller **rail-label** applies to all six sidebar destinations. The hero action uses the medium **action** variant.
+- **Label:** generic buttons and the clock. All six navigation destinations use the 26-pixel regular **navigation-label**. Section headings and Discover use 28-pixel medium text. The hero action uses the medium **action** variant.
 - **Weather location:** the muted place label beside the clock. Temperature and time retain the 26-pixel label size and ivory color.
 - **Hero detail** and **compact detail:** provider, episode, timing, and source information in their respective card modes.
 
@@ -231,31 +233,31 @@ One-line labels ellipsize at the end. Cards expose the full title, detail, and a
 
 ## Layout
 
-The home is a 1920 × 1080 reference composition, scaled by display width. The rail is a sibling of the content `ScrollView` in the root `FrameLayout`, but starts at `View.GONE` and occupies no permanent content column. When revealed, it is a fixed overlay and content alpha changes to 0.45. Dismissal restores content alpha to 1.0. Content shelves scroll horizontally with hidden scrollbars and no overscroll glow. There are no implemented phone breakpoints or portrait layouts.
+The home is a 1920 × 1080 reference composition, scaled by display width. The opaque navigation bar is a sibling of the content `ScrollView` in the root `FrameLayout`, drawn above it and outside its scrolling viewport. There is no left rail. Content shelves scroll horizontally with hidden scrollbars and no overscroll glow. There are no implemented phone breakpoints or portrait layouts.
 
-**Shared frame, source-derived:** every layout uses an inner width of 1808, 56-pixel left and right insets, a 30-pixel top inset, and a 40-pixel bottom inset. The hidden overlay rail is 150 × 970, positioned 24 pixels from the top and left, with 10-pixel horizontal padding. Six 130 × 70 destination buttons follow a 100-pixel upper spacer; 20 pixels separate them. The content header holds Home, status and the clock, without top navigation or search/settings icons.
+**Shared frame, source-derived:** every layout uses an inner width of 1808, 56-pixel left and right insets, and a 40-pixel bottom inset. The full-width navigation bar is 88 pixels high with 16-pixel vertical padding, 56-pixel controls and a one-pixel bottom divider. The content viewport begins at y=104, leaving a 16-pixel gap. Navigation labels have 22-pixel horizontal padding and 12-pixel gaps; the strip can scroll horizontally at enlarged text sizes. Selected navigation uses a subdued sage fill and underline, while focused controls invert to ivory/sage. Content status, weather and the clock occupy the right side.
 
-The optional v0.2.3 weather cluster shares that same 56-pixel header in A/B/C: a muted 23-pixel location label, a 30 × 30 condition icon, an ivory 26-pixel temperature, a quiet 1 × 24 divider and the existing ivory 26-pixel clock. The location label ellipsizes within 240 reference pixels; the group's accessible description retains the full location, reading and condition. Original Canvas icons use ivory strokes and a small `weather-sun` accent for sun or lightning, with no downloaded icon assets. The group is passive and adds no remote-focus stop.
+The optional weather cluster, introduced in v0.2.3, shares the 56-pixel top-bar control area in A/B/C: a muted 23-pixel location label, a 30 × 30 condition icon, an ivory 26-pixel temperature, a quiet 1 × 24 divider and the ivory 26-pixel clock. All are vertically centered. The city-to-icon gap is 16 reference pixels, icon-to-temperature is 10, and the separator has 20 pixels on each side. The clock takes its natural text width without an artificial minimum. The location label ellipsizes within 240 reference pixels; the group's accessible description retains the full location, reading and condition. Original Canvas icons use ivory strokes and a small `weather-sun` accent for sun or lightning, with no downloaded icon assets. The group is passive and adds no remote-focus stop.
 
-Weather uses the selected US ZIP's place label and nearby NWS observations. Valid stale readings append `· cached`; missing readings show `Updating…` during a request or `Unavailable` afterward, without an invented icon or temperature. The clock keeps Android's time format and time zone. Header updates preserve the Home content and remote position; weather adds no repeating animation. The published v0.2.2 A/B/C captures remain historical and do not show this cluster.
+Weather uses the selected US ZIP's place label and nearby NWS observations. Valid readings appear without a `cached` suffix in the header; freshness remains available in Weather settings/details and the accessible description. Missing readings show `Updating…` during a request or `Unavailable` afterward, without an invented icon or temperature. The clock keeps Android's time format and time zone. Header updates preserve Home content and remote position; weather adds no repeating animation. The current 0.4.0 A/B/C and top-navigation captures show this shared header.
 
-**C Balanced, selected:** a 56-pixel header precedes the upper content by 18 pixels. The feature uses `hero-balanced`, followed by a card-gap and one shared side panel (656 × 486). That panel contains a Discover heading and two compact rows (608 × 184), with 24-pixel horizontal padding. These dimensions describe C's current surface, not a mandatory composition for every future screen.
+**C Balanced, selected:** upper content starts at y=104 below the persistent bar. The feature uses `hero-balanced`, followed by a card-gap and one shared side panel (656 × 486). That panel contains a Discover heading and two compact rows (608 × 184), with 24-pixel horizontal padding. These dimensions describe C's current surface, not a mandatory composition for every future screen.
 
-The app shelf follows after a card-gap. Your apps uses 208-pixel-wide dark tiles in all three layouts, with 36-pixel corners and 12-pixel app-gap spacing. Eight complete tiles and a slice of the next fit within the 1808-pixel reference width when enough apps are present. Their heights remain 116 in A, 176 in B, and 94 in C. Every included app occurs once in this finite row, and Home returns it to its start. The sidebar's Library action opens the complete six-column Library · All apps grid later on the page. That grid retains its existing width formula, integer `(inner - 5 × 18) / 6`, 154-pixel card height, 18-pixel gaps and 15-pixel corners. Hiding an app affects only the horizontal Your apps row; it stays in Library, search, and viewing history.
+The app shelf follows after a card-gap. Your apps uses 208-pixel-wide dark tiles in all three layouts, with 36-pixel corners and 12-pixel app-gap spacing. Eight complete tiles and a slice of the next fit within the 1808-pixel reference width when enough apps are present. Their heights remain 116 in A, 176 in B, and 94 in C. Every included app occurs once in this finite row, and Home returns it to its start. The top bar's Library action opens the complete six-column Library · All apps grid later on the page. That grid retains its existing width formula, integer `(inner - 5 × 18) / 6`, 154-pixel card height, 18-pixel gaps and 15-pixel corners. Hiding an app affects only the horizontal Your apps row; it stays in Library, search, and viewing history.
 
 Content shelves default to four complete Standard cards and a visible portion of the next. Small shows five cards, Standard four, and Large three; their heights use `show-card-small`, `show-card`, and `show-card-large`. Width is the integer result of `(inner - count × 20 - 46) / count`. Sports event cards use the same size choices. Section headers occupy 44 reference pixels, shelf wrappers allow 6 pixels above and below focus-scaled cards, and section gaps separate shelves. Settings → Customize rows reorders or hides the content shelves and restores defaults; title limits of 20, 40, or 60 apply to Suggestions, Discover, Trending, and New releases.
 
 Default content order is Continue watching · Shows, Continue watching · Movies, Watchlist, New episodes when there are release alerts, Live sports, Suggestions, Discover, Trending, and New releases, then Library · All apps and the footer. A saved row order or hidden-row preference overrides that default. Watchlist is present by default even when empty; New episodes is conditional. The two compact side-panel cards remain discovery.
 
-Personal rows and the hero use local playback evidence across providers. Published timestamps seed a frozen baseline; refreshing a provider timestamp alone does not promote a title. Optional supported media sessions or I watched this most recently update local recency. App metadata can be missing or ambiguous, so the hero is not guaranteed to represent all real viewing. Feed providers are balanced before row limits; user-selected Recommendation services or real shared activity establish service priority, with general/free feeds later and Stremio last and badged. Inferred priority is not verified login status. Discover uses additional titles outside the other discovery shelves while preserving the same card language.
+Personal rows and the hero use local playback confirmations and separately stored observations of provider progress. Published timestamps seed a frozen baseline; refreshing a provider timestamp alone does not promote a title. Optional supported media sessions or I watched this most recently update confirmed local recency. Provider observations do not consume Watchlist and may be delayed or originate from shared accounts; they cannot identify the viewer or exact playback time. Continue watching applies chronological updates immediately while preserving the selected title, and the hero follows the newest eligible record. App metadata can be missing or ambiguous, so the hero is not guaranteed to represent all real viewing. Feed providers are balanced before row limits; user-selected Recommendation services or real shared activity establish service priority, with general/free feeds later and Stremio last and badged. Inferred priority is not verified login status. Discover uses additional titles outside the other discovery shelves while preserving the same card language.
 
-**A Cinema:** the shared full-width content frame and hidden overlay rail, a full-width 470-pixel hero, and 208 × 116-pixel Your apps tiles.
+**A Cinema:** the shared full-width content frame and persistent top bar, a full-width 470-pixel hero, and 208 × 116-pixel Your apps tiles.
 
-**B Quiet:** the shared full-width content frame and hidden overlay rail, a short introductory line, 208 × 176-pixel Your apps tiles, then the shared content shelves. It omits the hero and shared Discover panel. A and B preserve the same colors, card language, source semantics, and remote behavior as C.
+**B Quiet:** the shared full-width content frame and persistent top bar, a short introductory line, 208 × 176-pixel Your apps tiles, then the shared content shelves. It omits the hero and shared Discover panel. A and B preserve the same colors, card language, source semantics, and remote behavior as C.
 
 ## Elevation & Depth
 
-The home uses tonal layers, artwork scrims, fine outlines, restrained focus scale, and a clipped focus spotlight. The spotlight is painted inside the card, with no external glow or drop shadow. Dialog appearance remains owned by Android's `Theme.DeviceDefault.NoActionBar` theme.
+The home uses tonal layers, artwork scrims, fine outlines, restrained focus scale, and a clipped focus spotlight. The spotlight is painted inside the card, with no external glow or drop shadow. General dialogs remain native; the app-action and Force stop surfaces use the shared solid dark `AppActionStyle`, with no background blur or new UI framework.
 
 SHOW cards use the native green-black scrim recorded in the sidecar: transparent through 32% of height, reaching alpha `0xE6` at 58% and `0xF2` at the bottom. This is the implemented metadata-contrast fix. The hero adds a left-to-right scrim and a bottom scrim behind its title and action. Those gradient stops are native paint values, not invented surface colors.
 
@@ -269,25 +271,25 @@ Landscape imagery reserves 12 reference pixels of horizontal overscan at rest to
 
 Interrupted focus changes cancel the previous motion and retarget from the current focus amount. Animation starts only for an attached, shown card in a visible window. Window hiding, aggregated visibility loss, and detachment cancel both focus animators and settle the current focus state.
 
-Horizontal focus travel retains its separate finite 180 ms native `ValueAnimator` with `DecelerateInterpolator`; disabling animators makes the scroll immediate. Content refreshes replace changed rows and preserve unaffected cards, artwork, focus, and viewport where possible.
+Horizontal focus travel retains its separate finite 180 ms native `ValueAnimator` with `DecelerateInterpolator`; disabling animators makes the scroll immediate. A thin 80 × 5 hold cue appears after 180 ms on long-clickable app/Library cards and stops by the system long-press threshold. Release, other keys, focus loss, window loss or detachment clear it. A static End cue lasts at most 650 ms after a boundary response. No feedback loops while idle. Content refreshes preserve unaffected cards, artwork, focus and viewport; status-only changes update the label without stopping row motion.
 
 ## Shapes
 
-Your apps tiles use the rounder 36-pixel `app-row-card` silhouette. This override applies only to the horizontal Your apps row; Library app tiles, sports-app shortcuts, other cards and sidebar buttons retain the 15-pixel `card` silhouette. The card's clip and outline use the same radius, with the painted shape inset 3 reference pixels from the View boundary. Compact imagery has its own smaller `thumbnail` corners. The shared Discover panel and hero action retain their own radii. The previous top-navigation pill is no longer part of the current home.
+Your apps tiles use the rounder 36-pixel `app-row-card` silhouette. This override applies only to the horizontal Your apps row; Library app tiles, sports-app shortcuts, other cards and navigation buttons retain the 15-pixel `card` silhouette. The card's clip and outline use the same radius, with the painted shape inset 3 reference pixels from the View boundary. Compact imagery has its own smaller `thumbnail` corners. The shared Discover panel and hero action retain their own radii. App-action surfaces use 20-pixel corners and their focusable choices use 10-pixel corners.
 
-Resting non-compact cards use a 1-pixel card-edge outline. Focused non-hero cards use a 2.4-pixel ivory outline. Compact rows have no independent resting outline, because the shared panel contains them; focus reveals their card outline. Hero focus strengthens the action's outline instead of scaling or brightening the whole feature border.
+Resting non-compact cards use a 1-pixel card-edge outline. Focused non-hero cards use a 2.4-pixel ivory outline. Compact rows have no independent resting outline, because the shared panel contains them; focus reveals their card outline. Hero focus changes its solid sage action to ivory without scaling the feature.
 
 ## Components
 
 ### Hero and its action
 
-One calm feature with a legible lower-left action. The title and metadata sit inside `hero-inset`. The action is painted within the focusable hero rather than implemented as a separate focus target. It is 64 reference pixels high, sizes to the measured label plus 82 pixels, and remains bounded by the hero's content width. A native play triangle precedes the label. The sidecar records its rest/focus fill alpha and outline widths.
+One calm feature with a legible lower-left action. The title and metadata sit inside `hero-inset`. The action is painted within the focusable hero rather than implemented as a separate focus target. Its height is `36 + 32 × fontScale` reference pixels (68 at default font scale), and its width is the measured label plus 82 pixels, capped at 72% of the available inset width. A native play triangle precedes the label; the source app appears beside it. A thin 220-pixel progress track and remaining-time text appear only with valid supplied progress. The title stays at 58 reference pixels.
 
-Use actual provider art and published progress. The action says Resume in a provider only when the program supplies a resume intent; otherwise it says Open. If no feature is available, the same component offers Browse apps. Preserve the full accessible action label.
+`ProgramPresentation` separates supplied provider details, source and calculated remaining time without guessing episodes. **Continue watching** requires a non-catalog title, position greater than zero but below duration, and a nonblank app destination. Otherwise the action says **Open [app]**. If no feature is available, the same component offers **Browse apps**. A destination does not guarantee exact-second resume behavior in another service. Preserve the full accessible action label.
 
 ### Show cards and compact discovery
 
-SHOW cards put the title and metadata at the bottom over the strong scrim, with optional real progress along the lower edge. They use `card-inset`. Portrait art is contained when its aspect ratio is below 1.3; wider artwork fills the image area. Do not stretch a source poster.
+SHOW cards keep the title and source visible over the strong bottom scrim, with optional real progress along the lower edge. Additional supplied metadata/remaining time fades into reserved footer space on focus using the existing finite focus amount. Card size and row position do not change. They use `card-inset`. Portrait art is contained when its aspect ratio is below 1.3; wider artwork fills the image area. Do not stretch a source poster.
 
 COMPACT cards share the Discover panel: imagery occupies 52% of the row width, followed by a 25-pixel gap and text. The title and provider are single-line; the summary uses two lines. The compact row stays at its original scale on focus and gains an ivory outline.
 
@@ -297,7 +299,9 @@ Dark and recognizable, with the app mark as the visual focus. `AppIconPack` maps
 
 `launcher/app/src/main/assets/app-icons/sources.json` records pinned source URLs, SHA-256 values, and modification flags; the adjacent `LICENSE.txt` carries the upstream license. Current source uses the attributed HBO light asset for its mapped packages and a native `ic_disney_dark` drawable for Disney+, composed onto the dark tile ground. Unmapped apps use installed banners or icons. When a quiet banner's logo bounds can be detected, final card drawing fits the detected logo within 70% of card width and 58% of height. Photographic banners retain their framing. The guarded dark-banner fallback remains only for unpacked artwork; missing artwork falls back to the app label.
 
-The app row has a real beginning and end. Right stays on the last app; Left from the first app reveals the overlay with Library focused. Other shelf starts reveal Shows. No row wraps or manufactures duplicate tiles. Hold OK opens the native arrangement menu and toggles Hide from Your apps row or Show in Your apps row. Library retains every discoverable app, including those hidden from the row; search, suggestions, and viewing history remain unaffected. Settings → Restore apps to Your apps row clears every row-only hide choice. If the row is empty, Choose apps for this row remains focusable. The full app label remains accessible.
+The app row has a real beginning and end. Right stays on the last app and Left stays on the first; a scrolled first-card viewport is revealed before the boundary response. No sidebar opens, row wraps or duplicate tiles are manufactured. Hold OK opens the anchored app panel and retains Hide from Your apps row or Show in Your apps row. Library retains every discoverable app, including those hidden from the row; search, suggestions, and viewing history remain unaffected. Settings → Restore apps to Your apps row clears every row-only hide choice. If the row is empty, Choose apps for this row remains focusable. The full app label remains accessible.
+
+The contextual panel is 400 reference pixels wide with 56-pixel safe insets and a 20-pixel anchor gap. It chooses the available side of the selected tile and clamps inside the screen; long menus/font sizes scroll. Its solid surface dims Home without moving the selected card. Open receives initial focus; D-pad stays inside the finite action list. Dismissal restores origin/viewport before any chosen action runs. Force stop uses a separate translucent Activity and real native confirmation with Cancel first; held repeats never confirm it automatically. Its title/message scroll independently above a measured action column so enlarged text and long messages cannot clip the buttons. Result screens focus Done first.
 
 ### Sports cards
 
@@ -309,9 +313,9 @@ Favorite teams are chosen through native league and checkbox dialogs. Live event
 
 ### Navigation and utility controls
 
-All A/B/C layouts use the same hidden-by-default sage overlay rail, with Home, Shows, Library, Inputs, Search, and Settings as labeled native buttons. Left from a shelf's first card or the hero reveals the rail and dims content; the hero reveals Home. Buttons rest on the tonal button ground and invert to pale sage on focus. There is no persistent selected Home pill. Left remains within the open rail and its first and last destinations stop vertical travel. Right or Back hides the rail and restores content focus. Choosing a destination also hides the rail before performing its action, and moving focus into content dismisses it.
+All A/B/C layouts use the same persistent opaque top bar with Home, Shows, Library, Inputs, Search and Settings. Navigation stays fixed while the content scrolls. The current destination gets a restrained selected fill and underline; focused controls invert to pale sage. Its first and last entries stop horizontal travel. Up from the first content card reaches Home navigation; in Quiet, every Your apps tile has an Up path to navigation. Down returns to the remembered content card. Shows and Library focus their sections. Header Home resets the page and all rows to their default start, matching remote Home. The former sidebar is absent.
 
-The rail's upper spacer carries no monogram. Generic utility buttons retain the same tonal focus treatment. The exact footer label is About prettTV · Credits; branding stays at the bottom. Search and Settings no longer appear as top-right icons.
+Generic utility buttons retain the tonal focus treatment. The exact footer label is About prettTV · Credits; branding stays at the bottom. Search and Settings are labeled top-navigation destinations, with weather and time to their right.
 
 ### Empty states, search, and menus
 
@@ -333,7 +337,7 @@ Settings exposes Undo with the latest action label for recorded changes, includi
 
 ### Offline status and updates
 
-Offline Home reuses cached content and app access. The header displays Offline with the cached-content age using the existing muted support text. Cached recommendation data expires after seven days; the status is informational and does not manufacture fresh viewing evidence.
+Offline Home reuses cached content and app access. A generation-scoped status reveals Updating only after an actual refresh exceeds 700 ms and clears it on completion or cancellation. Failures retain usable content and artwork; Offline identifies unavailable connectivity, while Update unavailable identifies a source failure without claiming the TV is offline. Saved-content age appears when known. Metadata updates rebind stable cards, and recommendation-row reordering waits until focus leaves where possible. Continue watching reorders immediately by recency while preserving the selected title. Removed or expired content is not retained. Cached recommendations still expire after seven days and stale live events remain suppressed. These statuses do not manufacture fresh viewing evidence or stream availability.
 
 Settings → Updates opens a native scrollable screen with the same sage-black, ivory, muted text, quiet borders, and pale-sage focus. It has explicit Check now, Download, Install, Cancel, and Back actions, state-dependent availability, a polite accessibility status region, and plain release notes. It never opens automatically from Home. APK download is user initiated and Android confirms installation.
 
@@ -347,7 +351,7 @@ The bottom Library retains six columns, 154-reference-pixel cards, 15-pixel corn
 
 Blind Pick and Rabbit Hole appear after installed apps in Library only. Their original glyphs depict three concealed cards with a reveal spark and a rabbit emerging from a portal. Their native activity uses the established sage-black/ivory controls, three mystery cards with strict filters, or a starting title and factual relationship filters. It does not add animated backgrounds or accounts.
 
-The rendered proposals live in `docs/previews/original-apps` and `docs/previews/library-glyphs`. They are design previews, not TV captures. The source changes require native rendering and remote checks during the authorized deployment window; earlier Home screenshots do not validate these additions.
+The rendered proposals live in `docs/previews/original-apps` and `docs/previews/library-glyphs`. They are design previews, not TV captures. During the original 0.3.0 source review, native rendering and remote checks were still required; subsequent outcomes belong to the versioned validation record. Earlier Home screenshots alone do not validate these additions or the 0.4.0 implementation.
 
 ### Do:
 
@@ -356,13 +360,13 @@ The rendered proposals live in `docs/previews/original-apps` and `docs/previews/
 - **Do** retain system font scaling, full accessible labels, and honest visual truncation.
 - **Do** use actual provider imagery, attributed icon assets, published progress, and labeled data sources.
 - **Do** order personal history using local playback evidence and distinguish discovery, game-assistance, and app-opening paths.
-- **Do** keep the six-destination sidebar hidden by default in all three layouts and make Library open the complete app grid.
+- **Do** keep the opaque six-destination top navigation visible in all three layouts and make Library open the complete app grid.
 - **Do** spell the brand prettTV, keep branding and credits at the footer, and retain A and B as alternatives to selected C.
 - **Do** reuse native cards and dialogs for personal shelves, preserve user row preferences, and distinguish saved titles, release alerts, and playable availability.
 
 ### Don't:
 
-- **Don't** add a top prettTV wordmark, top navigation, or rail monogram.
+- **Don't** add a top prettTV wordmark, restore the sidebar, or crowd the weather header with a cached suffix.
 - **Don't** replace native system sans with the obsolete automated Salsa guess, or flatten fictional comps into the running home.
 - **Don't** treat refreshed provider timestamps as proof of playback or invent progress, episode state, provider availability, or a verified sports stream link.
 - **Don't** turn finite app shelves into looping rows or repeat apps to imply more content.

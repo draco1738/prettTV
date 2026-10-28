@@ -95,7 +95,8 @@ object LocalSettingsTransfer {
                 }
                 "playback"->when {
                     key=="known"->"string"
-                    key=="baselineCutoff" || listOf("baseline:","played:","position:","duration:","event:").any(key::startsWith)->"long"
+                    key=="baselineCutoff" || key=="providerLastObserved" ||
+                        listOf("baseline:","played:","position:","duration:","event:","providerObserved:").any(key::startsWith)->"long"
                     else->null
                 }
                 else->null

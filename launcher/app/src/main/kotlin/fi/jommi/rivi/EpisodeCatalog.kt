@@ -39,7 +39,8 @@ internal object EpisodePolicy {
 }
 
 /** Called only by ContentRepository's Home-visible worker; no alarms, services, or credentials. */
-internal class EpisodeCatalog(private val file:File,private val get:(String,Int)->String) {
+internal class EpisodeCatalog(private val file:File,private val get:(String,Int)->String,private val onFailure:()->Unit) {
+    constructor(file:File,get:(String,Int)->String):this(file,get,{})
     private var loaded=false
     private var states=linkedMapOf<String,EpisodeState>()
     private var lastRequestNanos:Long?=null
@@ -105,7 +106,7 @@ internal class EpisodeCatalog(private val file:File,private val get:(String,Int)
                 }.filter { it.releasedAt>state.baselineAt }.sortedByDescending { it.releasedAt }.take(200)
                 if(active())states[follow.key]=state.copy(showId=showId,checkedAt=now,episodes=episodes,status="Ready")
             } catch(_:RequestBudgetReached) { break }
-            catch(_:Exception) { if(active())states[follow.key]=state.copy(checkedAt=now,status="Retry tomorrow") }
+            catch(_:Exception) { if(active()) { onFailure(); states[follow.key]=state.copy(checkedAt=now,status="Retry tomorrow") } }
         }
         if(active())save()
         return snapshot(follows,now)

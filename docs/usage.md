@@ -4,9 +4,12 @@
 
 Choose a layout, arrange your apps and use the remote to move through your Home screen. The same apps, viewing history and feeds are available in all three layouts.
 
+> [!NOTE]
+> This page describes **0.4.0** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+
 ## Choose a layout
 
-Open **Settings → Layout** to switch. Every layout uses the hidden left sidebar.
+Open **Settings → Layout** to switch. Every layout uses the same persistent opaque top navigation bar above the scrolling content.
 
 | Layout | Arrangement |
 | --- | --- |
@@ -16,21 +19,26 @@ Open **Settings → Layout** to switch. Every layout uses the hidden left sideba
 
 The default rows below Your apps are **Continue watching · Shows → Continue watching · Movies → Watchlist → New episodes → Live sports → Suggestions → Discover → Trending → New releases**. New episodes appears only when unread alerts exist. The large feature uses the most recent eligible viewing record; [how viewing order works](content-and-sports.md#continue-watching-and-the-large-feature) explains the available data and fallback.
 
+Continue watching applies new chronological ordering immediately and keeps the selected title focused. The hero follows the latest eligible record. Changes in app-published playback progress can contribute a separately stored observation; refreshed timestamps alone cannot. Provider observations may be delayed or come from a shared account, remain separate from confirmed local viewing and do not automatically remove titles from Watchlist.
+
 ## Remote controls
 
 | Control | Action |
 | --- | --- |
 | Arrows | Move between cards and rows. |
 | OK | Open the focused app, title or action. |
-| Hold OK on an app | Arrange favorites, hide/show it in Your apps, or force-stop it. |
+| Hold OK on an app | Open the anchored app panel. Open is selected first; favorites, arrangement, hide/show, eligible Force stop and App info remain available. |
 | Hold OK on a title | Save/remove it, inspect details, follow a show, dismiss a recommendation, correct viewing order or hide it. |
-| Left at the start of a row | Reveal the sidebar with a fresh press once the row is at its beginning. Holding Left stops at the boundary. |
-| Right or Back in the sidebar | Close the sidebar and return to the content card. Choosing a destination also closes it. |
+| Left / Right at row boundaries | Stop at the first / last card. No sidebar appears and the row does not wrap. |
+| Up from the first content card | Reach the top navigation bar. In Quiet, Up from Your apps also reaches it. |
+| Down from navigation | Return to the remembered content card. |
 | Back from content | Return to the top. |
-| Home | Return to Home and reset Your apps to its first app. |
-| Menu | Open prettTV Settings. Settings is also available in the sidebar. |
+| Remote Home / Home in the top bar | Reset the page and all rows to their default start. |
+| Menu | Open prettTV Settings. Settings is also available in the top bar. |
 
-The sidebar contains Home, Shows, Library, Inputs, Search and Settings. **Choose default Home app** opens Android's normal Home selection; prettTV does not intercept the Home button with an accessibility service.
+The top bar contains **Home, Shows, Library, Inputs, Search and Settings**. Shows and Library move to their content sections. The bar stays visible while the page scrolls; its own navigation strip can scroll horizontally when system text sizing needs more room. **Choose default Home app** opens Android's normal Home selection; prettTV does not intercept the Home button with an accessibility service.
+
+Holding OK on an app shows a brief progress cue; releasing or leaving the card cancels it. A short boundary cue responds at row ends. These cues do not run while idle. Back from the app panel returns to its originating card and viewport; choosing an arrangement or hide action applies the existing deterministic focus rules below.
 
 ### Remote Settings button
 
@@ -59,7 +67,7 @@ SportioTV and HD Streamz were removed at the owner's request and are not include
 
 ### Restart an app's connections
 
-Hold **OK** on an installed app in **Your apps** or **Library**, choose **Force stop**, then confirm. This closes that app and its connections. Choose **Open app** afterward to start it again, or **Done** to stay in prettTV. Login and saved app data are kept; the action does not clear storage, uninstall the app or reset the TV's network.
+Hold **OK** on an installed app in **Your apps** or **Library**, choose **Force stop**, then confirm. The separate dark confirmation keeps Home visible and selects **Cancel** first. This closes that app and its connections. Choose **Open app** afterward to start it again, or the initially selected **Done** to stay in prettTV. Login and saved app data are kept; the action does not clear storage, uninstall the app or reset the TV's network.
 
 Direct force-stop uses the TV-local debugging key and device record already configured for [stock recovery](stock-recovery.md). It does not run a stock restore or enable debugging. If that setup is unavailable, choose **App info** and use Android's Force stop control. prettTV reports success only after checking Android's stopped state. A timeout or cancellation after dispatch can leave the outcome unverified; the screen says so rather than claiming the app stayed open.
 
@@ -118,7 +126,7 @@ Alerts mean **“episode released,” not “confirmed available in your streami
 
 - **Favorite teams:** Choose a league and teams in Settings. Their fixtures are prioritized within live and upcoming groups.
 - **Kickoff reminders:** Optional reminders appear on Home during the ten minutes before a favorite team's scheduled kickoff, using fresh data. Press OK on the reminder to dismiss it. They do not interrupt other apps or start a stream.
-- **Offline Home:** The last successful feed snapshot and available cached artwork remain usable during outages. Home labels offline content with its update age; stale live scores disappear. Saved titles and installed-app shortcuts remain available, though streaming still depends on the app and connection.
+- **Stable refresh and offline Home:** Existing content and artwork remain visible during refresh. A quiet **Updating…** label appears only for an actual request lasting beyond the short delay. An unavailable service is labeled separately from offline connectivity, with saved-content age when available. Recommendation-row reordering waits until focus leaves where possible; Continue watching updates chronologically right away while preserving the selected title. Removed or expired content is not retained just to keep its position. Cached recommendations expire after seven days and stale live scores disappear. Saved titles and installed-app shortcuts remain available, though streaming still depends on the app and connection.
 - **Updates:** Open Settings → Updates to see official release notes, check manually, and choose Download or Install. Android asks for installation permission and confirmation. [Update behavior →](installation.md#updates)
 
 ## Weather beside the clock
@@ -127,7 +135,7 @@ Open **Settings → Weather** and enter a **five-digit US ZIP code**. Setting a 
 
 Weather uses nearby **NWS observation stations**, with the ZIP's approximate location supplied by Zippopotam.us. US ZIP lookup and NWS station coverage are both required; some locations or stations may have no usable reading. A station reading describes its surroundings and may differ from conditions at your home. prettTV does not request GPS permission or read your Google account's address.
 
-While Home is visible, weather refreshes about every **30 minutes**. A recent saved reading can appear immediately when you return. Observations older than 30 minutes show **cached**, and readings older than two hours disappear from the header. Without a usable reading, the header shows **Updating…** during a request or **Unavailable** afterward. The clock stays usable; a missing reading never becomes a made-up zero-degree value. Weather updates do not move your selection or rebuild the content rows.
+While Home is visible, weather refreshes about every **30 minutes**. A recent saved reading can appear immediately when you return. The header keeps the temperature uncluttered without a **cached** suffix; Weather settings and details retain freshness information. Readings older than two hours disappear from the header. Without a usable reading, the header shows **Updating…** during a request or **Unavailable** afterward. The clock stays usable; a missing reading never becomes a made-up zero-degree value. Weather updates do not move your selection or rebuild the content rows.
 
 Use **Refresh weather** to request an update; temporary service failures may delay retries. **Weather details and sources** shows the observation's station and time, plus provider and licence links. Turn **Show on Home** off to hide weather and stop its refreshes while retaining your location and units. Weather is independent of **Show discovery**. [Weather requests and stored data →](privacy.md#weather)
 

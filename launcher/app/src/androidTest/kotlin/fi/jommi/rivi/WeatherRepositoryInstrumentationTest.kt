@@ -224,6 +224,12 @@ internal object WeatherRepositoryInstrumentationTest {
                     check(parent.findFocus()===focus && header.parent===parent)
                     check(descendants(header).zip(identities).all { (current,original)->current===original } && descendants(header).size==identities.size)
                     check(identities.none { it.isFocusable } && clock.visibility==View.VISIBLE)
+                    val labels=identities.filterIsInstance<TextView>().map { it.text.toString() }
+                    check(labels.none { it.contains("cached",ignoreCase=true) || it.contains("stale",ignoreCase=true) })
+                    if(state.reading!=null) {
+                        check(WeatherPolicy.formatTemperature(state.reading.temperatureCelsius,"F") in labels)
+                        check(header.contentDescription.contains("Cached weather reading")==state.stale)
+                    } else check("Unavailable" in labels)
                 }
                 check(header.visibility==View.GONE)
             } }

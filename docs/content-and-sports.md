@@ -8,7 +8,7 @@ prettTV combines content that apps publish to Android TV with optional public ca
 
 | Area | Source and ordering |
 | --- | --- |
-| **Large feature** | Most recent eligible locally confirmed playback, using provider timestamps as an initial baseline. Falls back to discovery when no eligible watching item exists. |
+| **Large feature** | Most recent eligible playback evidence, using provider timestamps as an initial baseline and later progress observations when available. Falls back to discovery when no eligible watching item exists. |
 | **Continue watching · Shows / Movies** | Android TV Watch Next and app-published continuation channels, newest first within each row. |
 | **Watchlist** | Titles saved locally by you, newest additions first; 60 per page, with all saved entries retained within the storage limit. |
 | **New episodes** | Unread TVmaze releases for explicitly followed shows, after the initial baseline. Appears only when alerts exist. |
@@ -24,7 +24,9 @@ Discovery rows offer limits of 20, 40 or 60 titles. Watchlist uses independent 6
 
 Allow **TV listings** so prettTV can read shared program rows. No streaming login is needed in prettTV. Watch Next and continuation channels are shared Android TV data sources; they are not a copy of Google's private account database. Coverage varies by app, and shared profiles can contribute someone else's titles.
 
-The large feature and both Continue watching rows use locally confirmed playback ahead of the initial provider ordering, including Stremio. A provider refreshing a timestamp alone does not move a title to the top. Unknown content types are not guessed into Shows or Movies.
+The large feature and both Continue watching rows use the newest eligible playback evidence, including Stremio. Local session or manual confirmations count, and meaningful changes in an app's published progress or explicit episode metadata can advance recency when session tracking is unavailable. A timestamp, artwork or description refresh alone does not count. Initial imports and unstarted next episodes do not become newly watched simply because Home loads them. Unknown content types are not guessed into Shows or Movies.
+
+Continue watching reorders immediately when new viewing evidence arrives, even if that row has focus, while keeping the selected title reachable. Recommendation rows can defer reordering while you browse them. Provider progress is observed on this TV; delayed or shared-account updates cannot establish the exact playback time or who watched. It does not automatically remove titles from Watchlist as confirmed local playback.
 
 For supported apps, **Settings → Playback tracking** explains optional Notification access. Android requires that access to observe active media sessions; prettTV does not read notification text. A viewing record is confirmed only when all of these conditions hold:
 

@@ -28,9 +28,11 @@ import java.util.concurrent.atomic.AtomicReference
 class StabilityInstrumentation:Instrumentation() {
     private var settingsKeysOnly=false
     private var forceStopOnly=false
+    private var visualPolishOnly=false
     override fun onCreate(arguments:Bundle?) {
         settingsKeysOnly=arguments?.getString("settingsKeysOnly")=="true"
         forceStopOnly=arguments?.getString("forceStopOnly")=="true"
+        visualPolishOnly=arguments?.getString("visualPolishOnly")=="true"
         super.onCreate(arguments);start()
     }
     override fun onStart() {
@@ -38,6 +40,16 @@ class StabilityInstrumentation:Instrumentation() {
         try {
             check(targetContext.packageName=="dev.zane.pretttv.stability") { "Refusing to run against the production Home" }
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
+            if(visualPolishOnly) {
+                CardFocusAndroidChecks.run(this,::test)
+                ContentRefreshAndroidChecks.run(targetContext,::test)
+                WeatherRepositoryInstrumentationTest.run(this,::test)
+                PlaybackHistoryAndroidChecks.run(targetContext,::test)
+                HomeVisualAndroidChecks.run(this,::test)
+                ForceStopAndroidChecks.run(this,::test)
+                finish(Activity.RESULT_OK,Bundle().apply { putString("stream","VISUAL POLISH PASS: $passed Android tests\n");putInt("passed",passed) })
+                return
+            }
             if(forceStopOnly) {
                 ForceStopAndroidChecks.run(this,::test)
                 finish(Activity.RESULT_OK,Bundle().apply { putString("stream","FORCE STOP PASS: $passed Android tests\n");putInt("passed",passed) })
@@ -51,6 +63,7 @@ class StabilityInstrumentation:Instrumentation() {
             PersonalizationAndroidChecks.run(targetContext, ::test)
             DiscoveryAndroidChecks.run(targetContext, ::test)
             WeatherRepositoryInstrumentationTest.run(this, ::test)
+            ContentRefreshAndroidChecks.run(targetContext, ::test)
             test("real decoder accepts fixture and downsamples large image") {
                 withLoader { loader ->
                     check(load(loader,"good")!=null)
@@ -192,6 +205,8 @@ class StabilityInstrumentation:Instrumentation() {
             CardFocusAndroidChecks.run(this, ::test)
             SettingsKeyAndroidChecks.run(this, ::test)
             HomeFeatureAndroidChecks.run(this, ::test)
+            PlaybackHistoryAndroidChecks.run(targetContext, ::test)
+            HomeVisualAndroidChecks.run(this, ::test)
             UpdateAndroidChecks.run(this, ::test)
             ForceStopAndroidChecks.run(this, ::test)
             finish(Activity.RESULT_OK,Bundle().apply { putString("stream","STABILITY PASS: $passed Android fault tests\n");putInt("passed",passed) })
@@ -278,6 +293,10 @@ private object ForceStopAndroidChecks {
         fun visibleText(root:View,text:String):Boolean =
             root is TextView && root.isShown && root.text.toString()==text ||
                 root is ViewGroup && (0 until root.childCount).any { visibleText(root.getChildAt(it),text) }
+        fun actionButtons(root:View):List<android.widget.Button> =
+            if(root is android.widget.Button)listOf(root)
+            else if(root is ViewGroup)(0 until root.childCount).flatMap { actionButtons(root.getChildAt(it)) }
+            else emptyList()
         fun accessibleNodes():List<AccessibilityNodeInfo> {
             val root=instrumentation.uiAutomation.rootInActiveWindow ?: return emptyList()
             val queue=java.util.ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
@@ -293,6 +312,8 @@ private object ForceStopAndroidChecks {
                 waitFor {
                     var nativeDialog=false
                     var clicked=false
+                    var remoteDialog:android.app.Dialog?=null
+                    var remoteButtons:List<android.widget.Button> = emptyList()
                     main {
                         val screen=activity
                         if(screen is AppForceStopActivity && !screen.isFinishing && !screen.isDestroyed) {
@@ -304,10 +325,49 @@ private object ForceStopAndroidChecks {
                                 if(button!=null && button.isShown && button.isEnabled)clicked=button.performClick()
                             }
                         }
+                        if(!nativeDialog) {
+                            val homeScreen=home
+                            val actions=homeScreen?.let {
+                                MainActivity::class.java.getDeclaredField("appActionPanel").apply { isAccessible=true }.get(it) as? android.app.Dialog
+                            }
+                            if(actions?.isShowing==true) {
+                                nativeDialog=true
+                                val decor=actions.window?.decorView
+                                if(decor?.hasWindowFocus()==true) {
+                                    val buttons=actionButtons(decor).filter { it.isShown && it.isEnabled }
+                                    val target=buttons.singleOrNull { it.text.toString().equals(text,ignoreCase=true) }
+                                    check(buttons.firstOrNull()?.text.toString()=="Open" && buttons.first().isFocused) {
+                                        "App actions did not start focused on Open"
+                                    }
+                                    if(target!=null) {
+                                        if(decor.isInTouchMode) {
+                                            // Exercise a touch selection without moving D-pad focus first.
+                                            // The live Button invokes the same listener as a real touch.
+                                            clicked=target.performClick()
+                                        } else {
+                                            remoteDialog=actions
+                                            remoteButtons=buttons.take(buttons.indexOf(target)+1)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if(remoteButtons.isNotEmpty()) {
+                        // Inject through the real window input path. Calling Dialog.dispatchKeyEvent
+                        // directly bypasses ViewRootImpl's fallback D-pad focus navigation.
+                        for(button in remoteButtons.drop(1)) {
+                            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
+                            waitFor { state {
+                                remoteDialog?.isShowing==true && remoteDialog?.window?.decorView?.hasWindowFocus()==true && button.isFocused
+                            } }
+                        }
+                        check(state { remoteButtons.last().isFocused }) { "D-pad did not reach the live '$text' action" }
+                        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
+                        clicked=true
                     }
                     if(nativeDialog)clicked else {
-                        // App-menu routing still exercises the real accessibility list. TV
-                        // themes may transform exposed action text to uppercase.
+                        // Retain a bounded diagnostic fallback for other platform dialogs.
                         var node=accessibleNodes().firstOrNull {
                             it.isVisibleToUser && it.isEnabled && it.text?.toString()?.equals(text,ignoreCase=true)==true
                         }
@@ -418,6 +478,86 @@ private object ForceStopAndroidChecks {
                     }
                 }
                 instrumentation.setInTouchMode(false)
+            }
+            test("Force-stop confirmation keeps both actions fully visible with enlarged text and long app names") {
+                val originalConfiguration=android.content.res.Configuration(context.resources.configuration)
+                val originalMetrics=android.util.DisplayMetrics().apply { setTo(context.resources.displayMetrics) }
+                val fixtureLabel=context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(FIXTURE,0)).toString().take(100)
+                val longLabel="Fixture television application with a deliberately long descriptive name for enlarged text validation".take(100)
+                val output=java.io.File(checkNotNull(context.getExternalFilesDir(null)),"visual-review").apply { check(isDirectory || mkdirs()) }
+                val before=AppForceStopSession.state
+                try {
+                    for(fontScale in listOf(1f,1.3f))for(label in listOf(fixtureLabel,longLabel)) {
+                        val screen=open()
+                        try {
+                            main {
+                                val configuration=android.content.res.Configuration(originalConfiguration).apply { this.fontScale=fontScale }
+                                // This changes Resources in the isolated test process, never a TV setting.
+                                @Suppress("DEPRECATION")
+                                screen.resources.updateConfiguration(configuration,originalMetrics)
+                                panel(screen).dismiss()
+                                AppForceStopActivity::class.java.getDeclaredField("label").apply { isAccessible=true }.set(screen,label)
+                                AppForceStopActivity::class.java.getDeclaredMethod("showConfirmation").apply { isAccessible=true }.invoke(screen)
+                            }
+                            waitFor { state {
+                                val dialog=panel(screen)
+                                val decor=dialog.window?.decorView
+                                val negative=dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                                val positive=dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                                dialog.isShowing && decor?.hasWindowFocus()==true && decor.isLaidOut && !decor.isLayoutRequested &&
+                                    negative.isFocused && negative.isLaidOut && positive.isLaidOut &&
+                                    !negative.isLayoutRequested && !positive.isLayoutRequested
+                            } }
+                            main {
+                                val dialog=panel(screen)
+                                val negative=dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                                val positive=dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                                val minimum=(58*screen.resources.displayMetrics.widthPixels/1920f+.5f).toInt().coerceAtLeast(1)
+                                fun completeBounds(view:View):android.graphics.Rect {
+                                    val rect=android.graphics.Rect()
+                                    check(view.getGlobalVisibleRect(rect)) { "Action is not visible: ${(view as? TextView)?.text}" }
+                                    check(view.height>=minimum && rect.height()>=view.height-1 && rect.width()>=view.width-1) {
+                                        "Action clipped at fontScale=$fontScale labelLength=${label.length}: ${(view as? TextView)?.text} measured=${view.width}x${view.height} visible=$rect minimumHeight=$minimum"
+                                    }
+                                    return rect
+                                }
+                                val cancelBounds=completeBounds(negative)
+                                val forceBounds=completeBounds(positive)
+                                check(!android.graphics.Rect.intersects(cancelBounds,forceBounds)) { "Confirmation actions overlap" }
+                                val message=checkNotNull(dialog.findViewById<TextView>(android.R.id.message))
+                                val messageBounds=android.graphics.Rect()
+                                check(message.getGlobalVisibleRect(messageBounds)) { "Confirmation explanation is hidden" }
+                                check(messageBounds.bottom<=minOf(cancelBounds.top,forceBounds.top)) { "Confirmation message overlaps the actions" }
+                                check(negative.text.toString()=="Cancel" && positive.text.toString()=="Force stop" && negative.isFocused)
+                            }
+                            if(label==longLabel) {
+                                instrumentation.waitForIdleSync();SystemClock.sleep(350)
+                                val screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+                                try {
+                                    val suffix=if(fontScale==1f)"100" else "130"
+                                    java.io.File(output,"force-stop-confirm-long-font-$suffix.png").outputStream().use {
+                                        check(screenshot.compress(Bitmap.CompressFormat.PNG,100,it))
+                                    }
+                                } finally { screenshot.recycle() }
+                            }
+                            check(AppForceStopSession.state===before && !AppForceStopSession.busy)
+                            click("Cancel")
+                            waitFor { state { screen.isFinishing || screen.isDestroyed } }
+                        } finally {
+                            main {
+                                @Suppress("DEPRECATION")
+                                screen.resources.updateConfiguration(originalConfiguration,originalMetrics)
+                            }
+                            close(screen)
+                        }
+                    }
+                } finally {
+                    main {
+                        @Suppress("DEPRECATION")
+                        context.resources.updateConfiguration(originalConfiguration,originalMetrics)
+                    }
+                }
+                check(AppForceStopSession.state===before && !AppForceStopSession.busy)
             }
             test("Held remote confirmation keys cannot carry a long press into force stop") {
                 val before=AppForceStopSession.state

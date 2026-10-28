@@ -5,7 +5,8 @@ import java.io.File
 import java.time.Instant
 
 /** ESPN's public scoreboard feed: bounded requests, short-lived cache, no streaming URLs. */
-class SportsCatalog(private val dir:File,private val get:(String,Int)->String) {
+class SportsCatalog(private val dir:File,private val get:(String,Int)->String,private val onFailure:()->Unit) {
+    constructor(dir:File,get:(String,Int)->String):this(dir,get,{})
     fun load(favoriteTeams:Set<String> = emptySet(),active:()->Boolean):List<SportsEvent> {
         val result=ArrayList<SportsEvent>()
         for((path,label) in LEAGUES) {
@@ -19,14 +20,15 @@ class SportsCatalog(private val dir:File,private val get:(String,Int)->String) {
                 try {
                     val fresh=get(url,1_500_000)
                     // Validate before replacing a usable cached response.
-                    require(JSONObject(fresh).has("events"))
+                    require(JSONObject(fresh).optJSONArray("events")!=null)
                     data=fresh; fetched=System.currentTimeMillis()
                     if(!active())break
                     AtomicPrivateFile.write(cache,fresh.toByteArray(Charsets.UTF_8),1_500_000); cache.setLastModified(fetched)
-                } catch(_:Exception) { /* A brief cached schedule is explicitly marked stale in the UI. */ }
+                } catch(_:Exception) { if(active())onFailure() /* A brief cached schedule is explicitly marked stale in the UI. */ }
             }
             try {
-                val events=JSONObject(data ?: continue).optJSONArray("events") ?: continue
+                val events=JSONObject(data ?: continue).optJSONArray("events")
+                if(events==null) { if(active())onFailure(); continue }
                 for(i in 0 until minOf(events.length(),100)) {
                     val e=events.optJSONObject(i) ?: continue
                     val id=e.optString("id").takeIf { it.matches(Regex("[0-9]{1,15}")) } ?: continue
@@ -59,7 +61,7 @@ class SportsCatalog(private val dir:File,private val get:(String,Int)->String) {
                     result.add(SportsEvent("espn:$path:$id",e.optString("shortName").ifBlank { e.optString("name") },label,date,
                         type.optString("state"),type.optString("shortDetail"),network,logo,url,fetched,score,teams,teamIds))
                 }
-            } catch(_:Exception) { }
+            } catch(_:Exception) { if(active())onFailure() }
         }
         // Rank before the first row limit, so a later kickoff for a favorite cannot be discarded.
         return SportsPolicy.upcoming(result,System.currentTimeMillis(),favoriteTeams)
@@ -79,17 +81,18 @@ class SportsCatalog(private val dir:File,private val get:(String,Int)->String) {
                     require(JSONObject(fresh).optJSONArray("sports")!=null)
                     if(!active())break
                     AtomicPrivateFile.write(cache,fresh.toByteArray(Charsets.UTF_8),1_500_000); data=fresh
-                } catch(_:Exception) { /* An older directory is safe: IDs do not claim live game state. */ }
+                } catch(_:Exception) { if(active())onFailure() /* An older directory is safe: IDs do not claim live game state. */ }
             }
             try {
-                val rows=JSONObject(data ?: continue).optJSONArray("sports")?.optJSONObject(0)?.optJSONArray("leagues")?.optJSONObject(0)?.optJSONArray("teams") ?: continue
+                val rows=JSONObject(data ?: continue).optJSONArray("sports")?.optJSONObject(0)?.optJSONArray("leagues")?.optJSONObject(0)?.optJSONArray("teams")
+                if(rows==null) { if(active())onFailure(); continue }
                 for(i in 0 until minOf(rows.length(),1000)) {
                     val team=rows.optJSONObject(i)?.optJSONObject("team") ?: continue
                     val id=team.optString("id").takeIf { it.matches(Regex("[0-9]{1,15}")) } ?: continue
                     val name=team.optString("displayName").trim(); if(name.isBlank())continue
                     result.add(SportsTeam("espn:$path:$id",name.take(200),label,team.optString("abbreviation").take(30)))
                 }
-            } catch(_:Exception) { }
+            } catch(_:Exception) { if(active())onFailure() }
         }
         return result.distinctBy { it.id }.sortedWith(compareBy<SportsTeam> { LEAGUES.map { league -> league.second }.indexOf(it.league) }.thenBy { it.name })
     }

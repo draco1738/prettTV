@@ -9,6 +9,7 @@ import android.media.tv.TvContract.PreviewPrograms
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.os.SystemClock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -23,6 +24,13 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private val dir = File(context.cacheDir, "catalog").apply { mkdirs() }
     @Volatile private var generation = 0
     @Volatile private var active = false
+    private val refreshState=ContentRefreshState()
+    private var statusTask:Runnable?=null
+    // Only the UI thread owns the delivered snapshot; status changes never rebuild its rows.
+    private var delivered=HomeContent()
+    // The content worker is serial, so failures belong to this one attempt, including caught HTTP failures.
+    private var readingAttempt:RefreshAttempt?=null
+    private data class RefreshAttempt(val generation:Int,var failed:Boolean=false)
     private var installed = emptySet<String>()
     private var hidden = emptySet<String>()
     private var discovery = true
@@ -33,7 +41,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private var lastCatalog=CatalogSnapshot()
     private var lastShared=SharedFeedSnapshot()
     private val offlineStore=OfflineSnapshotStore(File(context.filesDir,"content/home-v1.bin"))
-    private val episodeCatalog=EpisodeCatalog(File(context.filesDir,"content/episodes-v1.bin"),::get)
+    private val episodeCatalog=EpisodeCatalog(File(context.filesDir,"content/episodes-v1.bin"),::get,::sourceFailed)
     private val personal=PersonalizationStore(context)
     private val reminderPrefs=context.getSharedPreferences("prett-kickoff-reminders",Context.MODE_PRIVATE)
     private var restored=false
@@ -43,7 +51,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     @Volatile private var availableTeams=emptyList<SportsTeam>()
     private var episodeSnapshot=EpisodeSnapshot()
     @Volatile private var pendingTeamsCallback:((List<SportsTeam>)->Unit)?=null
-    private val sports=SportsCatalog(dir,::get)
+    private val sports=SportsCatalog(dir,::get,::sourceFailed)
     private val playback=PlaybackHistory(context)
     @Volatile private var feedSummary="Feeds have not loaded yet"
     @Volatile private var completedRefreshes=0
@@ -85,10 +93,25 @@ class ContentRepository(private val context: Context, private val deliver: (Home
 
     fun stop() {
         active = false; generation++; pendingTeamsCallback=null; ui.removeCallbacks(refreshTask)
+        statusTask?.let(ui::removeCallbacks); statusTask=null
+        refreshState.cancel()
+        if(delivered.refreshing)deliverStatus()
         if (observing) { try { context.contentResolver.unregisterContentObserver(observer) } catch (_: Exception) { }; observing = false }
     }
     fun close() { stop(); thread.quitSafely() }
-    fun refresh() { if (active) { generation++; ui.removeCallbacks(refreshTask); ui.postDelayed(refreshTask, 220) } }
+    fun refresh() { if (active) {
+        generation++; statusTask?.let(ui::removeCallbacks); statusTask=null
+        refreshState.cancel()
+        if(delivered.refreshing)deliverStatus()
+        ui.removeCallbacks(refreshTask); ui.postDelayed(refreshTask, 220)
+    } }
+
+    private fun deliverStatus(content:HomeContent=delivered) {
+        delivered=refreshState.snapshot().applyTo(content)
+        deliver(delivered)
+    }
+
+    private fun sourceFailed() { readingAttempt?.takeIf { active && it.generation==generation }?.failed=true }
 
     private fun load() {
         val g = ++generation; val available = installed; val excluded = hidden; val useCatalog = discovery
@@ -96,9 +119,21 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         worker.post {
             fun current() = active && g == generation
             if(!current())return@post
+            val attempt=RefreshAttempt(g)
+            readingAttempt=attempt
+            var online:Boolean?=null
             try {
             val now=System.currentTimeMillis()
-            val online=networkAvailable()
+            online=networkAvailable()
+            refreshState.begin(g,SystemClock.elapsedRealtime(),online)
+            ui.post {
+                if(current()) {
+                    statusTask?.let(ui::removeCallbacks)
+                    statusTask=Runnable {
+                        if(current() && refreshState.reveal(g,SystemClock.elapsedRealtime()))deliverStatus()
+                    }.also { ui.postDelayed(it,ContentRefreshState.DELAY_MILLIS) }
+                }
+            }
             if(!restored) {
                 val cached=offlineStore.load()?.eligible(now)
                 if(cached!=null) { lastShared=cached.shared; lastCatalog=cached.catalog; games=cached.games; sharedAt=cached.sharedAt; catalogAt=cached.catalogAt }
@@ -115,6 +150,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             val freshPublished=query("preview_program",available,freshChannels ?: lastShared.channels)
             val freshWatching=query("watch_next_program",available)
             if(!current())return@post
+            if(freshChannels==null || freshPublished==null || freshWatching==null)attempt.failed=true
             val usablePublished=when {
                 online!=false -> freshPublished
                 freshPublished?.isEmpty()==true -> null
@@ -161,7 +197,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                         "ROW $name count=${items.size} providers="+items.groupingBy { it.packageName }.eachCount()+
                             " first="+items.take(8).joinToString { "${it.packageName}:${it.mediaType}" }
                     }
-                ui.post { if (active && g == generation) deliver(result) }
+                ui.post { if (current()) deliverStatus(result) }
             }
             publish()
             catalogReadAt=catalogAt
@@ -176,7 +212,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                         catalogAt=maxOf(catalogAt,catalogReadAt)
                         publish()
                     }
-                } } catch (_: Exception) { }
+                } } catch (_: Exception) { if(current())attempt.failed=true }
             }
             if(useCatalog && online!=false && STREMIO in available && STREMIO !in excluded && active && g==generation) {
                 val year=java.time.LocalDate.now().year
@@ -211,13 +247,24 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             }
             if(current()) {
                 snapshotStatus=if(offlineStore.save(OfflineSnapshot(lastShared,lastCatalog,games,sharedAt,catalogAt)))"saved" else "write unavailable"
-                completedRefreshes++; refreshError="none"
+                completedRefreshes++; refreshError=if(attempt.failed)"Some sources unavailable" else "none"
             }
             } catch(e:Exception) {
+                attempt.failed=true
                 if(current())refreshError=e.javaClass.simpleName
                 android.util.Log.w("PrettTvCatalog","Refresh failed: ${e.javaClass.simpleName}")
             } finally {
-                ui.post { if(current()) { ui.removeCallbacks(refreshTask); ui.postDelayed(refreshTask,120_000) } }
+                // Recheck after a failure so a lost network is not mislabeled as a provider failure.
+                val finalNetwork=if(attempt.failed)networkAvailable() else online
+                // Finish on the worker before posting UI work: a delayed main thread must not
+                // briefly show Updating for a request that already completed under the threshold.
+                val finished=refreshState.finish(g,attempt.failed,finalNetwork)
+                readingAttempt=null
+                ui.post { if(current()) {
+                    statusTask?.let(ui::removeCallbacks); statusTask=null
+                    if(finished)deliverStatus()
+                    ui.removeCallbacks(refreshTask); ui.postDelayed(refreshTask,120_000)
+                } }
             }
         }
     }
@@ -289,7 +336,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 fresh.put("pretttvArtVersion",2)
                 AtomicPrivateFile.write(file,fresh.toString().toByteArray(Charsets.UTF_8),500_000)
                 json=fresh
-            } catch (_: Exception) { }
+            } catch (_: Exception) { readingAttempt?.failed=true }
         }
         val j=json ?: return null
         catalogReadAt=maxOf(catalogReadAt,file.lastModified())
@@ -308,9 +355,9 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 val suffix=if(extra.isBlank())"" else "/$extra"
                 val fresh=JSONObject(get("https://v3-cinemeta.strem.io/catalog/$type/$catalog$suffix.json",1_500_000))
                 AtomicPrivateFile.write(file,fresh.toString().toByteArray(Charsets.UTF_8),1_500_000); data=fresh
-            } catch(e:Exception) { android.util.Log.w("PrettTvCatalog","$type/$catalog: ${e.javaClass.simpleName}: ${e.message}") }
+            } catch(e:Exception) { readingAttempt?.failed=true; android.util.Log.w("PrettTvCatalog","$type/$catalog: ${e.javaClass.simpleName}: ${e.message}") }
         }
-        val rows=data?.optJSONArray("metas") ?: return null
+        val rows=data?.optJSONArray("metas") ?: run { sourceFailed(); return null }
         catalogReadAt=maxOf(catalogReadAt,file.lastModified())
         val result=ArrayList<Program>()
         for(i in 0 until minOf(rows.length(),100)) {
@@ -329,7 +376,16 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         return result
     }
 
-    private fun get(url: String, limit: Int): String {
+    private fun get(url:String,limit:Int):String = try {
+        val attempt=readingAttempt
+        if(attempt!=null && (!active || attempt.generation!=generation))throw java.io.InterruptedIOException("Refresh cancelled")
+        request(url,limit)
+    } catch(e:Exception) {
+        readingAttempt?.takeIf { active && it.generation==generation }?.failed=true
+        throw e
+    }
+
+    private fun request(url: String, limit: Int): String {
         var address=URL(url)
         repeat(4) {
         if(address.protocol!="https" || address.userInfo!=null)throw java.io.IOException("Unsupported catalog address")

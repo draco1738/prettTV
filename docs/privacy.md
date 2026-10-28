@@ -6,7 +6,7 @@ prettTV has no analytics SDK, advertising-identifier access or account collectio
 
 ## Data stored on the TV
 
-App order, hidden apps and titles, confirmed playback, launch recency, Watchlist, followed shows, episode-alert state, recommendation feedback, row preferences and favorite teams stay local. Weather preferences and a small recent-reading cache are stored privately on the TV; the selected location is sent to the lookup providers as described below. Hiding a title or correcting its viewing order changes prettTV on this TV; it does not change a shared streaming account. Undo is an in-memory session history.
+App order, hidden apps and titles, confirmed playback, observed provider-progress recency, launch recency, Watchlist, followed shows, episode-alert state, recommendation feedback, row preferences and favorite teams stay local. Weather preferences and a small recent-reading cache are stored privately on the TV; the selected location is sent to the lookup providers as described below. Hiding a title or correcting its viewing order changes prettTV on this TV; it does not change a shared streaming account. Undo is an in-memory session history.
 
 Home stores a bounded private snapshot for offline use, separate from saved titles and recovery credentials. Cached recommendations expire after seven days; sports records have shorter expiry. Saved titles remain until removed or until supported playback confirms they were started. [Watchlist behavior](usage.md#save-titles-to-watchlist) describes the distinction.
 

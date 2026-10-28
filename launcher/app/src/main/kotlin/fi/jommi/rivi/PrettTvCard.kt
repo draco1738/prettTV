@@ -5,10 +5,12 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.*
+import android.os.SystemClock
 import android.text.TextPaint
 import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.animation.DecelerateInterpolator
 
 /** Native still-art card. Remote/focus pattern adapted from Rivi by Jommi (MIT). */
@@ -21,6 +23,9 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
     val isLibraryCard get()=mode==Mode.LIBRARY
     var title=""
     var detail=""
+    var sourceLabel=""
+    var contextLabel=""
+    var secondaryDetail=""
     var summary=""
     var action=""
     var progress=0f
@@ -41,12 +46,19 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG)
     private val spotlightPaint=Paint(Paint.ANTI_ALIAS_FLAG)
     private val text=TextPaint(Paint.ANTI_ALIAS_FLAG)
+    private class TextLineCache {
+        var value=""; var size=0f; var width=0f; var bold=false; var rendered=""
+    }
+    private val textLines=Array(16) { TextLineCache() }
+    private var textLineIndex=0
     private val shape=Path()
     private val compactShape=Path()
     private val actionPlay=Path()
     private val rect=RectF()
     private val imageDestination=RectF()
     private val actionBounds=RectF()
+    private val feedbackBounds=RectF()
+    private val metrics=Paint.FontMetrics()
     private var shade:LinearGradient?=null
     private var leftShade:LinearGradient?=null
     private var focusAmount=0f
@@ -54,6 +66,25 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
     private val focusInterpolator=DecelerateInterpolator()
     private val ivory=0xFFF4F1E9.toInt()
     private val muted=0xFFBCC4BA.toInt()
+    private val sage=0xFFCEDAC6.toInt()
+    private var confirmHeld=false
+    private var longPressHandled=false
+    private var holdStarted=0L
+    private var holdAmount=0f
+    private var boundaryVisible=false
+    private val hideBoundary=Runnable { boundaryVisible=false; invalidate() }
+    private val holdTick=object:Runnable {
+        override fun run() {
+            if(!confirmHeld || !isFocused || !isShown || !hasWindowFocus()) { cancelHold(); return }
+            val elapsed=SystemClock.uptimeMillis()-holdStarted
+            if(elapsed>=ViewConfiguration.getLongPressTimeout()) { cancelHold(); return }
+            holdAmount=if(ValueAnimator.areAnimatorsEnabled())
+                ((elapsed-180).toFloat()/(ViewConfiguration.getLongPressTimeout()-180).coerceAtLeast(1)).coerceIn(0f,1f) else 1f
+            invalidate()
+            if(ValueAnimator.areAnimatorsEnabled())postOnAnimation(this)
+            else postDelayed(this,(ViewConfiguration.getLongPressTimeout()-elapsed).coerceAtLeast(1))
+        }
+    }
     private fun s(n:Float)=n*unit
     init { isFocusable=true; isClickable=true; id=generateViewId() }
     override fun onSizeChanged(w:Int,h:Int,oldw:Int,oldh:Int) {
@@ -62,10 +93,6 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
             compactShape.reset()
             imageDestination.set(s(3f),s(6f),w*.52f,h-s(6f))
             compactShape.addRoundRect(imageDestination,s(10f),s(10f),Path.Direction.CW)
-        }
-        if(mode==Mode.HERO) {
-            val inset=s(38f)
-            actionPlay.reset(); actionPlay.moveTo(inset+s(26f),h-s(68f)); actionPlay.lineTo(inset+s(26f),h-s(46f)); actionPlay.lineTo(inset+s(44f),h-s(57f)); actionPlay.close()
         }
         shade=if(mode==Mode.SHOW)LinearGradient(0f,0f,0f,h.toFloat(),
             intArrayOf(0x000A100C,0x000A100C,0xE60A100C.toInt(),0xF20A100C.toInt()),
@@ -78,10 +105,17 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
             setLocalMatrix(Matrix().apply { setScale(w*.94f,h*1.4f); postTranslate(w*.23f,0f) })
         }
     }
-    private fun line(c:Canvas,value:String,x:Float,y:Float,size:Float,max:Float,color:Int=ivory,bold:Boolean=false) {
-        text.color=color; text.textSize=s(size)*resources.configuration.fontScale
+    private fun line(c:Canvas,value:String,x:Float,y:Float,size:Float,max:Float,color:Int=ivory,bold:Boolean=false,alpha:Float=1f) {
+        if(value.isEmpty() || alpha<=0f)return
+        text.color=color; text.alpha=(Color.alpha(color)*alpha).toInt(); text.textSize=s(size)*resources.configuration.fontScale
         text.typeface=if(bold)mediumTypeface else regularTypeface
-        c.drawText(TextUtils.ellipsize(value,text,max.coerceAtLeast(1f),TextUtils.TruncateAt.END).toString(),x,y,text)
+        val bounded=max.coerceAtLeast(1f)
+        val cached=textLines[textLineIndex++ % textLines.size]
+        if(cached.value!=value || cached.size!=text.textSize || cached.width!=bounded || cached.bold!=bold) {
+            cached.value=value; cached.size=text.textSize; cached.width=bounded; cached.bold=bold
+            cached.rendered=TextUtils.ellipsize(value,text,bounded,TextUtils.TruncateAt.END).toString()
+        }
+        c.drawText(cached.rendered,x,y,text)
     }
     private fun paragraph(c:Canvas,value:String,x:Float,y:Float,width:Float) {
         text.color=muted; text.textSize=s(22f)*resources.configuration.fontScale; text.typeface=regularTypeface
@@ -106,6 +140,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         line(c,title,x+offset,y,size,max-offset,bold=true)
     }
     override fun onDraw(c:Canvas) {
+        textLineIndex=0
         val w=width.toFloat(); val h=height.toFloat(); val inset=s(if(mode==Mode.HERO)38f else 22f)
         val compact=mode==Mode.COMPACT; val image=art
         c.save(); c.clipPath(shape)
@@ -157,31 +192,47 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         if(mode==Mode.HERO || mode==Mode.SHOW) { paint.shader=shade; c.drawRect(rect,paint); paint.shader=null }
         when(mode) {
             Mode.HERO -> {
-                titleLine(c,inset,h-s(183f),58f,w-2*inset)
-                line(c,detail,inset,h-s(133f),25f,w-2*inset,muted)
-                if(progress>0) {
-                    paint.color=0xFF414840.toInt(); c.drawRoundRect(inset,h-s(115f),inset+s(370f),h-s(108f),s(3f),s(3f),paint)
-                    paint.color=ivory; c.drawRoundRect(inset,h-s(115f),inset+s(370f)*progress,h-s(108f),s(3f),s(3f),paint)
-                }
+                val font=resources.configuration.fontScale
+                val buttonH=s(36f+32f*font)
+                val buttonTop=h-s(30f)-buttonH
+                val progressY=buttonTop-s(32f)
+                val detailY=progressY-s(39f)*font
+                val titleY=detailY-s(50f)*font
+                titleLine(c,inset,titleY,58f,w-2*inset)
+                line(c,detail,inset,detailY,25f,w-2*inset,ivory)
+                if(validProgress()) {
+                    val trackW=minOf(s(220f),w*.30f)
+                    paint.color=0xFF414840.toInt(); c.drawRoundRect(inset,progressY-s(2f),inset+trackW,progressY+s(2f),s(2f),s(2f),paint)
+                    paint.color=ivory; c.drawRoundRect(inset,progressY-s(2f),inset+trackW*progress,progressY+s(2f),s(2f),s(2f),paint)
+                    line(c,secondaryDetail,inset+trackW+s(18f),progressY+s(7f),22f,w-2*inset-trackW-s(18f),muted)
+                } else line(c,secondaryDetail,inset,progressY+s(7f),22f,w-2*inset,muted)
                 text.textSize=s(26f)*resources.configuration.fontScale; text.typeface=mediumTypeface
-                val buttonW=(text.measureText(action)+s(82f)).coerceAtMost(w-2*inset)
-                actionBounds.set(inset,h-s(89f),inset+buttonW,h-s(25f))
-                paint.color=if(isFocused)0x70101712 else 0x35101712; c.drawRoundRect(actionBounds,s(23f),s(23f),paint)
-                paint.color=if(isFocused)ivory else 0xFF89958A.toInt(); paint.style=Paint.Style.STROKE; paint.strokeWidth=s(if(isFocused)2.5f else 1.3f)
-                c.drawRoundRect(actionBounds,s(23f),s(23f),paint); paint.style=Paint.Style.FILL
-                paint.color=ivory
+                val buttonW=(text.measureText(action)+s(82f)).coerceAtMost((w-2*inset)*.72f)
+                actionBounds.set(inset,buttonTop,inset+buttonW,h-s(30f))
+                paint.color=if(isFocused)ivory else sage; c.drawRoundRect(actionBounds,s(23f),s(23f),paint)
+                val cy=actionBounds.centerY()
+                actionPlay.reset(); actionPlay.moveTo(inset+s(29f),cy-s(9f)); actionPlay.lineTo(inset+s(29f),cy+s(9f)); actionPlay.lineTo(inset+s(42f),cy); actionPlay.close()
+                paint.color=0xFF142016.toInt()
                 c.drawPath(actionPlay,paint)
-                line(c,action,inset+s(60f),h-s(47f),26f,buttonW-s(76f),ivory,true)
+                text.getFontMetrics(metrics)
+                val actionY=cy-(metrics.ascent+metrics.descent)/2
+                line(c,action,inset+s(60f),actionY,26f,buttonW-s(76f),0xFF142016.toInt(),true)
+                line(c,sourceLabel,actionBounds.right+s(20f),actionY,23f,w-inset-actionBounds.right-s(20f),muted)
             }
             Mode.COMPACT -> {
                 val x=artW+s(25f); val space=w-x-s(6f)
                 titleLine(c,x,s(40f),29f,space)
-                line(c,detail,x,s(78f),23f,space,muted)
+                line(c,sourceLabel.ifBlank { detail },x,s(78f),23f,space,muted)
                 paragraph(c,summary,x,s(122f),space)
             }
             Mode.SHOW -> {
-                titleLine(c,inset,h-s(53f),29f,w-2*inset)
-                line(c,detail,inset,h-s(21f),22f,w-2*inset,muted)
+                val font=resources.configuration.fontScale
+                val hasSecondary=secondaryDetail.isNotBlank()
+                val secondaryY=h-s(16f+4f*(font-1f).coerceAtLeast(0f))
+                val sourceY=secondaryY-if(hasSecondary)s(20f*font+12f) else 0f
+                titleLine(c,inset,sourceY-s(22f*font+12f),29f,w-2*inset)
+                line(c,sourceLabel.ifBlank { detail },inset,sourceY,22f,w-2*inset,muted)
+                if(hasSecondary)line(c,secondaryDetail,inset,secondaryY,20f,w-2*inset,muted,alpha=focusAmount)
             }
             Mode.SPORT -> {
                 line(c,summary,inset,s(33f),20f,w-2*inset,muted)
@@ -201,9 +252,20 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
                 text.textAlign=Paint.Align.LEFT
             }
         }
-        if(progress>0 && mode==Mode.SHOW) {
+        if(validProgress() && mode==Mode.SHOW) {
             paint.color=0xFF435448.toInt(); c.drawRect(inset,h-s(9f),w-inset,h-s(5f),paint)
             paint.color=ivory; c.drawRect(inset,h-s(9f),inset+(w-inset*2)*progress,h-s(5f),paint)
+        }
+        if(holdAmount>0f) {
+            val x=(w-s(80f))/2; val y=h-s(15f)
+            paint.color=0xFF667563.toInt(); c.drawRoundRect(x,y,x+s(80f),y+s(5f),s(2.5f),s(2.5f),paint)
+            paint.color=ivory; c.drawRoundRect(x,y,x+s(80f)*holdAmount,y+s(5f),s(2.5f),s(2.5f),paint)
+        }
+        if(boundaryVisible) {
+            val badgeW=s(60f)*resources.configuration.fontScale
+            feedbackBounds.set(w-badgeW-s(12f),s(9f),w-s(12f),s(40f)*resources.configuration.fontScale)
+            paint.color=0xF0142016.toInt(); c.drawRoundRect(feedbackBounds,s(9f),s(9f),paint)
+            line(c,"End",feedbackBounds.left+s(10f),feedbackBounds.bottom-s(8f),18f,badgeW-s(20f),ivory,true)
         }
         c.restore()
         paint.style=Paint.Style.STROKE
@@ -214,6 +276,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
     }
     override fun onFocusChanged(gain:Boolean,direction:Int,old:Rect?) {
         super.onFocusChanged(gain,direction,old); cancelFocusMotion()
+        if(!gain)clearFeedback()
         val target=focusScale(gain); val amount=if(gain)1f else 0f
         if(ValueAnimator.areAnimatorsEnabled() && isAttachedToWindow && windowVisibility==VISIBLE && isShown) {
             animate().scaleX(target).scaleY(target).setDuration(140).setInterpolator(focusInterpolator).start()
@@ -240,15 +303,51 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
     }
     override fun onWindowVisibilityChanged(visibility:Int) {
         super.onWindowVisibilityChanged(visibility)
-        if(visibility!=VISIBLE)settleFocus()
+        if(visibility!=VISIBLE) { clearFeedback(); settleFocus() }
     }
     override fun onVisibilityAggregated(isVisible:Boolean) {
         super.onVisibilityAggregated(isVisible)
-        if(!isVisible)settleFocus()
+        if(!isVisible) { clearFeedback(); settleFocus() }
     }
-    override fun onDetachedFromWindow() { settleFocus(); super.onDetachedFromWindow() }
+    override fun onWindowFocusChanged(hasWindowFocus:Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        if(!hasWindowFocus)clearFeedback()
+    }
+    override fun onDetachedFromWindow() { clearFeedback(); settleFocus(); super.onDetachedFromWindow() }
+    private fun validProgress()=progress.isFinite() && progress>0f && progress<=1f
+    /** A bounded, static cue. No shake, layout movement, sound or idle animation. */
+    fun showBoundaryFeedback() {
+        if(!isFocused || !isAttachedToWindow || !isShown)return
+        removeCallbacks(hideBoundary); boundaryVisible=true; invalidate(); postDelayed(hideBoundary,650)
+    }
+    private fun cancelHold() {
+        confirmHeld=false; removeCallbacks(holdTick)
+        if(holdAmount!=0f) { holdAmount=0f; invalidate() }
+    }
+    private fun clearFeedback() {
+        cancelHold(); longPressHandled=true; removeCallbacks(hideBoundary)
+        if(boundaryVisible) { boundaryVisible=false; invalidate() }
+    }
     private fun confirm(key:Int)=key==KeyEvent.KEYCODE_DPAD_CENTER || key==KeyEvent.KEYCODE_ENTER || key==KeyEvent.KEYCODE_NUMPAD_ENTER
-    override fun onKeyDown(key:Int,event:KeyEvent):Boolean { if(!confirm(key))return super.onKeyDown(key,event); if(event.repeatCount==0)event.startTracking(); return true }
-    override fun onKeyLongPress(key:Int,event:KeyEvent):Boolean { if(!confirm(key))return super.onKeyLongPress(key,event); performLongClick(); return true }
-    override fun onKeyUp(key:Int,event:KeyEvent):Boolean { if(!confirm(key))return super.onKeyUp(key,event); if(event.isTracking && !event.isCanceled)performClick(); return true }
+    override fun onKeyDown(key:Int,event:KeyEvent):Boolean {
+        if(!confirm(key)) { cancelHold(); longPressHandled=true; return super.onKeyDown(key,event) }
+        if(event.repeatCount==0) {
+            cancelHold(); longPressHandled=false; event.startTracking()
+            if((mode==Mode.APP || mode==Mode.LIBRARY) && isLongClickable && isFocused) {
+                confirmHeld=true; holdStarted=SystemClock.uptimeMillis(); postDelayed(holdTick,180)
+            }
+        }
+        return true
+    }
+    override fun onKeyLongPress(key:Int,event:KeyEvent):Boolean {
+        if(!confirm(key))return super.onKeyLongPress(key,event)
+        longPressHandled=true; cancelHold(); if(isFocused)performLongClick(); return true
+    }
+    override fun onKeyUp(key:Int,event:KeyEvent):Boolean {
+        if(!confirm(key))return super.onKeyUp(key,event)
+        cancelHold()
+        if(event.isTracking && !event.isCanceled && !longPressHandled)performClick()
+        longPressHandled=false
+        return true
+    }
 }

@@ -9,14 +9,16 @@
 
 ![C Balanced on the TCL TV: a large recently watched title, two discovery cards, dark app tiles and a Continue watching row.](docs/screenshots/C-balanced.png)
 
-*C · Balanced is the default. The gallery retains unedited v0.2.2 TCL captures. These show the 36-pixel Your apps corners and predate the optional weather header.*
+*C · Balanced is the default. The A/B/C gallery shows 0.4.0 running on the TCL TV, including persistent top navigation and the refined Home cards. These are device captures, not rendered mockups.*
+
+**0.4.0 source:** Six visual refinements and persistent opaque top navigation are implemented here. See the [versioned validation record](docs/validation.md) for actual checks, evidence and limitations; earlier results do not certify a newer build.
 
 ## A home that stays out of the way
 
-- **Pick your layout.** Cinema, Quiet or Balanced, with a hidden left sidebar in all three.
+- **Pick your layout.** Cinema, Quiet or Balanced, with persistent Home, Shows, Library, Inputs, Search and Settings navigation above the content.
 - **Put recent viewing first.** A large feature and separate Shows and Movies rows use supported app progress and locally confirmed playback.
 - **Keep your apps close.** Narrower dark tiles with softer corners and tighter spacing, favorites first, and a finite row with a clear start and end. Hide an app from the row while keeping it in Library.
-- **Follow the focus.** A soft ivory spotlight and a small artwork shift make the selected card clear. Each movement settles; cards do not animate continuously while idle.
+- **Follow the focus.** A soft ivory spotlight, a small artwork shift and reserved metadata space make the selected card clear without moving the rows. Each movement settles; cards do not animate continuously while idle.
 - **Save something for later.** A dedicated Watchlist row keeps your saved titles and their app destinations. Follow shows separately for new-episode alerts.
 - **Make the rows yours.** Reorder or hide content rows, choose card sizes, and browse 20, 40 or 60 discovery titles per row. Suggestions, Discover and Trending put preferred services first.
 - **Follow your teams.** Favorite teams move up Live sports, with optional kickoff reminders while Home is visible.
@@ -28,6 +30,10 @@ Built on [Rivi by Jommi](https://github.com/jommi9/rivi), using native Android V
 > Viewing progress and recommendations depend on what each app shares with Android TV. prettTV does not access a universal streaming history or detect every signed-in account. [How content works →](docs/content-and-sports.md)
 
 Home also retains recent content during outages, offers undo for supported changes, and checks for official updates without installing anything automatically. [Explore the controls →](docs/usage.md)
+
+**In 0.4.0:** The hero separates the title, supplied episode details, valid progress/remaining time and source app around one clear action. Hold OK opens a compact dark app panel with Open focused first; Force stop retains its separate Cancel-first confirmation. Stronger section headings, brief hold/end feedback, and refreshes that retain cards and artwork complete the six refinements. The opaque top bar stays visible in every layout; weather freshness is available in Settings without a cached label beside the temperature.
+
+Continue watching reorders promptly by supported recency while keeping the selected title focused. The hero follows the latest eligible record. Observed changes in provider progress remain separate from confirmed local playback: timestamp refreshes alone never promote a title, and provider observations do not automatically remove titles from Watchlist. Choosing Home in the top bar resets the page and all rows to their default start, matching the remote's Home action.
 
 **Added in v0.3.2:** Hold OK on an installed app in Your apps or Library to choose [Force stop](docs/usage.md#restart-an-apps-connections). Confirm to close that app, then choose Done or Open app to reconnect. Logins and saved data are kept. Direct stopping requires the existing authorized TV-local recovery connection; otherwise App info provides Android's control. Home and essential TV services are protected. [Validation results →](docs/validation.md)
 
@@ -76,14 +82,25 @@ Your apps retains the **36-pixel corners** introduced in v0.2.2, with 208-pixel 
 <details>
 <summary><strong>View A · Cinema</strong></summary>
 
-![A Cinema captured on the TCL TV.](docs/screenshots/A-cinema.png)
+![prettTV 0.4.0 A Cinema captured on the TCL TV.](docs/screenshots/A-cinema.png)
 
 </details>
 
 <details>
 <summary><strong>View B · Quiet</strong></summary>
 
-![B Quiet captured on the TCL TV.](docs/screenshots/B-quiet.png)
+![prettTV 0.4.0 B Quiet captured on the TCL TV.](docs/screenshots/B-quiet.png)
+
+</details>
+
+<details>
+<summary><strong>Persistent navigation and app actions</strong></summary>
+
+The opaque top bar remains visible while content scrolls. Hold OK on an installed app to open its contextual action panel with Open selected first.
+
+![prettTV 0.4.0 persistent top navigation on the TCL TV.](docs/screenshots/top-navigation.png)
+
+![prettTV 0.4.0 anchored app-action panel on the TCL TV.](docs/screenshots/app-actions.png)
 
 </details>
 
@@ -92,7 +109,7 @@ Your apps retains the **36-pixel corners** introduced in v0.2.2, with 208-pixel 
 
 Continue watching · Shows → Continue watching · Movies → Watchlist → New episodes when available → Live sports → Suggestions → Discover → Trending → New releases.
 
-This is the default order; **Settings → Customize rows** lets you change it. The capture below shows the existing discovery styling; it predates the additional rows.
+This is the default order; **Settings → Customize rows** lets you change it. The separate discovery capture below is historical: it predates the additional rows and 0.4.0 navigation.
 
 ![Suggestions, Discover and Trending on the TCL TV.](docs/screenshots/discover-row.png)
 
@@ -104,7 +121,8 @@ This is the default order; **Settings → Customize rows** lets you change it. T
 | :--- | :--- |
 | **Arrows / OK** | Move between cards / open the selected item. |
 | **Hold OK** | Arrange apps; save, follow, dismiss or inspect a title; correct recent viewing. |
-| **Left at the first card** | Reveal the sidebar; Right or Back closes it. |
+| **Left / Right at row ends** | Stop at the first / last card; rows do not wrap. |
+| **Up from the first content card / Down from navigation** | Reach the top bar / return to the remembered content card. |
 | **Back from content** | Return to the top. |
 | **Menu** | Open prettTV Settings. |
 

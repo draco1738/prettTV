@@ -3,13 +3,16 @@ package fi.jommi.rivi
 import android.animation.ValueAnimator
 import android.app.Instrumentation
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.os.SystemClock
+import android.os.PowerManager
 import android.view.View
+import android.view.KeyEvent
 import android.widget.LinearLayout
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
@@ -18,6 +21,9 @@ import kotlin.math.abs
 internal object CardFocusAndroidChecks {
     private val amountField=PrettTvCard::class.java.getDeclaredField("focusAmount").apply { isAccessible=true }
     private val motionField=PrettTvCard::class.java.getDeclaredField("focusMotion").apply { isAccessible=true }
+    private val holdField=PrettTvCard::class.java.getDeclaredField("holdAmount").apply { isAccessible=true }
+    private val heldField=PrettTvCard::class.java.getDeclaredField("confirmHeld").apply { isAccessible=true }
+    private val boundaryField=PrettTvCard::class.java.getDeclaredField("boundaryVisible").apply { isAccessible=true }
     private fun amount(card:PrettTvCard)=amountField.getFloat(card)
     private fun motion(card:PrettTvCard)=motionField.get(card) as? ValueAnimator
     private fun near(actual:Float,expected:Float)=abs(actual-expected)<.001f
@@ -40,7 +46,22 @@ internal object CardFocusAndroidChecks {
                 } }
             }
             val first=cards[0]; val second=cards[1]
-            waitFor(instrumentation) { activity.hasWindowFocus() && first.isAttachedToWindow && first.isShown && first.width==208 }
+            try {
+                waitFor(instrumentation) { activity.hasWindowFocus() && first.isAttachedToWindow && first.isShown && first.width==208 }
+            } catch(failure:IllegalStateException) {
+                val readiness=main(instrumentation) {
+                    val decor=activity.window.decorView
+                    val power=activity.getSystemService(PowerManager::class.java)
+                    "windowFocus=${activity.hasWindowFocus()} decorFocus=${decor.hasWindowFocus()} " +
+                        "attached=${first.isAttachedToWindow} shown=${first.isShown} visibility=${first.visibility} " +
+                        "windowVisibility=${first.windowVisibility} width=${first.width} height=${first.height} " +
+                        "laidOut=${first.isLaidOut} layoutRequested=${first.isLayoutRequested} " +
+                        "decorAttached=${decor.isAttachedToWindow} decorShown=${decor.isShown} " +
+                        "decorSize=${decor.width}x${decor.height} finishing=${activity.isFinishing} " +
+                        "destroyed=${activity.isDestroyed} interactive=${power?.isInteractive}"
+                }
+                throw IllegalStateException("Card fixture never became ready: $readiness",failure)
+            }
             fun reset() {
                 main(instrumentation) { row!!.visibility=View.VISIBLE; check(second.requestFocus()) }
                 waitFor(instrumentation) { settled(first,false) && settled(second,true) }
@@ -109,6 +130,95 @@ internal object CardFocusAndroidChecks {
                     check(settled(card,true))
                     check(sibling.requestFocus())
                     check(settled(card,false) && settled(sibling,true))
+                }
+            }
+            test("App OK hold feedback cancels on release focus loss Back hiding and detach") {
+                reset()
+                var clicks=0; var longClicks=0
+                fun key(action:Int,code:Int=KeyEvent.KEYCODE_DPAD_CENTER,flags:Int=0)=
+                    KeyEvent(SystemClock.uptimeMillis(),SystemClock.uptimeMillis(),action,code,0,0,-1,0,flags)
+                fun begin()=main(instrumentation) {
+                    check(first.requestFocus()); first.onKeyDown(KeyEvent.KEYCODE_DPAD_CENTER,key(KeyEvent.ACTION_DOWN))
+                    check(heldField.getBoolean(first)); check(near(holdField.getFloat(first),0f))
+                }
+                main(instrumentation) {
+                    first.setOnClickListener { clicks++ }
+                    first.setOnLongClickListener { longClicks++; true }
+                }
+                begin()
+                main(instrumentation) { first.onKeyUp(KeyEvent.KEYCODE_DPAD_CENTER,key(KeyEvent.ACTION_UP,flags=KeyEvent.FLAG_TRACKING)) }
+                SystemClock.sleep(220)
+                main(instrumentation) { check(clicks==1 && longClicks==0); check(!heldField.getBoolean(first) && near(holdField.getFloat(first),0f)) }
+                begin()
+                SystemClock.sleep(210)
+                main(instrumentation) {
+                    check(holdField.getFloat(first)>0f) { "Holding OK did not reveal the bounded track" }
+                    check(second.requestFocus()); check(!heldField.getBoolean(first) && near(holdField.getFloat(first),0f))
+                }
+                begin()
+                main(instrumentation) {
+                    first.onKeyDown(KeyEvent.KEYCODE_BACK,key(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_BACK))
+                    first.onKeyUp(KeyEvent.KEYCODE_DPAD_CENTER,key(KeyEvent.ACTION_UP,flags=KeyEvent.FLAG_TRACKING))
+                    check(clicks==1 && !heldField.getBoolean(first)) { "Back did not cancel the pending app click" }
+                }
+                begin()
+                main(instrumentation) { row!!.visibility=View.INVISIBLE; check(!heldField.getBoolean(first)); row!!.visibility=View.VISIBLE }
+                begin()
+                main(instrumentation) {
+                    row!!.removeView(first); check(!heldField.getBoolean(first)); row!!.addView(first,0,LinearLayout.LayoutParams(208,94))
+                }
+                begin()
+                main(instrumentation) {
+                    first.onKeyLongPress(KeyEvent.KEYCODE_DPAD_CENTER,key(KeyEvent.ACTION_DOWN))
+                    first.onKeyUp(KeyEvent.KEYCODE_DPAD_CENTER,key(KeyEvent.ACTION_UP,flags=KeyEvent.FLAG_TRACKING))
+                    check(longClicks==1 && clicks==1) { "Long press also launched the app on release" }
+                    check(!heldField.getBoolean(first) && near(holdField.getFloat(first),0f))
+                }
+            }
+            test("End-of-row feedback is finite and is cleared by focus loss") {
+                reset()
+                main(instrumentation) { check(first.requestFocus()); first.showBoundaryFeedback(); check(boundaryField.getBoolean(first)) }
+                waitFor(instrumentation) { !boundaryField.getBoolean(first) }
+                main(instrumentation) {
+                    first.showBoundaryFeedback(); check(boundaryField.getBoolean(first)); check(second.requestFocus())
+                    check(!boundaryField.getBoolean(first))
+                }
+            }
+            test("Focused show metadata uses reserved space at standard and enlarged fonts") {
+                main(instrumentation) {
+                    for(font in listOf(1f,1.3f,2f)) {
+                        val scaled=context.createConfigurationContext(Configuration(context.resources.configuration).apply { fontScale=font })
+                        val card=PrettTvCard(scaled,1f,PrettTvCard.Mode.SHOW).apply {
+                            title="A very long title that must stay inside this fixed card"
+                            sourceLabel="Apple TV"; secondaryDetail="Season 1 · Episode 3 · 23 min left"
+                            progress=.45f; layout(0,0,420,190)
+                        }
+                        amountField.setFloat(card,0f); val before=raster(card)
+                        amountField.setFloat(card,1f); val after=raster(card)
+                        try {
+                            check(card.width==420 && card.height==190)
+                            check(!before.sameAs(after)) { "Focused metadata did not appear at font scale $font" }
+                            assertFixedIvory(before,after,PrettTvCard.Mode.SHOW)
+                            // Long titles must not escape the rounded card or cover the progress track.
+                            check(Color.alpha(after.getPixel(0,0))==0)
+                            check(after.getPixel(22,182)==0xFFF4F1E9.toInt())
+                        } finally { before.recycle(); after.recycle() }
+                    }
+                }
+            }
+            test("Hero and show progress reject invalid and out-of-range values") {
+                main(instrumentation) {
+                    for(mode in listOf(PrettTvCard.Mode.HERO,PrettTvCard.Mode.SHOW)) {
+                        val (w,h)=dimensions(mode)
+                        val card=PrettTvCard(context,1f,mode).apply { title="Title"; action="Open app"; layout(0,0,w,h) }
+                        card.progress=0f; val empty=raster(card)
+                        try {
+                            for(value in listOf(Float.NaN,Float.POSITIVE_INFINITY,-.5f,1.1f)) {
+                                card.progress=value; val invalid=raster(card)
+                                try { check(empty.sameAs(invalid)) { "$mode rendered invalid progress $value" } } finally { invalid.recycle() }
+                            }
+                        } finally { empty.recycle() }
+                    }
                 }
             }
             test("All card modes move artwork while preserving overlays and covered landscape edges") {

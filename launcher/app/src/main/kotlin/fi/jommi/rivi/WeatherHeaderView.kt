@@ -28,13 +28,13 @@ class WeatherHeaderView @JvmOverloads constructor(
     private val glyph=WeatherGlyph(context)
     private val temperature=label(26,ivory)
     init {
-        orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;isFocusable=false
+        orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;isBaselineAligned=false;isFocusable=false
         importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_YES
-        addView(city,LayoutParams(-2,-1).apply { rightMargin=px(22) })
-        addView(glyph,LayoutParams(px(30),px(30)).apply { rightMargin=px(12) })
+        addView(city,LayoutParams(-2,-1).apply { rightMargin=px(16) })
+        addView(glyph,LayoutParams(px(30),px(30)).apply { rightMargin=px(10) })
         addView(temperature,LayoutParams(-2,-1))
         addView(View(context).apply { setBackgroundColor(0xFF4B584B.toInt());importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO },
-            LayoutParams(px(1).coerceAtLeast(1),px(24)).apply { leftMargin=px(24);rightMargin=px(4) })
+            LayoutParams(px(1).coerceAtLeast(1),px(24)).apply { leftMargin=px(20);rightMargin=px(20) })
     }
     fun bind(state:WeatherState,enabled:Boolean,units:String) {
         val location=state.location
@@ -43,13 +43,14 @@ class WeatherHeaderView @JvmOverloads constructor(
         city.text=location.city
         val reading=state.reading
         temperature.text=when {
-            reading!=null->WeatherPolicy.formatTemperature(reading.temperatureCelsius,units)+(if(state.stale)" · cached" else "")
+            reading!=null->WeatherPolicy.formatTemperature(reading.temperatureCelsius,units)
             state.loading->"Updating…"
             else->"Unavailable"
         }
         glyph.visibility=if(reading==null || reading.condition==WeatherCondition.UNKNOWN)View.GONE else View.VISIBLE
         if(reading!=null)glyph.bind(reading.condition,reading.isNight)
-        contentDescription=listOf(location.city,temperature.text.toString(),reading?.description.orEmpty()).filter(String::isNotBlank).joinToString(", ")
+        contentDescription=listOf(location.city,temperature.text.toString(),reading?.description.orEmpty(),
+            if(reading!=null && state.stale)"Cached weather reading" else "").filter(String::isNotBlank).joinToString(", ")
     }
 }
 
