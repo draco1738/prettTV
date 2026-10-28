@@ -45,6 +45,7 @@
 
         <activity android:name=".UpdateActivity" android:exported="false"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode|locale|layoutDirection|density|fontScale|smallestScreenSize" />
+        <activity android:name=".AppForceStopActivity" android:exported="false" />
         <receiver android:name=".UpdateInstallReceiver" android:exported="false" />
 
         <activity android:name=".DiscoveryActivity" android:exported="false"

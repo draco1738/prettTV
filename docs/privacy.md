@@ -63,8 +63,11 @@ The installers do not grant Notification or Accessibility access. You enable the
 | EarthCam idle handoff | Select prettTV's EarthCam service as the system screensaver | Open the already-installed official app once when Android starts the dream; no Accessibility, overlay or account access. |
 | prettTV updates | Allow installation from prettTV, then Android's installation confirmation | Install a verified newer prettTV APK only after you choose Install. It does not update RBTV or other apps. |
 | Full stock recovery | Authorized local TCP debugging and the private setup record | Restore the recorded Home, disabled-app states and DNS after two confirmations. |
+| Force stop an app | Existing authorized local TCP debugging key and device record | After an explicit app-menu confirmation, stop only the selected launchable app and verify its stopped state. No storage clearing, uninstall, network reset or automatic relaunch. |
 
 Stock recovery connects only to the TV itself at `127.0.0.1:5555`, using its own private key rather than the computer's ADB key. It does not enable debugging automatically. Keep the original device-specific setup records outside GitHub and public releases. Read the [recovery guide](stock-recovery.md) for prerequisites and failure behavior.
+
+The app-menu Force stop action reuses that existing TV-local key. It does not generate or authorize a new key, import account information, or invoke stock recovery. It checks the saved TV identity, current Android user and selected app before issuing a bounded stop command. System controls and Home are excluded. If prerequisites are missing, it offers Android's App info screen. No background app-killing service or remote command endpoint is exposed.
 
 After a successful stock restore, the optional playback, game and Settings-button helpers pause. **Resume prettTV helpers** in prettTV Settings reactivates them using their existing Android permissions if you return to the launcher later.
 

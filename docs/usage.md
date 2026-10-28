@@ -22,7 +22,7 @@ The default rows below Your apps are **Continue watching · Shows → Continue w
 | --- | --- |
 | Arrows | Move between cards and rows. |
 | OK | Open the focused app, title or action. |
-| Hold OK on an app | Arrange favorites or hide/show it in Your apps. |
+| Hold OK on an app | Arrange favorites, hide/show it in Your apps, or force-stop it. |
 | Hold OK on a title | Save/remove it, inspect details, follow a show, dismiss a recommendation, correct viewing order or hide it. |
 | Left at the start of a row | Reveal the sidebar with a fresh press once the row is at its beginning. Holding Left stops at the boundary. |
 | Right or Back in the sidebar | Close the sidebar and return to the content card. Choosing a destination also closes it. |
@@ -56,6 +56,14 @@ Your apps has a clear beginning and end. Each included launchable app appears on
 Hiding an app only changes Your apps. It stays available in Library, search and viewing history. Hiding from the row moves focus to the next visible app, or the previous app at the end, while preserving the row's scroll position. Hiding from Library keeps focus on the same Library tile. Favorite rearrangement follows the moved app. These arrangement changes do not restart the recommendation feeds.
 
 SportioTV and HD Streamz were removed at the owner's request and are not included in the release. See [companion apps](companion-apps.md) for what the installation bundle includes.
+
+### Restart an app's connections
+
+Hold **OK** on an installed app in **Your apps** or **Library**, choose **Force stop**, then confirm. This closes that app and its connections. Choose **Open app** afterward to start it again, or **Done** to stay in prettTV. Login and saved app data are kept; the action does not clear storage, uninstall the app or reset the TV's network.
+
+Direct force-stop uses the TV-local debugging key and device record already configured for [stock recovery](stock-recovery.md). It does not run a stock restore or enable debugging. If that setup is unavailable, choose **App info** and use Android's Force stop control. prettTV reports success only after checking Android's stopped state. A timeout or cancellation after dispatch can leave the outcome unverified; the screen says so rather than claiming the app stayed open.
+
+Home and essential TV controls are protected. App position, favorites and hidden-row settings are preserved. Force-stop is a manual troubleshooting action, not a background memory cleaner; the selected app's background playback and downloads also stop until it is opened again.
 
 ## Original apps in Library
 

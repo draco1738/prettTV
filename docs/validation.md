@@ -2,6 +2,18 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
+## prettTV 0.3.2 app force stop — local candidate, 2026-10-28
+
+The candidate adds **Force stop** to eligible installed-app long-press menus in Your apps and Library. Confirmation defaults to Cancel. A verified stop offers Done or an explicit Open app action. The separate non-exported screen preserves the Home row and uses the existing TV-local recovery identity and key; it never creates an authorization prompt, clears app data, restores stock settings or automatically reopens the target.
+
+The local build passed **296 JVM tests across 25 suites**, including **23 force-stop policy and failure tests**. Coverage includes saved-TV and current-user mismatch, package injection, Home/system protections, updated preinstalled apps, wrong-user stopped state, target/user changes, command denial, lost acknowledgement, cancellation and verified completion. The initial missing-user fixture incorrectly included user 0 as an installed eligible user; that fixture was corrected without relaxing production checks.
+
+Android lint reports **zero errors and 32 existing warnings**, with no new warnings from this addition. Release, isolated stability, instrumentation and fixture APKs built successfully. The **633,247-byte** signed candidate is version **0.3.2 / code 18**, with SHA-256 `d8f3986c68207f4df876d1cde10ce0b376987b355fa11c48a6476263d4f8abfc` and the established release certificate `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`.
+
+Independent source review found a recovery busy guard that could throw from the main-thread confirmation handler. It now reports a recoverable busy result and starts no recovery work. Seven targeted native checks are compiled for the isolated stability package, covering that regression, protected targets, safe default focus, held keys, recreation, missing setup and both app-menu entry points. Their runner refuses existing test packages and removes only its own installations.
+
+**Device validation, native visual review, real force-stop execution and publication are pending.** No test execution against the production TV is claimed. The owner was still in HBO Max during a read-only check; the TV remained on prettTV 0.3.1. This candidate does not establish a fix for a particular app's network, decoder or playback problems, and it has not repeated the historical soak test.
+
 ## prettTV 0.3.1 Settings-button repair — 2026-10-20
 
 The signed **0.3.1 / code 17** candidate installed in place. Its **618,071-byte** APK has SHA-256 `86078c6034309bc33c78181ec2b4b4b291346adaa4d46493db684735837ba2ef` and the established release certificate `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`.

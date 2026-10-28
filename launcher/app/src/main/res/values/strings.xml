@@ -32,4 +32,7 @@
     <string name="home_button_off">Home button: opens Google TV. Turn on \"Rivi Home button\" under Accessibility.</string>
     <string name="stock_recovery_title">Return to stock Google TV</string>
     <string name="stock_recovery_status">Return to stock Google TV\n\n%1$s</string>
+    <string name="force_stop_title">Force stop · %1$s</string>
+    <string name="force_stop_progress">Stopping %1$s…</string>
+    <string name="force_stop_cancelling">Cancelling…</string>
 </resources>

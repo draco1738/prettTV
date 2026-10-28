@@ -159,6 +159,8 @@ components:
 
 # Design System: prettTV
 
+The installed-app long-press menu includes **Force stop** for eligible apps. Its separate native confirmation defaults to Cancel, keeps the existing dark dialog theme and returns to the same Home context. A verified stop offers Done and Open app; a failed connection offers App info. The operation never silently relaunches the app or redraws/reorders the app row. Labels describe stopping an app, not clearing its data or resetting the TV network.
+
 ## Overview
 
 **Creative North Star: "A quiet television home"**

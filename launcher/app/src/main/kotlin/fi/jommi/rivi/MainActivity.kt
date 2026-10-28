@@ -831,6 +831,9 @@ class MainActivity : Activity() {
         } else items+="Add to favorites" to { favs.add(e.key); prefs.favourites=favs; changed() }
         if(e.key in prefs.hidden)items+="Show in Your apps row" to { prefs.hidden=prefs.hidden-e.key; changed() }
         else items+="Hide from Your apps row" to { prefs.hidden=prefs.hidden+e.key; changed() }
+        if(AppForceStopSession.canOffer(this,e.packageName))items+="Force stop" to {
+            safeStart(Intent(this,AppForceStopActivity::class.java).putExtra(AppForceStopActivity.EXTRA_PACKAGE,e.packageName),"Force stop")
+        }
         items+="App info" to { safeStart(repo.appInfoIntent(e.packageName),e.label) }
         var chosen:(()->Unit)?=null
         val menu=AlertDialog.Builder(this).setTitle(e.label)

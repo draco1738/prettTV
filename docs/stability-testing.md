@@ -8,6 +8,7 @@ Use these checks to reproduce build validation, artwork failures and remote navi
 |---|---|---|
 | [Build checks](#build-checks) | Unit tests, lint and test APKs | Computer only |
 | [Artwork fault tests](#artwork-fault-tests) | Decode failures, queue completion, cancellation and cache recovery | Authorized ADB device |
+| [Force-stop app-menu tests](#force-stop-app-menu-tests) | Eligibility, confirmation, cancellation, recreation and recovery-busy handling | Idle authorized test device |
 | [Navigation and lifecycle](#navigation-and-lifecycle) | Focus, process continuity, cold Home and stop/return | Idle TV on the selected layout |
 | [Scrolling comparison](#comparing-scrolling-changes) | Frame statistics and row-navigation regression | Idle TV on the selected layout |
 | [Final feature-release gate](#final-feature-release-gate) | All-layout stress, lifecycle, failure checks and a one-hour soak | Idle TV and isolated fixtures |
@@ -52,6 +53,18 @@ The `stability` variant uses `dev.zane.pretttv.stability`, has no Home/app-launc
 The fixture provider runs inside the same sandbox because the TCL's cross-app autostart policy blocks an externally hosted test provider. No TV policy is changed.
 
 </details>
+
+## Force-stop app-menu tests
+
+After the build command above, use an **idle authorized test device** and PowerShell 7. Set `ANDROID_HOME` to the SDK root (or pass `-Aapt '<path-to-aapt2.exe>'`), then run from the repository root:
+
+```powershell
+./tests/android-force-stop-tests.ps1 -Tv '<serial>' -OutputDirectory 'E:/TV-validation/force-stop'
+```
+
+The runner verifies the APK package IDs, temporarily installs the isolated stability target, instrumentation runner and `fi.jommi.rivi.testapp` fixture, and runs only `forceStopOnly` checks. It requires an explicit `FORCE STOP PASS` result with at least seven tests, including the recovery-busy regression. It refuses to overwrite any existing test installation and removes only packages this invocation installed, with removal verified in `finally`.
+
+These tests open native screens and exercise long-press menus, confirmation, held-key protection, cancellation, activity recreation and missing-setup fallback. **They do not force-stop production apps, configure debugging or execute stock recovery.** Positive-action tests have no recovery plan in their isolated sandbox and must fail before connecting. Keep the TV and remote idle; results are written to the chosen E: directory. `-Adb` and `-Port` select an existing authorized ADB connection.
 
 ## Navigation and lifecycle
 
