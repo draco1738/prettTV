@@ -49,11 +49,21 @@ internal object DiscoveryMetadataPolicy {
         val type = type(program) ?: return null
         tvmaze(program)?.let { return "tvmaze:$it" }
         imdb(program)?.let { return "imdb:$type:$it" }
-        if (type != "series" || program.releaseYear !in 1900..2200 || program.title.length !in 1..300 ||
+        if(program.imdbId.isNotBlank())return null // Do not reinterpret a malformed explicit identity.
+        if (type != "series" || (program.releaseYear!=0 && program.releaseYear !in 1900..2200) || program.title.length !in 1..300 ||
             program.titleKey.isBlank()) return null
         val nameHash = MessageDigest.getInstance("SHA-256").digest(program.titleKey.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it.toInt() and 255) }
         return "title:$type:${program.releaseYear}:$nameHash"
+    }
+
+    /** TVmaze search is fuzzy; accept only one exact name/edition among all returned matches. */
+    fun exactSeriesMatch(title:String,year:Int,candidates:List<Triple<Int,String,Int>>):Int? {
+        if(year!=0 && year !in 1900..2200)return null
+        val normalized=title.trim().replace(Regex("\\s+")," ").lowercase(Locale.ROOT)
+        if(normalized.isBlank())return null
+        return candidates.filter { it.first>0 && it.second.trim().replace(Regex("\\s+")," ").lowercase(Locale.ROOT)==normalized &&
+            (year==0 || it.third==year) }.distinctBy { it.first }.singleOrNull()?.first
     }
 
     fun allowedAddress(address: String): Boolean = try {
@@ -89,7 +99,8 @@ internal object DiscoveryMetadataPolicy {
  * elapsed budget. Each response, redirect, read and cache is bounded. close() disconnects an
  * in-flight request; callers also supply a generation/lifecycle check to discard obsolete work.
  */
-internal class DiscoveryMetadataRepository(private val directory: File) : AutoCloseable {
+internal class DiscoveryMetadataRepository(private val directory: File,
+    private val fetch:((String,Int)->String)?=null) : AutoCloseable {
     private data class Entry(val checkedAt: Long, val metadata: TitleMetadata)
     private val file = File(directory, "metadata-v1.bin")
     private val entries = linkedMapOf<String, Entry>()
@@ -179,23 +190,26 @@ internal class DiscoveryMetadataRepository(private val directory: File) : AutoCl
                 "Cinemeta", address,
             )
         }
-        // Exact title AND original year, unique among search results. No fuzzy first-result guesses.
-        if (type != "series" || program.releaseYear !in 1900..2200) return null
+        // A missing year permits only a unique exact series name. Known years remain mandatory.
+        if (type != "series") return null
         val address = "https://api.tvmaze.com/search/shows?q=${URLEncoder.encode(program.title, "UTF-8")}"
         val rows = JSONArray(request(address, budget))
+        if(rows.length()>100)return null // Do not claim uniqueness from a truncated result set.
         val matches = buildList {
-            for (i in 0 until minOf(rows.length(), 50)) {
+            for (i in 0 until rows.length()) {
                 val show = rows.optJSONObject(i)?.optJSONObject("show") ?: continue
                 add(Triple(show.optInt("id"), show.optString("name"), year(show.optString("premiered"))))
             }
         }
-        val id = EpisodePolicy.exactMatch(program.title, program.releaseYear, matches) ?: return null
-        return tvmaze(id, budget)
+        val id = DiscoveryMetadataPolicy.exactSeriesMatch(program.title, program.releaseYear, matches) ?: return null
+        return tvmaze(id, budget,program)
     }
 
-    private fun tvmaze(id: Int, budget: Budget): TitleMetadata? {
+    private fun tvmaze(id: Int, budget: Budget,expected:Program?=null): TitleMetadata? {
         val data = JSONObject(request("https://api.tvmaze.com/shows/$id?embed%5B%5D=cast&embed%5B%5D=crew", budget))
         if (data.optInt("id") != id) return null
+        if(expected!=null && DiscoveryMetadataPolicy.exactSeriesMatch(expected.title,expected.releaseYear,
+            listOf(Triple(id,data.optString("name"),year(data.optString("premiered")))))!=id)return null
         val embedded = data.optJSONObject("_embedded")
         val cast = embedded?.optJSONArray("cast")
         val crew = embedded?.optJSONArray("crew")
@@ -222,6 +236,12 @@ internal class DiscoveryMetadataRepository(private val directory: File) : AutoCl
     }
 
     private fun request(initialAddress: String, budget: Budget): String {
+        fetch?.let { transport ->
+            budget.check();require(DiscoveryMetadataPolicy.allowedAddress(initialAddress));budget.request()
+            val result=transport(initialAddress,RESPONSE_BYTES)
+            require(result.toByteArray(Charsets.UTF_8).size<=RESPONSE_BYTES)
+            budget.check();return result
+        }
         var address = initialAddress
         repeat(3) {
             budget.check()

@@ -25,6 +25,12 @@ Open **Settings → Customize rows** to reorder or hide content sections, choose
 
 Library remains below the content rows. [Explore all controls →](docs/usage.md)
 
+**New in 0.4.1:** faster returns to Home, repaired TCL app shortcuts and an **Inputs → Audio devices** panel with Bluetooth on/off and **Manage devices**. Direct switching uses an existing authorized local recovery connection and checks the resulting state; without that setup, use the TV's own controls. Turning Bluetooth off disconnects Bluetooth headphones and remotes. [Audio controls →](docs/usage.md#inputs-and-audio-devices)
+
+The optional [Remote buttons helper](docs/usage.md#remote-buttons) maps YouTube to TV Bro and TCL to HBO Max; Netflix, Prime Video, Apple TV and Pluto use their own apps. Disney keeps its native behavior. The Home design remains the 0.4.0 design shown here.
+
+With that helper enabled and the existing local connection authorized, **quickly press speaker Mute twice** to toggle Bluetooth without leaving the current app. A single Mute press stays immediate; the two normal mute events pass through, and a brief status reports the checked Bluetooth result. Use **Inputs → Audio devices** if the shortcut is unavailable.
+
 ## Three layouts, one Home
 
 Switch through **prettTV Settings → Layout**. Apps, saved titles, viewing records and row preferences are shared across layouts.
@@ -140,13 +146,15 @@ Choose **Settings → Recommendation services** to prioritize your services expl
 
 **Blind Pick and Rabbit Hole live at the bottom of Library**, after installed apps. They are built into prettTV and stay out of the upper Your apps row. EarthCam and other optional apps are not part of the release bundle.
 
+The owner's TCL now uses its stock screensaver, and EarthCam has been removed at their request. The optional EarthCam handoff remains available for other installations; upgrading prettTV does not select it automatically.
+
 [Original Library experiences](docs/original-apps.md) · [Sports handoff](docs/content-and-sports.md) · [Weather](docs/usage.md#weather-beside-the-clock) · [EarthCam](docs/earthcam-idle.md)
 
 ## Troubleshooting and recovery
 
 **Restart one app:** Hold OK on an eligible app → **Force stop** → confirm. After a verified stop, choose **Done** or **Open app**. Saved data and logins are kept. Direct stopping requires the existing authorized TV-local recovery connection; **App info** provides Android's controls when that setup is unavailable. Home and essential TV services are protected. This closes an app's connections; it does not reset the TV network or guarantee a fix for playback problems.
 
-**Repair the remote Settings shortcut:** The optional Settings-button helper opens TCL's native quick-settings panel on supported devices and uses standard Android Settings elsewhere. Its Accessibility key filter leaves unrelated buttons alone and does not read screen content. [Setup and limits →](docs/usage.md#remote-settings-button)
+**Repair remote shortcuts:** The optional Remote buttons helper opens TCL's native quick-settings panel and routes supported branded app buttons to their documented destinations. Other manufacturers use standard Android Settings. Its Accessibility key filter leaves unrelated buttons alone and does not read screen content. [Setup and limits →](docs/usage.md#remote-buttons)
 
 **Return to stock:** The button at the bottom of prettTV Settings requires **two confirmations**. With the original private setup record and authorized local TCP debugging configured, it restores recorded TCL/Google app states, Private DNS and Google TV Home while retaining installed streaming apps, logins and prettTV. It is a troubleshooting restore, not a factory reset; a fresh install cannot reconstruct an unknown baseline.
 
@@ -156,7 +164,7 @@ Choose **Settings → Recommendation services** to prioritize your services expl
 
 prettTV uses **Kotlin and native Android Views/Canvas**, progressive artwork loading and bounded caches. Focus effects finish and settle instead of animating continuously. There is no third-party UI framework or analytics SDK.
 
-Personalization and viewing records are stored locally. Catalog, artwork, weather and update requests contact their respective providers, which receive normal connection/request information. Optional playback, game-handoff and Settings-button access is enabled separately in Android settings. prettTV does not remove advertising inside other apps, and its privacy statements do not cover those apps.
+Personalization and viewing records are stored locally. Catalog, artwork, weather and update requests contact their respective providers, which receive normal connection/request information. Optional playback, game-handoff and remote-button access is enabled separately in Android settings. prettTV does not remove advertising inside other apps, and its privacy statements do not cover those apps.
 
 [Privacy, stored data and optional permissions →](docs/privacy.md)
 
@@ -164,17 +172,18 @@ Personalization and viewing records are stored locally. Catalog, artwork, weathe
 
 Use **JDK 17**, **Android SDK platform 34**, **build-tools 35.0.0** and the included Gradle wrapper. See [Development](docs/development.md) for build commands, signing and the source map; [Stability testing](docs/stability-testing.md) describes isolated device checks.
 
-The released **0.4.0** build has the following recorded results:
+The **0.4.1** build has the following recorded results:
 
 | Check | Result |
 | :--- | :--- |
-| JVM tests | **334 passed** across 29 suites. |
-| Targeted Android checks on the TCL TV | **51 passed**, including navigation, refresh, viewing order, focus and normal/enlarged-text dialog checks. |
+| JVM tests | **392 passed** across 34 suites. |
+| Targeted Android checks on the TCL TV | [Versioned device results](docs/validation.md), including Home return, remote shortcuts, Bluetooth settings access, discovery and updater recovery. |
+| Offline harness checks | **73 assertions passed**, including protection against force-stopping an enabled remote helper. |
 | Android lint | **0 errors**, 32 existing warnings. |
 | Installed release artifact | Pulled back from the TV and matched to the signed release SHA-256. |
-| GitHub build | [Passed on the release commit](https://github.com/draco1738/prettTV/actions/runs/40660510276). |
+| GitHub build | [Build workflow and commit-specific results](https://github.com/draco1738/prettTV/actions/workflows/build.yml). |
 
-These are bounded release checks. The historical one-hour soak and frame-time benchmark were **not repeated for 0.4.0**; no universal app coverage or sustained frame-rate guarantee is implied. CI builds the Android test APKs but does not run them on a TV. [Full versioned evidence →](docs/validation.md)
+These are bounded release checks. The historical one-hour soak was **not repeated for 0.4.1**; no universal app coverage or sustained frame-rate guarantee is implied. Home-return work and a short scrolling route are measured separately in the validation record. CI builds the Android test APKs but does not run them on a TV. [Full versioned evidence →](docs/validation.md)
 
 For a bug report, include the prettTV version, TV model/Android version, layout, reproduction steps and expected behavior. Keep account details, private recovery records and raw preference exports out of public issues. For contributions, describe the behavior changed and the checks actually run; preserve existing source and asset attribution.
 

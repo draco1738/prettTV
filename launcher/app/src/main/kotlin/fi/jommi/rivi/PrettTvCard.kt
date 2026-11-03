@@ -24,7 +24,6 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
     var title=""
     var detail=""
     var sourceLabel=""
-    var contextLabel=""
     var secondaryDetail=""
     var summary=""
     var action=""
@@ -51,6 +50,10 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
     }
     private val textLines=Array(16) { TextLineCache() }
     private var textLineIndex=0
+    private var paragraphValue:String?=null
+    private var paragraphWidth=0f
+    private var paragraphSize=0f
+    private var paragraphLines:List<String> = emptyList()
     private val shape=Path()
     private val compactShape=Path()
     private val actionPlay=Path()
@@ -119,17 +122,23 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
     }
     private fun paragraph(c:Canvas,value:String,x:Float,y:Float,width:Float) {
         text.color=muted; text.textSize=s(22f)*resources.configuration.fontScale; text.typeface=regularTypeface
-        var rest=value.trim()
-        val dy=s(29f)*resources.configuration.fontScale
-        for(i in 0..1) {
-            if(rest.isEmpty())break
-            if(i==1) { c.drawText(TextUtils.ellipsize(rest,text,width,TextUtils.TruncateAt.END).toString(),x,y+i*dy,text); break }
-            val count=text.breakText(rest,true,width,null)
-            var end=count
-            if(count<rest.length)rest.lastIndexOf(' ',count).takeIf { it>0 }?.let { end=it }
-            if(end==0)break
-            c.drawText(rest.substring(0,end),x,y+i*dy,text); rest=rest.substring(end).trimStart()
+        if(paragraphValue!=value || paragraphWidth!=width || paragraphSize!=text.textSize) {
+            paragraphValue=value; paragraphWidth=width; paragraphSize=text.textSize
+            val lines=ArrayList<String>(2)
+            var rest=value.trim()
+            for(i in 0..1) {
+                if(rest.isEmpty())break
+                if(i==1) { lines.add(TextUtils.ellipsize(rest,text,width,TextUtils.TruncateAt.END).toString()); break }
+                val count=text.breakText(rest,true,width,null)
+                var end=count
+                if(count<rest.length)rest.lastIndexOf(' ',count).takeIf { it>0 }?.let { end=it }
+                if(end==0)break
+                lines.add(rest.substring(0,end)); rest=rest.substring(end).trimStart()
+            }
+            paragraphLines=lines
         }
+        val dy=s(29f)*resources.configuration.fontScale
+        paragraphLines.forEachIndexed { i,line -> c.drawText(line,x,y+i*dy,text) }
     }
     private fun titleLine(c:Canvas,x:Float,y:Float,size:Float,max:Float) {
         val offset=if(stremio)s(34f) else 0f

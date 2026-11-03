@@ -5,7 +5,7 @@
 Choose a layout, arrange your apps and use the remote to move through your Home screen. The same apps, viewing history and feeds are available in all three layouts.
 
 > [!NOTE]
-> This page describes **0.4.0** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+> This page describes **0.4.1** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
 
 ## Choose a layout
 
@@ -40,11 +40,39 @@ The top bar contains **Home, Shows, Library, Inputs, Search and Settings**. Show
 
 Holding OK on an app shows a brief progress cue; releasing or leaving the card cancels it. A short boundary cue responds at row ends. These cues do not run while idle. Back from the app panel returns to its originating card and viewport; choosing an arrangement or hide action applies the existing deterministic focus rules below.
 
-### Remote Settings button
+### Inputs and audio devices
 
-In Android **Settings → Accessibility**, enable **prettTV Settings button** to make the remote's Settings key work across apps. On the tested TCL firmware, the helper opens TCL's native quick-settings panel over the current app. A second press closes that panel. Other manufacturers use the normal Android Settings screen, and TCL falls back to it if its panel service cannot start.
+Open **Inputs** in the top bar, then choose **TV inputs** for HDMI/television sources or **Audio devices** for a simple Bluetooth panel. Choose the on/off action to change Bluetooth; prettTV reads the resulting state before reporting completion. **Turning Bluetooth off disconnects Bluetooth headphones and remotes.**
 
-The helper handles a complete press once, including held-key repeats, and ignores Home, arrows, volume and other buttons. It requests key filtering without window-content access. Disable it in Accessibility to restore the original key handling; stock troubleshooting recovery also pauses it. Without the optional helper, prettTV handles this shortcut only while Home itself receives the key.
+Direct switching uses the already-authorized TV-local connection configured for [stock recovery](stock-recovery.md). Opening this panel does not change the radio, run a restore, or request a new debugging authorization. If that setup is unavailable, choose **Manage devices** to use the TV's native controls. On the tested TCL, this opens **Remotes and accessories**; other TVs fall back to their Bluetooth or general Settings screen when needed.
+
+### Screensaver
+
+The owner's TCL has been returned to its stock screensaver and EarthCam has been removed. This is that TV's configuration, not a new installation default imposed by prettTV. The [optional EarthCam handoff](earthcam-idle.md) remains available to other users who separately install EarthCam and explicitly select its handoff.
+
+### Remote buttons
+
+In Android **Settings → Accessibility**, enable **prettTV Remote buttons** (called **prettTV Settings button** before 0.4.1). Existing enabled installations keep the same service component and do not require setup again. On the tested TCL firmware, Settings opens TCL's native quick-settings panel over the current app. A second press closes that panel. Other manufacturers use the normal Android Settings screen, and TCL falls back to it if its panel service cannot start.
+
+On TCL, the helper also replaces app shortcuts that otherwise depend on the disabled Google TV launcher:
+
+| Remote label | Opens |
+| --- | --- |
+| Netflix | Netflix |
+| Prime Video | Prime Video |
+| YouTube | **TV Bro**, as requested for this setup |
+| TCL / TCL Channel / TCL TV+ | **HBO Max**, as requested for this setup |
+| Apple TV | Apple TV |
+| Pluto TV, on remotes with this button | Pluto TV |
+| Disney+ | Its existing native action; prettTV does not intercept it |
+
+Targets must already be installed and enabled. A missing target produces an unavailable message; the helper does not install apps or enable disabled packages. The mapping covers the identified TCL codes, not every regional remote. Other manufacturers retain native app-button behavior.
+
+**Bluetooth shortcut:** Quickly press the TCL remote's **speaker Mute** button twice. With **prettTV Remote buttons** enabled and the existing TV-local recovery connection authorized, the gesture toggles Bluetooth and shows a brief result after reading the resulting state. It does not open another app or settings screen. Use **Inputs → Audio devices** if the shortcut is unavailable. Turning Bluetooth off disconnects Bluetooth headphones and remotes.
+
+A single Mute press keeps its immediate native behavior. Both presses of a double press pass through normally, so a native toggle returns to its previous mute state after the second press; prettTV neither delays nor replays those events. This shortcut recognizes the captured TCL speaker key, `KEYCODE_VOLUME_MUTE` (164). The microphone key, `KEYCODE_MUTE` (91), is not a Bluetooth shortcut. Physical gesture results and firmware limits are tracked in [Validation](validation.md).
+
+For mapped Settings and app shortcuts, the helper handles each complete press once and suppresses held-key repeats, canceled gestures and queued work during recovery. Home, arrows, volume, controller buttons and unknown keys pass through. It requests key filtering without window-content access. Disable it in Accessibility to restore the original key handling; stock troubleshooting recovery also pauses it. Without the optional helper, prettTV can handle only keys that actually reach its foreground window; Android-reserved global keys can still be intercepted by the firmware.
 
 Some TCL firmware also requires **Auto Launch / Auto Start** permission for prettTV. If the helper is enabled but cannot start, inspect that permission in the TV's app settings. The tested TCL logged a blocked service bind until this permission was allowed. The installer does not change it automatically.
 
@@ -77,10 +105,12 @@ Home and essential TV controls are protected. App position, favorites and hidden
 
 The current source build adds **Blind Pick** and **Rabbit Hole** at the bottom of **Library · All apps**, after the installed apps. These are built into prettTV and stay out of the upper Your apps row.
 
-- **Blind Pick:** Choose movies, TV shows or both, a genre-based mood and a time limit. Reveal up to three mystery choices, then open their app or save one to Watchlist.
+- **Blind Pick:** Choose movies, TV shows or both, a genre-based mood and a time limit. Reveal up to three mystery choices, then open their app or save one to Watchlist. Unknown types remain **Unclassified title** and qualify only under **Shows & movies**; unknown runtimes remain **Runtime unavailable** and qualify only under **Any length**. Missing facts are not invented to fill three cards.
 - **Rabbit Hole:** Start with a title and follow published cast/director connections, shared genres or release periods. Select a result to keep exploring; hold OK for watching and saving actions. Back retraces the recent path.
 
 Both use your available listings and preferred-service order, exclude hidden/dismissed titles and leave missing facts unavailable. [Full controls, sources and limits →](original-apps.md)
+
+When strict Blind Pick filters have no matches, a bounded metadata lookup can establish missing facts before trying those same filters again; it does not silently relax your choices. Rabbit Hole can make one additional automatic lookup when new facts still leave it without connections. You can also choose **Refresh connections**; ambiguous title matches remain unavailable.
 
 ## Save titles to Watchlist
 
@@ -161,7 +191,7 @@ If a title's viewing order is stale, hold OK → **I watched this most recently*
 | **Playback tracking** | Explain and open optional Notification access for supported media-session metadata. |
 | **Game handoff settings** | Open Android Accessibility settings for the optional RBTV game helper. |
 | **Refresh apps and shows** | Reload apps and content. |
-| **TV settings / Inputs** | Open the device's settings or input selector. |
+| **TV settings / Inputs** | Open device settings or choose TV inputs and Audio devices. |
 | **About and credits** | Read licenses, sources and prettTV's privacy explanation. |
 | **Return to stock Google TV** | Open the two-confirmation troubleshooting restore at the bottom of Settings. |
 

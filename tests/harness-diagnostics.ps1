@@ -17,7 +17,7 @@ foreach($name in @('stress-home.ps1','lifecycle-home.ps1','soak-home.ps1')) {
         $tokens=$null; $errors=$null
         $ast=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
         Assert-That ($errors.Count -eq 0) "$Name must parse without errors."
-        $needed=if($Name -eq 'stress-home.ps1'){@('Select-HomeBlock','Summary','Assert-Focus')}else{@('Select-HomeBlock','State')}
+        $needed=if($Name -eq 'stress-home.ps1'){@('Select-HomeBlock','Summary','Assert-Focus','Assert-ColdStartsSafe')}else{@('Select-HomeBlock','State')}
         foreach($functionName in $needed) {
             $definition=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $functionName},$true)
             Assert-That ($null -ne $definition) "$Name is missing $functionName."
@@ -60,6 +60,30 @@ ACTIVITY dev.zane.pretttv/fi.jommi.rivi.MainActivity new pid=123
             $diagnosticDump=$stopped
             Assert-That (@(Summary).Count -eq 0) 'Stress must reject entirely stopped diagnostics.'
             Assert-Throws { Assert-Focus (Summary) } 'Stress must reject missing visible focus.'
+            $guard=[pscustomobject]@{reads=0;value='dev.zane.pretttv/fi.jommi.rivi.SettingsKeyService';fail=$false}
+            function Adb-Run([string[]]$Arguments) {
+                Assert-That (($Arguments -join ' ') -eq 'shell settings --user current get secure enabled_accessibility_services') 'Cold-start guard must only read current-user Accessibility settings.'
+                $guard.reads++
+                if($guard.fail){throw 'Fixture ADB failure'}
+                return $guard.value
+            }
+            $RestartCycles=0
+            Assert-ColdStartsSafe
+            Assert-That ($guard.reads -eq 0) 'Navigation-only runs must not query or mutate Accessibility settings.'
+            $RestartCycles=1
+            foreach($enabled in @('dev.zane.pretttv/fi.jommi.rivi.SettingsKeyService',
+                'other.app/.Helper:dev.zane.pretttv/fi.jommi.rivi.RbtvHandoffService',
+                " dev.zane.pretttv/.SettingsKeyService :other.app/.Helper`r`n")) {
+                $guard.value=$enabled
+                Assert-Throws {Assert-ColdStartsSafe} 'Cold starts must refuse any enabled service in the production prettTV package.'
+            }
+            foreach($enabled in @('null','','other.app/.Helper','dev.zane.pretttv.stability/fi.jommi.rivi.SettingsKeyService','dev.zane.pretttvtools/.Helper')) {
+                $guard.value=$enabled
+                Assert-ColdStartsSafe
+            }
+            Assert-That ($guard.reads -eq 8) 'Cold-start guard must read once per check and distinguish other packages.'
+            $guard.fail=$true
+            Assert-Throws {Assert-ColdStartsSafe} 'A failed Accessibility read must stop cold-start testing.'
         } else {
             $state=State
             Assert-That ($state.layout -eq 'CINEMA' -and $state.focus -eq 'watchlist-provider:series:the night agent') "$Name must extract layout and focus from the same active block."

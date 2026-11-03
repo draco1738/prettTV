@@ -26,8 +26,8 @@ internal object StockRecoverySession {
 
     @Synchronized fun check(context: Context) {
         check(!busy)
-        if (AppForceStopSession.busy) {
-            publish(State(Phase.FAILED, "An app force stop is still finishing. Nothing was restored. Wait a moment, then open recovery again."))
+        if (AppForceStopSession.busy || BluetoothControlSession.busy) {
+            publish(State(Phase.FAILED, "Another TV action is still finishing. Nothing was restored. Wait a moment, then open recovery again."))
             return
         }
         val app = context.applicationContext

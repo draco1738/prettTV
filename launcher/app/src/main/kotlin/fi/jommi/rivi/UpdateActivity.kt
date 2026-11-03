@@ -107,6 +107,9 @@ class UpdateActivity : Activity() {
 
     private fun action(title: String, clicked: () -> Unit): Button = Button(this).apply {
         text = title; textSize = 17f; isAllCaps = false; setPadding(dp(18), 0, dp(18), 0)
+        // A pointer/touch-capable TV can retain touch mode from another Activity. Initial and
+        // state-change focus must still reach a real control before the next remote key.
+        isFocusable = true; isFocusableInTouchMode = true
         setTextColor(ColorStateList(arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf(android.R.attr.state_focused), intArrayOf()), intArrayOf(0xFF7C897E.toInt(), 0xFF0F1510.toInt(), 0xFFF4F1E9.toInt())))
         background = StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused, android.R.attr.state_enabled), ground(0xFFCDD9C7.toInt()))

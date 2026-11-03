@@ -49,6 +49,26 @@ class EpisodePolicyTest {
         assertEquals("app:show",card.intentUri); assertEquals(0L,card.position)
         assertTrue(card.detail.contains("Availability unconfirmed")); assertEquals("TVmaze",card.sourceName)
     }
+    @Test fun cachedAlertsDisappearAfterUninstallWithoutDiscardingFollowedShowState() {
+        val removed=Program("removed","Removed app show","","","removed.app","Removed",mediaType="series")
+        val retained=Program("retained","Installed app show","","","installed.app","Installed",mediaType="series")
+        val first=EpisodeAlert("episode-a","follow-a",removed,2,3,"A",now,"https://www.tvmaze.com/episodes/1")
+        val second=EpisodeAlert("episode-b","follow-b",retained,1,5,"B",now-1,"https://www.tvmaze.com/episodes/2")
+        val saved=EpisodeSnapshot(listOf(first,second),"2 followed")
+        val visible=saved.eligible(setOf("installed.app"))
+        assertEquals(listOf(second),visible.alerts)
+        assertEquals("2 followed",visible.status)
+        // Eligibility only changes display; a reinstall can reuse the original episode snapshot.
+        assertEquals(listOf(first,second),saved.alerts)
+        assertEquals(saved,saved.eligible(setOf("installed.app","removed.app")))
+    }
+    @Test fun episodeEligibilityRequiresAnInstalledVisibleDestination() {
+        val p=Program("show","Show","","","app","App",mediaType="series")
+        val snapshot=EpisodeSnapshot(listOf(EpisodeAlert("episode","follow",p,1,1,"Episode",now,"")))
+        assertTrue(snapshot.eligible(emptySet()).alerts.isEmpty())
+        assertTrue(snapshot.eligible(setOf("app"),setOf("app")).alerts.isEmpty())
+        assertEquals(snapshot,snapshot.eligible(setOf("app")))
+    }
     @Test fun unverifiedShowsMakeNoFuzzyNetworkRequests() {
         var calls=0
         val catalog=EpisodeCatalog(File(temp.root,"episodes.bin")) { _,_ -> calls++; error("Unexpected request") }

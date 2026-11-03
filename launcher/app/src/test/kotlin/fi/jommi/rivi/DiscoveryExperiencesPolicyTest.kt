@@ -8,6 +8,56 @@ class DiscoveryExperiencesPolicyTest {
         Program("preview:$pkg:$title", title, "", "", pkg, pkg, mediaType = type, genres = genres)
     private fun metadata(vararg rows: Pair<Program, TitleMetadata>) = rows.associate { ContentIdentity.key(it.first) to it.second }
 
+    @Test fun rabbitNavigationRemovesUninstalledSeedAndHistoryBeforeBackCanReuseThem() {
+        val removed=program("Old seed","removed.app")
+        val earlierRemoved=program("Old history","removed.app")
+        val retained=program("History","paid.one")
+        val fallback=program("Now watching","paid.one")
+        val navigation=RabbitHolePolicy.refreshNavigation(removed,listOf(earlierRemoved,retained,removed),
+            listOf(removed,program("Suggestion"),fallback),setOf("paid.one"),
+            watchingKeys=setOf(ContentIdentity.key(fallback)))
+        assertEquals(fallback,navigation.seed)
+        assertEquals(listOf(retained),navigation.trail)
+    }
+
+    @Test fun rabbitNavigationUsesInstalledProviderObjectWhenCanonicalIdentitySurvivesUninstall() {
+        val removed=program("Same show","removed.app").copy(imdbId="tt1234567",intentUri="old:show")
+        val replacement=removed.copy(packageName="paid.one",app="Installed",intentUri="new:show")
+        assertEquals(ContentIdentity.key(removed),ContentIdentity.key(replacement))
+        val navigation=RabbitHolePolicy.refreshNavigation(removed,listOf(removed),listOf(replacement),setOf("paid.one"))
+        assertEquals(replacement,navigation.seed)
+        assertEquals("new:show",navigation.seed?.intentUri)
+        assertTrue(navigation.trail.isEmpty())
+    }
+
+    @Test fun rabbitNavigationPreservesValidExplorationAcrossShorterOrUnavailableFeeds() {
+        val seed=program("Exploring")
+        val history=listOf(program("Earlier"),program("Last"))
+        val navigation=RabbitHolePolicy.refreshNavigation(seed,history,emptyList(),setOf("paid.one"))
+        assertEquals(seed,navigation.seed)
+        assertEquals(history,navigation.trail)
+    }
+
+    @Test fun rabbitNavigationFallsBackOnlyToEligibleRequestedOrWatchingTitles() {
+        val removed=program("Removed","gone")
+        val watching=program("Watching")
+        val requested=program("Requested")
+        val rows=listOf(removed,watching,requested)
+        val watchingKeys=setOf(ContentIdentity.key(watching))
+        assertEquals(requested,RabbitHolePolicy.refreshNavigation(null,emptyList(),rows,setOf("paid.one"),
+            ContentIdentity.key(requested),watchingKeys).seed)
+        assertEquals(watching,RabbitHolePolicy.refreshNavigation(null,emptyList(),rows,setOf("paid.one"),
+            ContentIdentity.key(removed),watchingKeys).seed)
+        assertEquals(watching,RabbitHolePolicy.refreshNavigation(null,emptyList(),rows,setOf("paid.one")).seed)
+    }
+
+    @Test fun rabbitNavigationReturnsToEmptyChooserWhenAllDestinationsDisappear() {
+        val seed=program("Gone")
+        val navigation=RabbitHolePolicy.refreshNavigation(seed,listOf(seed),listOf(seed),emptySet(),ContentIdentity.key(seed))
+        assertNull(navigation.seed)
+        assertTrue(navigation.trail.isEmpty())
+    }
+
     @Test fun blindPickIsDeterministicUniqueAndBounded() {
         val rows = (1..20).map { program("Title $it") }
         val first = BlindPickPolicy.pick(rows, seed = 12)
@@ -63,6 +113,33 @@ class DiscoveryExperiencesPolicyTest {
         assertEquals(2, BlindPickPolicy.pick(listOf(unknown, long), BlindPickFilters()).size)
         assertTrue(BlindPickPolicy.pick(listOf(short), BlindPickFilters(maxMinutes = 0)).isEmpty())
         assertTrue(BlindPickPolicy.clue(unknown).contains("Runtime unavailable"))
+    }
+
+    @Test fun metadataSeedCanResolveUnknownMoodAndRuntimeWithoutRelaxingDisplayedFilters() {
+        val unknown=program("Unknown facts",genres="").copy(imdbId="tt1234567")
+        val filters=BlindPickFilters(DiscoveryMediaType.MOVIE,BlindPickMood.FEEL_GOOD,30)
+        assertTrue(BlindPickPolicy.pick(listOf(unknown),filters).isEmpty())
+        assertEquals(unknown,BlindPickPolicy.metadataSeed(listOf(unknown),filters))
+        assertTrue(BlindPickPolicy.pick(listOf(unknown),filters).isEmpty())
+        val resolved=metadata(unknown to TitleMetadata(genres=listOf("Comedy"),runtimeMinutes=20))
+        assertEquals(listOf(unknown),BlindPickPolicy.pick(listOf(unknown),filters,metadata=resolved).map { it.program })
+        val mismatch=metadata(unknown to TitleMetadata(genres=listOf("Documentary"),runtimeMinutes=20))
+        assertTrue(BlindPickPolicy.pick(listOf(unknown),filters,metadata=mismatch).isEmpty())
+    }
+
+    @Test fun metadataSeedKeepsMediaTypeAndEveryExclusionWhenMoodHasNoMatches() {
+        val allowed=program("Allowed unknown",type="series",genres="")
+        val watching=program("Watching",type="series",genres="")
+        val dismissed=program("Dismissed",type="series",genres="")
+        val hidden=program("Hidden app","hidden.app",type="series",genres="")
+        val movie=program("Wrong media type",genres="")
+        val rows=listOf(movie,watching,dismissed,dismissed.copy(packageName="other"),hidden,allowed)
+        val filters=BlindPickFilters(DiscoveryMediaType.SHOW,BlindPickMood.FEEL_GOOD,30)
+        fun select(candidates:List<Program>)=BlindPickPolicy.metadataSeed(candidates,filters,
+            blockedKeys=setOf(ContentIdentity.key(dismissed)),blockedTitleKeys=setOf(watching.titleKey),
+            hiddenPackages=setOf("hidden.app"))
+        assertEquals(allowed,select(rows))
+        assertNull(select(rows-allowed))
     }
 
     @Test fun runtimeFilterRoundsUpAndVerifiedMetadataCanSupplyMissingRuntime() {

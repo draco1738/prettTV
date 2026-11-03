@@ -5,9 +5,9 @@
     <string name="playback_tracker_label">prettTV playback tracking</string>
     <string name="rbtv_helper_label">prettTV game handoff</string>
     <string name="rbtv_helper_desc">After you select a sports event in prettTV, find its two teams and start time in RBTV and open the matching game. Stops before selecting a server. Reads and operates RBTV only during this request, for up to 30 seconds. It does not intercept Home or operate other apps.</string>
-    <string name="settings_key_service_label">prettTV Settings button</string>
-    <string name="settings_key_service_summary">Open TV settings from any app</string>
-    <string name="settings_key_service_desc">When enabled, releasing the remote Settings button opens TV settings from any app. On TCL TVs, this also handles the remote button reported as Notification. Other buttons, including Home, pass through. The helper receives key events but does not log them, read screen content or change settings. Turn it off here to restore the TV default button behavior.</string>
+    <string name="settings_key_service_label">prettTV Remote buttons</string>
+    <string name="settings_key_service_summary">TV settings and TCL app shortcuts</string>
+    <string name="settings_key_service_desc">When enabled, releasing Settings opens TV settings from any app, including TCL\'s Notification alias. On TCL remotes, Netflix, Prime Video, Apple TV and Pluto open their installed apps; YouTube opens TV Bro and TCL opens HBO Max. Disney keeps its native behavior. Home, arrows, volume, game controllers and unknown buttons pass through. The helper does not log keys, read screen content or change settings. Turn it off here to restore the TV default button behavior.</string>
     <string name="favourites">Favourites</string>
     <string name="all_apps">All apps</string>
     <string name="settings">Settings</string>
@@ -36,4 +36,16 @@
     <string name="force_stop_progress">Stopping %1$s…</string>
     <string name="force_stop_cancelling">Cancelling…</string>
     <string name="app_actions_return_hint">Back returns to the same card.</string>
+    <string name="audio_devices_title">Audio devices</string>
+    <string name="bluetooth_off_notice">Turns off Bluetooth headphones and remotes</string>
+    <string name="bluetooth_remote_hint">Remote shortcut: double-press Mute with Remote buttons enabled.</string>
+    <string name="bluetooth_manage_devices">Manage devices</string>
+    <string name="bluetooth_back">Back</string>
+    <string name="bluetooth_working">Please wait…</string>
+    <string name="bluetooth_turn_off">Turn Bluetooth off</string>
+    <string name="bluetooth_turn_on">Turn Bluetooth on</string>
+    <string name="bluetooth_retry">Retry Bluetooth check</string>
+    <string name="bluetooth_busy">Another TV action is running. Try again shortly.</string>
+    <string name="bluetooth_settings_fallback">Open Remotes &amp; accessories in TV settings</string>
+    <string name="bluetooth_settings_unavailable">Audio device settings are unavailable</string>
 </resources>

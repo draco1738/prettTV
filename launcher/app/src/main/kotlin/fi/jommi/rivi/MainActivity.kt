@@ -28,6 +28,7 @@ class MainActivity : Activity() {
     private lateinit var contentRepo: ContentRepository
     private lateinit var weatherRepo: WeatherRepository
     private val settingsKeys=SettingsKeyPolicy(Build.MANUFACTURER)
+    private val appShortcutKeys=AppShortcutKeyPolicy(Build.MANUFACTURER)
     private var weatherHeader:WeatherHeaderView?=null
     private var weatherLoadingDialog:AlertDialog?=null
     private lateinit var artwork: ArtworkLoader
@@ -151,6 +152,7 @@ class MainActivity : Activity() {
     }
     override fun onStop() {
         settingsKeys.reset()
+        appShortcutKeys.reset()
         AppUpdater.cancelHomeCheck()
         visible=false; contentRepo.stop(); weatherRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
         appActionPanel?.dismiss(); appActionPanel=null
@@ -166,8 +168,9 @@ class MainActivity : Activity() {
         if(providerRefreshPending)refreshProviderRows()
         val saved=appReturnViewport ?: return
         appReturnViewport=null
+        val revision=viewportRevision
         ui.post {
-            if(visible && !pausedForContent && !isFinishing && !isDestroyed) {
+            if(visible && !pausedForContent && !isFinishing && !isDestroyed && revision==viewportRevision) {
                 focusables[saved.focus]?.requestFocusFromTouch()
                 saved.rows.forEach { (key,x)->horizontalRows[key]?.scrollTo(x,0) }
                 root.scrollTo(0,saved.y); revealFocus(currentFocus)
@@ -176,7 +179,12 @@ class MainActivity : Activity() {
     }
     override fun onDestroy() { generation++; ui.removeCallbacksAndMessages(null); unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); weatherRepo.close(); artwork.close(); super.onDestroy() }
     override fun onConfigurationChanged(newConfig:Configuration) { super.onConfigurationChanged(newConfig); scale=resources.displayMetrics.widthPixels/1920f; render() }
-    override fun onNewIntent(i:Intent?) { super.onNewIntent(i); applyIntent(i); render(reset=true) }
+    override fun onNewIntent(i:Intent?) {
+        super.onNewIntent(i)
+        val configureLayout=i?.hasExtra("layout")==true
+        applyIntent(i)
+        if(configureLayout)render(reset=true) else resetHomePosition()
+    }
     override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray) {
         super.onRequestPermissionsResult(requestCode,permissions,grantResults)
         if(requestCode==41 && visible)startContent()
@@ -188,12 +196,27 @@ class MainActivity : Activity() {
     override fun onBackPressed() { firstCard?.requestFocusFromTouch(); root.smoothScrollTo(0,0); selectNavigation("nav-home") }
     override fun dispatchKeyEvent(event:KeyEvent):Boolean {
         // The global helper consumes its gestures before they reach this foreground fallback.
-        val settingsKey=settingsKeys.handle(event.action,event.keyCode,event.repeatCount,event.deviceId,event.downTime,
-            event.isCanceled,StockRecoveryStore.paused(this))
-        if(settingsKey!=SettingsKeyPolicy.Decision.PASS) {
-            if(settingsKey==SettingsKeyPolicy.Decision.OPEN_SETTINGS && !TvSettingsLauncher.open(this))
-                Toast.makeText(this,"Could not open TV settings",Toast.LENGTH_SHORT).show()
-            return true
+        // Arrows/OK take the direct navigation path without recovery storage or device lookups.
+        if(appShortcutKeys.packageFor(event.keyCode)!=null) {
+            val appKey=appShortcutKeys.handle(event.action,event.keyCode,event.repeatCount,event.deviceId,event.downTime,
+                event.isCanceled,StockRecoveryStore.paused(this),RemoteAppLauncher.isController(event))
+            if(appKey!=AppShortcutKeyPolicy.Decision.PASS) {
+                if(appKey==AppShortcutKeyPolicy.Decision.OPEN_APP) {
+                    val target=appShortcutKeys.packageFor(event.keyCode)
+                    if(target!=null && !RemoteAppLauncher.open(this,target))
+                        Toast.makeText(this,"This shortcut's app is unavailable",Toast.LENGTH_SHORT).show()
+                }
+                return true
+            }
+        }
+        if(settingsKeys.isSettingsKey(event.keyCode)) {
+            val settingsKey=settingsKeys.handle(event.action,event.keyCode,event.repeatCount,event.deviceId,event.downTime,
+                event.isCanceled,StockRecoveryStore.paused(this))
+            if(settingsKey!=SettingsKeyPolicy.Decision.PASS) {
+                if(settingsKey==SettingsKeyPolicy.Decision.OPEN_SETTINGS && !TvSettingsLauncher.open(this))
+                    Toast.makeText(this,"Could not open TV settings",Toast.LENGTH_SHORT).show()
+                return true
+            }
         }
         if(event.action==KeyEvent.ACTION_DOWN &&
             (event.keyCode==KeyEvent.KEYCODE_DPAD_LEFT || event.keyCode==KeyEvent.KEYCODE_DPAD_RIGHT)) {
@@ -282,6 +305,20 @@ class MainActivity : Activity() {
         focus ?: (currentFocus?.tag as? String) ?: (lastContentFocus?.tag as? String) ?: settings.getString("focus",null),
         if(ready)root.scrollY else 0,horizontalRows.mapValues { it.value.scrollX },lastContentFocus?.tag as? String)
 
+    /** Home resets navigation, not the unchanged hierarchy and already decoded artwork. */
+    private fun resetHomePosition() {
+        appReturnViewport=null
+        if(!ready || pendingViewport!=null || !root.isLaidOut || root.isLayoutRequested) { render(reset=true); return }
+        stopRowMotion()
+        // A pending restore from the app we just left must not undo the explicit Home action.
+        pendingViewport=null; viewportRevision++; homeRequested=false
+        selectNavigation("nav-home")
+        firstCard?.requestFocusFromTouch(); lastContentFocus=firstCard
+        horizontalRows.values.forEach { it.scrollTo(0,0) }
+        root.scrollTo(0,0)
+        loadVisibleArt()
+    }
+
     private fun render(reset:Boolean=false,restore:Viewport?=null) {
         if(isFinishing || isDestroyed)return
         stopRowMotion()
@@ -341,7 +378,7 @@ class MainActivity : Activity() {
     private fun buildHeader(stage:FrameLayout) {
         val header=row().apply { gravity=Gravity.CENTER_VERTICAL; isBaselineAligned=false; setPadding(px(56),px(16),px(56),px(16)); setBackgroundColor(0xFF19221A.toInt()) }
         val navigation=row()
-        val entries=listOf(Triple("Home","nav-home",{ render(reset=true) }),
+        val entries=listOf(Triple("Home","nav-home",{ resetHomePosition() }),
             Triple("Shows","nav-shows",{ showAnchor?.requestFocusFromTouch(); Unit }),
             Triple("Library","nav-apps",{ libraryAnchor?.requestFocusFromTouch(); Unit }),
             Triple("Inputs","nav-inputs",{ openInputs() }),Triple("Search","nav-search",{ search() }),Triple("Settings","nav-settings",{ menu() }))
@@ -391,14 +428,15 @@ class MainActivity : Activity() {
     }
     private fun buildBalanced() {
         val upper=row()
-        val hero=programCard(content.feature,PrettTvCard.Mode.HERO,"feature",1132,486)
+        val feature=content.feature
+        val hero=programCard(feature,PrettTvCard.Mode.HERO,"feature",1132,486)
         upper.addView(hero,LinearLayout.LayoutParams(px(1132),px(486)).apply { rightMargin=px(20) })
         firstCard=hero
         val side=column().apply {
             setPadding(px(24),px(13),px(24),px(16))
             background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(0xFF1D251E.toInt(),0xFF161E17.toInt())).apply { cornerRadius=px(16).toFloat(); setStroke(px(1),0xFF4B584B.toInt()) }
         }
-        val next=content.suggestions.filter { it.id!=content.feature?.id }
+        val next=content.suggestions.filter { it.id!=feature?.id }
         side.addView(text("Discover",28,ink,true),LinearLayout.LayoutParams(-1,px(49)))
         for(i in 0..1) {
             side.addView(programCard(next.getOrNull(i),PrettTvCard.Mode.COMPACT,"next-$i",608,184),LinearLayout.LayoutParams(-1,px(184)))
@@ -507,8 +545,9 @@ class MainActivity : Activity() {
             if(oldIndex>=0)replacement=focusables.values.filter { descendant(it,container) }.let { it.getOrNull(oldIndex.coerceAtMost(it.lastIndex))?.tag as? String }
         }
         if(layout!=HomeLayout.QUIET) {
-            updateBoundProgram("feature",content.feature,if(wide)1132 else inner,if(wide)486 else 470)
-            if(wide)content.suggestions.filter { it.id!=content.feature?.id }.let { next ->
+            val feature=content.feature
+            updateBoundProgram("feature",feature,if(wide)1132 else inner,if(wide)486 else 470)
+            if(wide)content.suggestions.filter { it.id!=feature?.id }.let { next ->
                 for(i in 0..1)updateBoundProgram("next-$i",next.getOrNull(i),608,184)
             }
         }
@@ -697,7 +736,6 @@ class MainActivity : Activity() {
         card.title=p?.title ?: if(discovery)"Find your next favorite" else "Make yourself at home"
         card.detail=if(card.tag=="feature" && presentation!=null)presentation.metadata else p?.detail ?: if(discovery)"Browse your streaming apps" else "Your apps, one quiet place"
         card.sourceLabel=presentation?.source.orEmpty()
-        card.contextLabel=if(p!=null && content.watching.any { ContentIdentity.key(it)==ContentIdentity.key(p) })"Continue watching" else "Featured"
         card.secondaryDetail=if(card.tag=="feature")presentation?.remaining.orEmpty() else presentation?.selectedDetail.orEmpty()
         card.summary=p?.summary.orEmpty()
         card.action=if(p==null)"Browse apps" else if(presentation?.canResume==true)"Continue watching" else "Open ${p.app}"
@@ -757,8 +795,9 @@ class MainActivity : Activity() {
     private fun loadVisibleArt() {
         if(!visible || isDestroyed)return
         val rect=Rect()
+        val visibility=ArtworkVisibilityScan()
         for(item in cardArt) {
-            if(item.card.getGlobalVisibleRect(rect) && rect.width()>px(20) && rect.height()>px(20)) {
+            if(visibility.isVisible(item.card,rect) && rect.width()>px(20) && rect.height()>px(20)) {
                 if((!item.loaded || item.card.art==null) && item.request.begin(SystemClock.uptimeMillis())) {
                     artwork.load(item.url,item.w,item.h) { bitmap ->
                         // A replaced row/hero can still have a decoding request in flight.
@@ -884,7 +923,21 @@ class MainActivity : Activity() {
     }
     private fun launch(e:AppEntry) { appReturnViewport=viewport(); prefs.touchRecent(e.key); prefs.lastFocus=e.key; if(!safeStart(repo.launchIntent(e),e.label))appReturnViewport=null }
     private fun safeStart(i:Intent,label:String):Boolean = try { startActivity(i); true } catch(_:Exception) { Toast.makeText(this,"Could not open $label",Toast.LENGTH_SHORT).show(); false }
-    private fun openInputs() { inputs?.let { safeStart(it.intent,"Inputs") } ?: repo.settingsIntent()?.let { safeStart(it,"TV settings") } }
+    private fun openInputs() {
+        if(appActionPanel?.isShowing==true)return
+        val origin=currentFocus
+        appActionPanel=InputsPanel.show(this,onInputs={
+            inputs?.let { safeStart(it.intent,"Inputs") } ?: repo.settingsIntent()?.let { safeStart(it,"TV settings") }
+        },onAudio={
+            safeStart(Intent(this,BluetoothControlActivity::class.java),"Audio devices")
+        },onDismiss={
+            appActionPanel=null
+            if(visible && !isFinishing && !isDestroyed) {
+                origin?.requestFocusFromTouch()
+                ui.post { if(visible && providerRefreshPending && !isFinishing && !isDestroyed)refreshProviderRows() }
+            }
+        })
+    }
     private fun actionProgram(p:Program)=content.newEpisodes.firstOrNull { it.asProgram().id==p.id }?.program ?: p
     private fun openProgram(selected:Program) {
         val p=actionProgram(selected)
@@ -1337,5 +1390,25 @@ class MainActivity : Activity() {
         }
         if(args?.contains("--content-diagnostics")==true)for(p in content.watching)
             out.println("WATCH ${p.packageName} | ${p.title} | ${p.id} | engagement=${p.engagedAt} | position=${p.position} | duration=${p.duration}")
+    }
+}
+
+/** One scroll scan: an entirely clipped row cannot contain visible artwork. */
+internal class ArtworkVisibilityScan {
+    private val rows=java.util.IdentityHashMap<HorizontalScrollView,Boolean>()
+    private val rowBounds=Rect()
+
+    fun isVisible(card:View,bounds:Rect):Boolean {
+        var parent=card.parent
+        while(parent is View) {
+            if(parent is HorizontalScrollView && parent.clipChildren && parent.clipToPadding) {
+                val row=parent
+                val visible=rows[row] ?: row.getGlobalVisibleRect(rowBounds).also { rows[row]=it }
+                if(!visible) { bounds.setEmpty(); return false }
+                break
+            }
+            parent=parent.parent
+        }
+        return card.getGlobalVisibleRect(bounds)
     }
 }

@@ -16,6 +16,74 @@ object DiscoveryAndroidChecks {
         fun follow(id:String="tvmaze:12",year:Int=0,imdb:String="")=FollowedShow("fixture",Program(id,"Fixture Show","","","fixture.app","Fixture",mediaType="series",releaseYear=year,imdbId=imdb),now)
         fun file(name:String)=File(dir,name).apply { delete() }
 
+        test("missing-year series metadata uses one exact search result and persists verified facts") {
+            val metadataDir=File(dir,"missing-year").apply {
+                mkdirs();listFiles()?.forEach { check(it.isFile && it.delete()) { "Stale metadata fixture could not be removed" } }
+            }
+            val p=Program("provider:fixture","Fixture Series","","","fixture.app","Fixture",mediaType="series")
+            val calls=mutableListOf<String>()
+            try {
+                DiscoveryMetadataRepository(metadataDir) { url,_ ->
+                    calls.add(url)
+                    if(url.contains("/search/shows?"))"""[{"show":{"id":12,"name":"Fixture Series","premiered":"2025-01-01"}}]"""
+                    else """{"id":12,"name":"Fixture Series","premiered":"2025-01-01","genres":["Drama"],"runtime":42,"_embedded":{"cast":[{"person":{"name":"Fixture Actor"}}]}}"""
+                }.use { repo ->
+                    val facts=checkNotNull(repo.get(p))
+                    check(facts.runtimeMinutes==42 && facts.cast==listOf("Fixture Actor") && facts.year==2025)
+                    check(calls.size==2 && calls[1].contains("/shows/12?"))
+                }
+                DiscoveryMetadataRepository(metadataDir) { _,_ -> error("Fresh metadata must be cached") }.use {
+                    check(it.get(p)?.runtimeMinutes==42)
+                }
+            } finally { metadataDir.listFiles()?.forEach { it.delete() };metadataDir.delete() }
+        }
+        test("ambiguous missing-year series and changed full metadata are rejected") {
+            val metadataDir=File(dir,"ambiguous-title").apply {
+                mkdirs();listFiles()?.forEach { check(it.isFile && it.delete()) { "Stale metadata fixture could not be removed" } }
+            }
+            val p=Program("provider:fixture","Fixture Series","","","fixture.app","Fixture",mediaType="series")
+            try {
+                var calls=0
+                DiscoveryMetadataRepository(metadataDir) { url,_ ->
+                    calls++;check(url.contains("/search/shows?"))
+                    """[{"show":{"id":12,"name":"Fixture Series","premiered":"2001-01-01"}},{"show":{"id":13,"name":"Fixture Series","premiered":"2025-01-01"}}]"""
+                }.use { check(it.get(p)==null && calls==1) }
+                DiscoveryMetadataRepository(metadataDir) { url,_ ->
+                    if(url.contains("/search/shows?"))"""[{"show":{"id":12,"name":"Fixture Series","premiered":"2025-01-01"}}]"""
+                    else """{"id":12,"name":"Different Series","premiered":"2025-01-01","genres":["Drama"]}"""
+                }.use { check(it.get(p)==null) }
+                DiscoveryMetadataRepository(metadataDir) { _,_ -> error("No persisted match") }.use { check(it.cached(p)==null) }
+            } finally { metadataDir.listFiles()?.forEach { it.delete() };metadataDir.delete() }
+        }
+
+        test("a second bounded metadata batch reuses cached identities and reaches useful peers") {
+            val metadataDir=File(dir,"bounded-peer-progress").apply {
+                mkdirs();listFiles()?.forEach { check(it.isFile && it.delete()) }
+            }
+            val rows=(1..9).map { i -> Program("provider:$i","Budget Show $i","","","fixture.app","Fixture",mediaType="series") }
+            var calls=0
+            val transport:(String,Int)->String={ url,_ ->
+                calls++
+                if(url.contains("/search/shows?")) {
+                    val title=java.net.URLDecoder.decode(url.substringAfter("q="),"UTF-8")
+                    val id=title.substringAfterLast(' ').toInt()
+                    """[{"show":{"id":$id,"name":"$title"}}]"""
+                } else {
+                    val id=url.substringAfter("/shows/").substringBefore('?').toInt()
+                    val genre=if(id==1 || id==5)"Drama" else "Comedy"
+                    """{"id":$id,"name":"Budget Show $id","genres":["$genre"],"runtime":42}"""
+                }
+            }
+            try {
+                val first=DiscoveryMetadataRepository(metadataDir,transport).use { it.load(rows.first(),rows) { true } }
+                check(calls==8 && first.size==4)
+                check(RabbitHolePolicy.related(rows.first(),rows,metadata=first).isEmpty())
+                val second=DiscoveryMetadataRepository(metadataDir,transport).use { it.load(rows.first(),rows) { true } }
+                check(calls==16 && second.size==8) { "Continuation exceeded its request budget or failed to reuse cache" }
+                check(RabbitHolePolicy.related(rows.first(),rows,metadata=first+second).single().program==rows[4])
+            } finally { metadataDir.listFiles()?.forEach { it.delete() };metadataDir.delete() }
+        }
+
         test("episode alerts baseline then release once, persist dismissal and unfollow") {
             val f=file("episodes-release.bin"); var calls=0
             val body=JSONArray().put(episode(1,now-1000)).put(episode(2,now+1000)).toString()
@@ -28,6 +96,26 @@ object DiscoveryAndroidChecks {
             check(restored.load(listOf(follow()),now+3000) { true }.alerts.isEmpty())
             check(restored.load(emptyList(),now+4000,false) { true }.alerts.isEmpty())
             f.delete()
+        }
+        test("unavailable episode destinations hide without erasing followed baselines or dismissals") {
+            val f=file("episodes-uninstalled.bin")
+            val follows=listOf(follow())
+            val body=JSONArray().put(episode(1,now-1000)).put(episode(2,now+1000)).toString()
+            try {
+                val catalog=EpisodeCatalog(f) { _,_ -> body }
+                check(catalog.load(follows,now) { true }.alerts.isEmpty())
+                val released=catalog.load(follows,now+2000) { true }
+                check(released.alerts.single().id=="tvmaze:episode:2")
+                check(released.eligible(emptySet()).alerts.isEmpty())
+                val restored=EpisodeCatalog(f) { _,_ -> error("Availability must not request metadata") }
+                val installed=restored.load(follows,now+3000,false) { true }.eligible(setOf("fixture.app"))
+                check(installed.alerts.single().id=="tvmaze:episode:2") { "Uninstall discarded the release baseline" }
+                restored.dismiss("tvmaze:episode:2")
+                val dismissed=EpisodeCatalog(f) { _,_ -> error("Dismissal must survive offline") }
+                check(dismissed.load(follows,now+4000,false) { true }.eligible(emptySet()).alerts.isEmpty())
+                check(dismissed.load(follows,now+5000,false) { true }.eligible(setOf("fixture.app")).alerts.isEmpty())
+                check(dismissed.snapshot(follows,now+5000).status.startsWith("1 followed"))
+            } finally { f.delete() }
         }
         test("ambiguous same-name same-year episode matches are refused") {
             val f=file("episodes-ambiguous.bin"); var requests=0

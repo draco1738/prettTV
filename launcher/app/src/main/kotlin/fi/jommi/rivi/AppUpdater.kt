@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /** Optional official-release updater. Discovery never downloads or launches installation UI. */
 internal object AppUpdater {
-    enum class Phase { IDLE, CHECKING, AVAILABLE, CURRENT, DOWNLOADING, READY, INSTALLING, FAILED }
+    enum class Phase { IDLE, CHECKING, AVAILABLE, CURRENT, DOWNLOADING, READY, INSTALLING, FAILED, RECOVERY_REQUIRED }
     data class State(val phase: Phase = Phase.IDLE, val message: String = "Check for an official prettTV update.", val release: UpdateRelease? = null, val progress: Int = -1)
     @Volatile var state = State(); private set
     private val main = Handler(Looper.getMainLooper())
@@ -70,19 +70,38 @@ internal object AppUpdater {
             state = state.copy(message = result)
             prefs.edit().remove("install_result").apply()
         }
-        val sessionId = prefs.getInt("session", -1)
-        if (sessionId >= 0) {
-            val pending = runCatching { context.packageManager.packageInstaller.getSessionInfo(sessionId) }.getOrNull()
-            if (pending != null) {
-                installCommitted = true
-                state = state.copy(phase = Phase.INSTALLING, message = "An update is waiting in Android’s installer. Confirm or cancel it there.")
+        restoreInstallation(context)
+    }
+
+    private fun restoreInstallation(context:Context) {
+        val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+        val id=prefs.getInt("session",-1)
+        if(id<0)return
+        when(UpdateSessionRecovery.recover(context,id)) {
+            UpdateSessionRecovery.Outcome.WAITING_FOR_ANDROID -> {
+                installCommitted=true
+                publish(state.copy(phase=Phase.INSTALLING,message="An update is waiting in Android’s installer. Confirm or cancel it there."))
             }
-            else prefs.edit().remove("session").apply()
+            UpdateSessionRecovery.Outcome.RETRY_REQUIRED -> {
+                // Retain the session ID and block another install until its outcome is known.
+                publish(state.copy(phase=Phase.RECOVERY_REQUIRED,message="Couldn’t verify the previous installation session. Choose Check now to retry."))
+            }
+            UpdateSessionRecovery.Outcome.ABSENT,UpdateSessionRecovery.Outcome.RECOVERED -> {
+                if(!prefs.edit().remove("session").commit()) {
+                    publish(state.copy(phase=Phase.RECOVERY_REQUIRED,message="Couldn’t save installation recovery. Choose Check now to retry."))
+                    return
+                }
+                installCommitted=false
+                publish(state.copy(phase=if(state.release==null)Phase.IDLE else Phase.AVAILABLE,
+                    message="The interrupted installation session is cleared. Check for updates to try again."))
+            }
         }
     }
 
     fun check(context: Context, manual: Boolean = true) {
         initialize(context)
+        if(state.phase==Phase.RECOVERY_REQUIRED)restoreInstallation(context)
+        if(state.phase==Phase.RECOVERY_REQUIRED)return
         if (state.phase in setOf(Phase.CHECKING, Phase.DOWNLOADING, Phase.INSTALLING)) return
         val app = context.applicationContext
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -128,7 +147,7 @@ internal object AppUpdater {
 
     fun download(context: Context) {
         val release = state.release ?: return
-        if (state.phase in setOf(Phase.CHECKING, Phase.DOWNLOADING, Phase.INSTALLING)) return
+        if (state.phase in setOf(Phase.CHECKING, Phase.DOWNLOADING, Phase.INSTALLING, Phase.RECOVERY_REQUIRED)) return
         val app = context.applicationContext
         val token = generation.incrementAndGet()
         deadline = SystemClock.elapsedRealtime() + 600_000L

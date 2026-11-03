@@ -78,7 +78,7 @@ The in-app updater checks the latest stable release in **`draco1738/prettTV`**. 
 
 ```powershell
 ./tools/write-update-manifest.ps1 `
-    -Apk 'E:/Releases/prettTV-0.2.0.apk' `
+    -Apk 'E:/Releases/prettTV-0.4.1.apk' `
     -BuildTools 'E:/Android/Sdk/build-tools/35.0.0' `
     -Output 'E:/Releases/update-manifest.json'
 ```
@@ -89,7 +89,7 @@ This Windows helper uses `aapt2` and `apksigner` to inspect the APK, verifies th
 | --- | --- |
 | `schemaVersion` | `1` |
 | `packageName` | `dev.zane.pretttv` |
-| `versionCode` / `versionName` | The values inside the final signed APK; 0.2.0 uses code `12`. |
+| `versionCode` / `versionName` | The values inside the final signed APK; 0.4.1 uses code `20`. |
 | `apkAsset` | Exact APK filename uploaded to the same release. |
 | `apkSha256` | SHA-256 of that exact APK. |
 | `signingCertificateSha256` | Its sole APK signing certificate's SHA-256. |
@@ -98,7 +98,7 @@ Upload both assets without renaming or modifying the APK afterward. The updater 
 
 ## Tests and device validation
 
-The [v0.1.10 validation record](validation.md) reports **139 JVM tests** and **10 Android fault tests** passed. Those are recorded results for that release, not a claim that every device or future build has been tested.
+The [validation history](validation.md) records each release's JVM, lint and native device checks separately. Use the results for the exact build being installed; earlier results do not establish that a changed build has passed.
 
 JVM tests cover ordering and filtering, watching chronology, row navigation, feed retention, artwork lifecycle, local ADB framing and staged recovery failures. Feature tests cover identity matching, Watchlist consumption, row preferences, recommendation feedback, episode policy, sports favorites, offline snapshots and update validation/cancellation. Android tests exercise real storage, decoding, bounded artwork queues, cancellation, cache recovery and recovery storage/dialog behavior in an isolated app ID.
 

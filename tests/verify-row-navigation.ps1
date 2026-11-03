@@ -54,11 +54,19 @@ for($i=$visited.Count-2;$i -ge 0;$i--) {
 }
 Key '22'
 Key '21' -Hold
-if((Focus) -ne $first){throw 'Held Left spilled into the sidebar'}
+if((Focus) -ne $first){throw 'Held Left left the first app'}
 Key '21'
-if((Focus) -ne 'rail-apps'){throw 'Fresh Left at the start did not open the app sidebar'}
-Key '22'
-if((Focus) -ne $first){throw 'Sidebar dismissal did not return to the first app'}
+if((Focus) -ne $first){throw 'Fresh Left left the first app instead of stopping at the boundary'}
+$remembered=$first
+for($step=0;$step -lt 3;$step++) {
+    $before=Focus
+    if($before.StartsWith('nav-')){break}
+    $remembered=$before
+    Key '19'
+}
+if(-not (Focus).StartsWith('nav-')){throw 'Up did not reach persistent top navigation'}
+Key '20'
+if((Focus) -ne $remembered){throw 'Top navigation did not return to the remembered content card'}
 $script:latestState | Set-Content -LiteralPath (Join-Path $OutputDirectory 'row-navigation-final.txt')
 Key '4'
-"Passed reversal across $($visited.Count) app cards, held-Left boundary, intentional sidebar entry and return."
+"Passed reversal across $($visited.Count) app cards, held/fresh Left boundaries, and top-navigation return."

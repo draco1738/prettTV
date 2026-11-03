@@ -19,6 +19,14 @@ function Adb-Run([string[]]$Arguments) {
     if($LASTEXITCODE -ne 0){throw "ADB failed: $($Arguments -join ' ')"}
     return $result
 }
+function Assert-ColdStartsSafe {
+    if($RestartCycles -eq 0){return}
+    $enabled=((Adb-Run @('shell','settings','--user','current','get','secure','enabled_accessibility_services')) -join "`n").Trim()
+    $components=$enabled -split '[:\r\n]' | ForEach-Object {$_.Trim()}
+    if(@($components | Where-Object {$_ -like "$package/*"}).Count){
+        throw 'Cold-start tests refused: force-stopping prettTV disables its enabled Android Accessibility helpers. Use -RestartCycles 0 for production navigation tests; use an isolated test installation for cold starts. No TV input or force-stop has been sent by this check.'
+    }
+}
 function Foreground {
     $state=(Adb-Run @('shell','dumpsys','activity','activities')) -join "`n"
     return [regex]::Match($state,'(?:topResumedActivity|mResumedActivity)=.*? ([A-Za-z0-9_.]+)/').Groups[1].Value
@@ -64,6 +72,9 @@ function Key([string]$Code) {
     Assert-Home
 }
 try {
+    # Android force-stop revokes enabled Accessibility services; it is not a neutral restart.
+    # Check before any TV input, and again before each cold-start mutation.
+    Assert-ColdStartsSafe
     $resolver=(Adb-Run @('shell','cmd','package','resolve-activity','--brief','-a','android.intent.action.MAIN','-c','android.intent.category.HOME')) -join "`n"
     if($resolver -notmatch 'dev.zane.pretttv/fi.jommi.rivi.MainActivity'){throw 'prettTV must already be the working default Home.'}
     Assert-Home
@@ -87,6 +98,7 @@ try {
     }
     for($cycle=1;$cycle -le $RestartCycles;$cycle++) {
         Assert-Home
+        Assert-ColdStartsSafe
         Adb-Run @('shell','am','force-stop',$package) | Out-Null
         $timer=[Diagnostics.Stopwatch]::StartNew()
         $foregroundNow=Foreground

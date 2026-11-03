@@ -189,7 +189,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                     trending=rows.trending,newReleases=cleanReleases,discover=rows.discover,
                     liveSports=ContentPolicy.clean(published.filter { it.liveSports },excluded),
                     games=liveGames,snapshotAt=maxOf(sharedAt,catalogAt),offline=online==false,
-                    newEpisodes=episodeSnapshot.alerts,episodeStatus=episodeSnapshot.status,availableTeams=availableTeams,
+                    newEpisodes=episodeSnapshot.eligible(available,excluded).alerts,episodeStatus=episodeSnapshot.status,availableTeams=availableTeams,
                     kickoffReminders=if(personal.kickoffRemindersEnabled())SportsPolicy.reminders(liveGames,System.currentTimeMillis(),favoriteTeams,
                         reminderPrefs.getStringSet("shown",emptySet()).orEmpty()) else emptyList())
                 feedSummary="SERVICES ${if(selectedServices==null)"viewing-activity" else "manual"}: "+services.joinToString()+"\n"+sources+"\n"+

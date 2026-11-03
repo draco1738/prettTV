@@ -76,7 +76,7 @@ internal object AppForceStopSession {
     /** Returns false if another force-stop/recovery owns the local debugging connection. */
     fun start(context: Context, packageName: String, label: String): Boolean = synchronized(StockRecoverySession) {
         synchronized(this) {
-            if (busy || StockRecoverySession.busy) return false
+            if (busy || StockRecoverySession.busy || BluetoothControlSession.busy) return false
             val app = context.applicationContext
             val safeLabel = label.filterNot(Char::isISOControl).take(100).ifBlank { "App" }
             if (!canOffer(app, packageName)) {
@@ -177,7 +177,7 @@ internal object AppForceStopSession {
 
     private fun appResolver(context: Context) = context.applicationContext.contentResolver
 
-    private fun existingKey(context: Context): KeyPair {
+    internal fun existingKey(context: Context): KeyPair {
         val file = AtomicFile(File(context.noBackupFilesDir, "stock-recovery-adb-key.json"))
         check(file.baseFile.isFile && file.baseFile.length() in 1..16_384) {
             "No existing local debugging key is available. Use App info to force stop manually."

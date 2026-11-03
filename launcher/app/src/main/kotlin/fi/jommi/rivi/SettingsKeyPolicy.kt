@@ -8,10 +8,12 @@ internal class SettingsKeyPolicy(private val manufacturer:String) {
     private data class Press(val key:Int,val device:Int,val downTime:Long,var canceled:Boolean)
     private var pending:Press?=null
 
+    fun isSettingsKey(keyCode:Int):Boolean=keyCode==KeyEvent.KEYCODE_SETTINGS ||
+        (keyCode==KeyEvent.KEYCODE_NOTIFICATION && manufacturer.equals("TCL",ignoreCase=true))
+
     fun handle(action:Int,keyCode:Int,repeatCount:Int,deviceId:Int,downTime:Long,
                canceled:Boolean=false,paused:Boolean=false):Decision {
-        if(keyCode!=KeyEvent.KEYCODE_SETTINGS &&
-            !(keyCode==KeyEvent.KEYCODE_NOTIFICATION && manufacturer.equals("TCL",ignoreCase=true)))return Decision.PASS
+        if(!isSettingsKey(keyCode))return Decision.PASS
         if(action==KeyEvent.ACTION_DOWN && repeatCount==0) {
             if(paused)return Decision.PASS
             pending=Press(keyCode,deviceId,downTime,canceled)

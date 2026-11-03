@@ -34,6 +34,16 @@ internal data class BlindPickCard(
 )
 
 internal object BlindPickPolicy {
+    /** Lookup may establish missing genre/runtime facts; visible choices still use strict filters. */
+    fun metadataSeed(
+        candidates:List<Program>, filters:BlindPickFilters,
+        preferredServices:Set<String> = emptySet(), blockedKeys:Set<String> = emptySet(),
+        blockedTitleKeys:Set<String> = emptySet(), hiddenPackages:Set<String> = emptySet(),
+        seed:Long = 0, metadata:Map<String,TitleMetadata> = emptyMap(),
+    ):Program? = pick(candidates,filters.copy(mood=BlindPickMood.ANY,maxMinutes=null),
+        preferredServices,blockedKeys,blockedTitleKeys,hiddenPackages,seed,limit=1,metadata=metadata)
+        .firstOrNull()?.program
+
     /** A strict filter returns fewer than three when needed; the caller can offer "Any mood". */
     fun pick(
         candidates: List<Program>,
@@ -97,7 +107,23 @@ internal data class RelatedTitle(val program: Program, val reasons: List<Discove
     val reason: String get() = reasons.joinToString(" · ") { it.label }
 }
 
+internal data class RabbitHoleNavigation(val seed:Program?,val trail:List<Program>)
+
 internal object RabbitHolePolicy {
+    /** A missing app invalidates its destinations; a temporarily shorter feed does not. */
+    fun refreshNavigation(seed:Program?,trail:List<Program>,candidates:List<Program>,
+                          available:Set<String>,requestedKey:String?=null,
+                          watchingKeys:Set<String> = emptySet()):RabbitHoleNavigation {
+        val eligible=candidates.filter { it.packageName in available }
+        val current=seed?.takeIf { it.packageName in available }
+        val replacement=current
+            ?: seed?.let { old -> eligible.firstOrNull { ContentIdentity.key(it)==ContentIdentity.key(old) } }
+            ?: eligible.firstOrNull { ContentIdentity.key(it)==requestedKey }
+            ?: eligible.firstOrNull { ContentIdentity.key(it) in watchingKeys }
+            ?: eligible.firstOrNull()
+        return RabbitHoleNavigation(replacement,trail.filter { it.packageName in available })
+    }
+
     /**
      * Connections are exact published credits/genres/years. A shared provider is a viewing
      * option, never proof of a creative connection, and cannot qualify a title by itself.

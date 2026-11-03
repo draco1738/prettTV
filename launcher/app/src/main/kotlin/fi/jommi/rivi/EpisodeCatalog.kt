@@ -20,7 +20,11 @@ data class EpisodeAlert(val id:String,val showKey:String,val program:Program,val
 internal data class EpisodeRecord(val id:String,val season:Int,val number:Int,val name:String,val releasedAt:Long,val url:String)
 internal data class EpisodeState(val key:String,val followedAt:Long,val baselineAt:Long,val showId:Int=0,
     val checkedAt:Long=0,val episodes:List<EpisodeRecord> = emptyList(),val dismissed:Set<String> = emptySet(),val status:String="Pending")
-internal data class EpisodeSnapshot(val alerts:List<EpisodeAlert> = emptyList(),val status:String="No followed shows")
+internal data class EpisodeSnapshot(val alerts:List<EpisodeAlert> = emptyList(),val status:String="No followed shows") {
+    /** Availability affects cards, never the saved follows, baselines or dismissed episodes. */
+    fun eligible(available:Set<String>,hidden:Set<String> = emptySet()) = copy(
+        alerts=alerts.filter { it.program.packageName in available && it.program.packageName !in hidden })
+}
 
 internal object EpisodePolicy {
     fun released(rows:List<EpisodeRecord>,baseline:Long,now:Long,dismissed:Set<String>):List<EpisodeRecord> = rows

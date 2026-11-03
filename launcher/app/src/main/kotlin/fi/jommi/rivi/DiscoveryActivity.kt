@@ -2,7 +2,10 @@ package fi.jommi.rivi
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -56,6 +59,7 @@ class DiscoveryActivity : Activity() {
     private var loaded = false
     private var lookupBusy = false
     private var lookupAttempted = false
+    private var rabbitBatches = 0
     private var cacheHydrated = false
     private var cacheBusy = false
     private var metadata = emptyMap<String, TitleMetadata>()
@@ -66,6 +70,10 @@ class DiscoveryActivity : Activity() {
     private var renderGeneration = 0
     @Volatile private var active = false
     @Volatile private var generation = 0
+    private var appInventoryGeneration = 0
+    private val packageReceiver = object:BroadcastReceiver() {
+        override fun onReceive(context:Context,intent:Intent) { if(active)refreshInstalledApps() }
+    }
     @Volatile private var lookup: DiscoveryMetadataRepository? = null
     private val ink = 0xFFF4F1E9.toInt()
     private val muted = 0xFFB2C0B5.toInt()
@@ -103,15 +111,31 @@ class DiscoveryActivity : Activity() {
         active = true
         // onStop cancels in-flight artwork. Rebind even when the refreshed catalog is unchanged.
         if (loaded) render()
-        val token = ++generation
+        generation++
+        val packageFilter=IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED);addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_CHANGED);addDataScheme("package")
+        }
+        if(Build.VERSION.SDK_INT>=33)registerReceiver(packageReceiver,packageFilter,Context.RECEIVER_NOT_EXPORTED)
+        else registerReceiver(packageReceiver,packageFilter)
+        refreshInstalledApps()
+    }
+
+    private fun refreshInstalledApps() {
+        val token = generation
+        val inventoryToken=++appInventoryGeneration
         worker.execute {
-            val apps = try { appRepository.discover() } catch (_: Exception) { emptyList() }
+            // A failed inventory is not proof that every app was removed.
+            val apps = try { appRepository.discover() } catch (_: Exception) { null }
             ui.post {
-                if (!active || token != generation) return@post
-                installed = apps
+                if (!active || token != generation || inventoryToken!=appInventoryGeneration) return@post
+                if(apps!=null) {
+                    installed = apps
+                    if(loaded)receive(home)
+                }
                 val services = if (settings.contains("preferredServices"))
                     settings.getStringSet("preferredServices", emptySet()).orEmpty().toSet() else null
-                repository.start(apps.map { it.packageName }.toSet(), emptySet(),
+                repository.start(installed.map { it.packageName }.toSet(), emptySet(),
                     settings.getBoolean("discovery", true), services = services)
             }
         }
@@ -119,6 +143,7 @@ class DiscoveryActivity : Activity() {
 
     override fun onStop() {
         active = false
+        unregisterReceiver(packageReceiver)
         generation++
         lookup?.close()
         lookup = null
@@ -164,17 +189,22 @@ class DiscoveryActivity : Activity() {
         loaded = true
         var choicesChanged = false
         if (app == OriginalApp.BLIND_PICK) {
-            if (picks.size < 3 || picks.any { card -> card.program.titleKey in blindBlockedTitles() ||
+            if (picks.size < 3 || picks.any { card -> card.program.packageName !in packages || card.program.titleKey in blindBlockedTitles() ||
                     candidates.none { key(it) == key(card.program) } }) {
                 val before = picks
                 drawPicks()
                 choicesChanged = before != picks
             }
-        } else if (rabbitSeed == null) {
-            val requested = intent.getStringExtra("seed")
-            rabbitSeed = candidates.firstOrNull { key(it) == requested }
-                ?: candidates.firstOrNull { item -> value.visibleWatching.any { key(it) == key(item) } }
-                ?: candidates.firstOrNull()
+        } else {
+            val navigation=RabbitHolePolicy.refreshNavigation(rabbitSeed,trail,candidates,packages,
+                intent.getStringExtra("seed"),value.visibleWatching.map(::key).toSet())
+            if(navigation.seed!=rabbitSeed) {
+                rabbitSeed=navigation.seed
+                lookupAttempted=false
+                rabbitBatches=0
+                relation="all"
+            }
+            trail.clear();trail.addAll(navigation.trail)
         }
         if (first || choicesChanged || picks.isEmpty() || app == OriginalApp.RABBIT_HOLE) render()
         if (!cacheHydrated && !cacheBusy && candidates.isNotEmpty()) hydrateMetadata()
@@ -377,6 +407,7 @@ class DiscoveryActivity : Activity() {
         rabbitSeed?.takeIf { key(it) != key(program) }?.let { trail.add(it); if (trail.size > 12) trail.removeAt(0) }
         rabbitSeed = program
         lookupAttempted = false
+        rabbitBatches = 0
         relation = "all"
         render(false)
         enrich()
@@ -406,13 +437,14 @@ class DiscoveryActivity : Activity() {
 
     private fun enrich() {
         val seed = if (app == OriginalApp.RABBIT_HOLE) rabbitSeed else picks.firstOrNull()?.program
-            ?: BlindPickPolicy.pick(candidates, filters.copy(maxMinutes = null),
+            ?: BlindPickPolicy.metadataSeed(candidates, filters,
                 preferredServices = preferred(), blockedKeys = personal.recommendationFeedback().dismissed,
-                blockedTitleKeys = blindBlockedTitles(), seed = roundSeed, metadata = metadata).firstOrNull()?.program
+                blockedTitleKeys = blindBlockedTitles(), seed = roundSeed, metadata = metadata)
         if (seed == null) return
         if (!active || lookupBusy || lookupAttempted || !settings.getBoolean("discovery", true)) return
         lookupBusy = true
         lookupAttempted = true
+        if(app==OriginalApp.RABBIT_HOLE)rabbitBatches++
         val token = generation
         val seedKey = key(seed)
         val rows = (picks.map { it.program } + candidates).distinctBy { key(it) }
@@ -429,16 +461,27 @@ class DiscoveryActivity : Activity() {
                 if (lookup === service) lookup = null
                 if (!active || token != generation) return@post
                 lookupBusy = false
+                val addedFacts=result.any { (id,facts) -> metadata[id]!=facts }
                 metadata = (metadata + result).entries.toList().takeLast(200).associate { it.toPair() }
                 if (app == OriginalApp.BLIND_PICK) {
-                    if (filters.maxMinutes != null || picks.size < 3) drawPicks()
+                    if (filters.mood != BlindPickMood.ANY || filters.maxMinutes != null || picks.size < 3) drawPicks()
                     else picks = picks.mapIndexed { index, pick ->
                         val clue = BlindPickPolicy.clue(pick.program, metadata[key(pick.program)])
                         pick.copy(clue = clue, accessibilityLabel = "Mystery pick ${index + 1}. $clue")
                     }
                     render()
                     if (oldFilters != filters || oldRound != roundSeed) { lookupAttempted = false; enrich() }
-                } else if (key(rabbitSeed ?: seed) == seedKey) render()
+                } else if (key(rabbitSeed ?: seed) == seedKey) {
+                    render()
+                    // One extra visible batch can use the now-cached seed's budget for peers.
+                    // No automatic retry when offline/unchanged, after two batches, or once useful.
+                    if(rabbitBatches<2 && addedFacts && RabbitHolePolicy.related(seed,candidates,
+                            blockedKeys=personal.recommendationFeedback().dismissed,
+                            blockedTitleKeys=blockedTitles(),metadata=metadata).isEmpty()) {
+                        lookupAttempted=false
+                        enrich()
+                    }
+                }
                 else { lookupAttempted = false; enrich() }
             }
         }
@@ -503,7 +546,7 @@ class DiscoveryActivity : Activity() {
     private fun back() {
         if (choosing && rabbitSeed != null) { choosing = false; render(false) }
         else if (app == OriginalApp.RABBIT_HOLE && trail.isNotEmpty()) {
-            rabbitSeed = trail.removeAt(trail.lastIndex); lookupAttempted = false; render(false); enrich()
+            rabbitSeed = trail.removeAt(trail.lastIndex); lookupAttempted = false; rabbitBatches = 0; render(false); enrich()
         } else finish()
     }
 
@@ -544,5 +587,20 @@ class DiscoveryActivity : Activity() {
             addView(label(title, 32, bold = true), lp(70))
             addView(label(detail, 26, muted, lines = 3), lp(120))
         }, lp(240))
+    }
+
+    /** Android's activity-dump entry point requires DUMP; no exported diagnostic endpoint. */
+    override fun dump(prefix:String,fd:java.io.FileDescriptor?,out:java.io.PrintWriter,args:Array<out String>?) {
+        if(args?.contains("--discovery-diagnostics")!=true) { super.dump(prefix,fd,out,args);return }
+        out.println("DISCOVERY app=${app.route} active=$active loaded=$loaded installed=${installed.size} candidates=${candidates.size} discovery=${settings.getBoolean("discovery",true)}")
+        out.println("DISCOVERY lookupBusy=$lookupBusy lookupAttempted=$lookupAttempted cacheHydrated=$cacheHydrated cacheBusy=$cacheBusy metadata=${metadata.size} picks=${picks.size} trail=${trail.size}")
+        out.println("DISCOVERY_FACTS genres=${metadata.values.count { it.genres.isNotEmpty() }} cast=${metadata.values.count { it.cast.isNotEmpty() }} directors=${metadata.values.count { it.directors.isNotEmpty() }} years=${metadata.values.count { it.year in 1900..2200 }} rabbitBatches=$rabbitBatches")
+        out.println("DISCOVERY eligibleMetadata=${candidates.count { DiscoveryMetadataPolicy.cacheKey(it)!=null }} knownTypes=${candidates.count { DiscoveryMetadataPolicy.type(it)!=null }} knownYears=${candidates.count { it.releaseYear in 1900..2200 }} genres=${candidates.count { it.genres.isNotBlank() }} runtimes=${candidates.count { it.duration>0 }}")
+        val seed=if(app==OriginalApp.RABBIT_HOLE)rabbitSeed else picks.firstOrNull()?.program
+        out.println("DISCOVERY_SEED present=${seed!=null} eligibleMetadata=${seed?.let { DiscoveryMetadataPolicy.cacheKey(it)!=null } ?: false} knownType=${seed?.let { DiscoveryMetadataPolicy.type(it)!=null } ?: false} knownYear=${(seed?.releaseYear ?: 0) in 1900..2200} imdb=${seed?.let { DiscoveryMetadataPolicy.imdb(it)!=null } ?: false} metadata=${seed?.let { metadata.containsKey(key(it)) } ?: false}")
+        val facts=seed?.let { metadata[key(it)] }
+        val connections=seed?.let { RabbitHolePolicy.related(it,candidates,
+            blockedKeys=personal.recommendationFeedback().dismissed,blockedTitleKeys=blockedTitles(),metadata=metadata).size } ?: 0
+        out.println("DISCOVERY_SEED_FACTS genres=${facts?.genres?.size ?: 0} cast=${facts?.cast?.size ?: 0} directors=${facts?.directors?.size ?: 0} year=${(facts?.year ?: 0) in 1900..2200} related=$connections")
     }
 }

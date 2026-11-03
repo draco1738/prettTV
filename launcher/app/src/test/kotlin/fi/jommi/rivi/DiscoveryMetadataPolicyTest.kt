@@ -34,15 +34,33 @@ class DiscoveryMetadataPolicyTest {
             DiscoveryMetadataPolicy.cacheKey(program(title = "the office")))
     }
 
-    @Test fun ambiguousOrUnsupportedTitlesNeverCreateSearchRequests() {
+    @Test fun unsupportedTitlesNeverCreateSearchRequests() {
         assertNull(DiscoveryMetadataPolicy.cacheKey(program(type = "movie")))
-        assertNull(DiscoveryMetadataPolicy.cacheKey(program(year = 0)))
+        assertNotNull(DiscoveryMetadataPolicy.cacheKey(program(year = 0)))
         assertNull(DiscoveryMetadataPolicy.cacheKey(program(type = "tv", imdb = "tt0133093")))
         assertNull(DiscoveryMetadataPolicy.cacheKey(program(title = " ")))
         assertNull(DiscoveryMetadataPolicy.cacheKey(program(imdb = "tt12345/../../path", year = 0)))
         val repo = DiscoveryMetadataRepository(File(temp.root, "metadata"))
         assertNull(repo.get(program(type = "movie")))
         repo.close()
+    }
+
+    @Test fun missingYearSeriesMatchesOnlyOneExactNormalizedName() {
+        val rows=listOf(Triple(1,"Game of Thrones",2011),Triple(2,"Game of Thrones: Extras",2012))
+        assertEquals(1,DiscoveryMetadataPolicy.exactSeriesMatch(" GAME  OF THRONES ",0,rows))
+        assertNull(DiscoveryMetadataPolicy.exactSeriesMatch("Games of Thrones",0,rows))
+        assertNull(DiscoveryMetadataPolicy.exactSeriesMatch(" ",0,rows))
+        assertNull(DiscoveryMetadataPolicy.exactSeriesMatch("Game of Thrones",0,listOf(Triple(0,"Game of Thrones",2011))))
+    }
+
+    @Test fun missingYearNeverChoosesBetweenRemakesAndKnownYearStillMustMatch() {
+        val rows=listOf(Triple(1,"The Office",2001),Triple(2,"The Office",2005))
+        assertNull(DiscoveryMetadataPolicy.exactSeriesMatch("The Office",0,rows))
+        assertEquals(2,DiscoveryMetadataPolicy.exactSeriesMatch("The Office",2005,rows))
+        assertNull(DiscoveryMetadataPolicy.exactSeriesMatch("The Office",2006,rows))
+        assertNull(DiscoveryMetadataPolicy.exactSeriesMatch("The Office",2005,rows+Triple(3,"The Office",2005)))
+        assertNotEquals(DiscoveryMetadataPolicy.cacheKey(program(year=0)),DiscoveryMetadataPolicy.cacheKey(program(year=2005)))
+        assertNull(DiscoveryMetadataPolicy.cacheKey(program(type="unknown",year=0)))
     }
 
     @Test fun runtimesAreOnlyAcceptedWithAnUnambiguousUnitAndReasonableRange() {

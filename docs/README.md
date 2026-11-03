@@ -26,6 +26,8 @@ Start with installation, then make the home screen your own. These guides descri
 | [Development](development.md) | Build requirements, commands, signing and CI. |
 | [Stability testing](stability-testing.md) | Repeatable fault, navigation, lifecycle and scrolling checks. |
 | [Validation history](validation.md) | Results and limitations recorded for each prettTV release. |
+| [November software review](software-review-2026-11.md) | Concrete repairs and prioritized next improvements. |
+| [Historical release audit](release-audit-2026-11.md) | Verified release flags, exact-commit CI, signed APK identity and remaining evidence gaps. |
 | [Native design evidence](native-design-evidence.md) | Historical design decisions, real TV captures and review scope. |
 
 The [product brief](../PRODUCT.md) and [design reference](../DESIGN.md) record the native TV design. Current license and source attribution live in [third-party notices](../THIRD_PARTY_NOTICES.md).

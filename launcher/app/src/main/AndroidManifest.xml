@@ -46,6 +46,7 @@
         <activity android:name=".UpdateActivity" android:exported="false"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode|locale|layoutDirection|density|fontScale|smallestScreenSize" />
         <activity android:name=".AppForceStopActivity" android:exported="false" android:theme="@style/Theme.PrettTvActionContext" />
+        <activity android:name=".BluetoothControlActivity" android:exported="false" android:theme="@style/Theme.PrettTvActionContext" />
         <receiver android:name=".UpdateInstallReceiver" android:exported="false" />
 
         <activity android:name=".DiscoveryActivity" android:exported="false"
@@ -93,7 +94,7 @@
             <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
             <meta-data android:name="android.service.notification.default_filter_types" android:value="0" />
         </service>
-        <!-- Optional Settings-key filtering across apps; no screen-content access. -->
+        <!-- Optional Settings and TCL app shortcuts across apps; no screen-content access. -->
         <service android:name=".SettingsKeyService" android:label="@string/settings_key_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>

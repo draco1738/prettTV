@@ -4,9 +4,9 @@
 
 Use these checks to reproduce build validation, artwork failures and remote navigation behavior. For recorded outcomes, see the [validation record](validation.md).
 
-**0.4.0** changes navigation, visual feedback and recency updates. The requirements below describe the repeatable checks; the [versioned validation record](validation.md) identifies actual outcomes and scope. Historical sidebar results remain valid only for their recorded versions.
+**0.4.1** changes Home-return work, remote shortcuts, Inputs audio-device access, app-removal behavior and update recovery. The requirements below describe repeatable checks; the [versioned validation record](validation.md) identifies actual outcomes and scope. Historical sidebar results remain valid only for their recorded versions.
 
-The earlier approved one-hour soak belongs to its historical release record. It is not a fresh 0.4.0 soak. Read the exact native run counts and completed checks from the current version's validation entry; an expected runner count or a dispatched test command is not a passed result.
+The earlier approved one-hour soak belongs to its historical release record. It is not a fresh 0.4.1 soak. Read the exact native run counts and completed checks from the current version's validation entry; an expected runner count or a dispatched test command is not a passed result.
 
 | Check | What it covers | Device requirement |
 |---|---|---|
@@ -18,6 +18,32 @@ The earlier approved one-hour soak belongs to its historical release record. It 
 | [Final feature-release gate](#final-feature-release-gate) | All-layout stress, lifecycle, failure checks and a one-hour soak | Idle TV and isolated fixtures |
 
 Passing these bounded tests does not establish indefinite uptime or a sustained frame rate. Keep raw reports local: they can contain content identities and installed-app names.
+
+### Remote-button checks (0.4.1)
+
+Build the isolated `stability` target and its instrumentation APK, install both on an authorized idle test TV, then run:
+
+```sh
+adb -s TV_SERIAL shell am instrument -w -r -e settingsKeysOnly true dev.zane.pretttv.stability.test/fi.jommi.rivi.StabilityInstrumentation
+```
+
+This targeted suite expects Netflix, Prime Video, HBO Max and TV Bro installed so it can resolve their TV activities. It records the launch intents without opening those apps, keeps the test Accessibility service disabled, and never enables stock Home. Require an explicit `SETTINGS KEYS PASS: 9 Android tests` and instrumentation success. Remove only test packages installed by your test run; use exact package-name checks because the runner starts with the target package's name.
+
+Separately verify the real remote, including a complete press, a held press, Settings, Home and a game controller if one is used. Injected ADB keys do not traverse Android's Accessibility input filter and cannot substitute for this physical check.
+
+Do not force-stop the owner's prettTV package to simulate a cold start while its Accessibility helpers are enabled. Android removes those components from the enabled-services setting; an ordinary signed package update follows a separate rebind path. The stress harness refuses cold cycles in that state before sending input and rechecks before each force-stop. Use `-RestartCycles 0` for production navigation checks and an isolated installation for cold-start coverage. Verify helper binding after an update; if the owner disabled a helper, leave it disabled and use Android's Accessibility settings for any deliberate re-enabling. The remote helper cannot retrieve window contents and does not record key events; the separate RBTV handoff helper has its own permissions.
+
+### Software-review checks (0.4.1)
+
+With the isolated target and runner installed on an idle TV:
+
+```sh
+adb -s TV_SERIAL shell am instrument -w -r -e reviewOnly true dev.zane.pretttv.stability.test/fi.jommi.rivi.StabilityInstrumentation
+```
+
+Require `SOFTWARE REVIEW PASS` and instrumentation success. The suite covers remote-key handling and TCL-only double-Mute passthrough; Inputs actions, Bluetooth state/focus handling and native fallbacks; exact metadata identity, bounded Rabbit Hole continuation and stale discovery sources; episode eligibility, interrupted installer sessions, compact-card raster equivalence, artwork clipping, Home returns, and A/B/C navigation at normal and enlarged text. It never changes Bluetooth state. Installer tests create only their own isolated sessions, preserve a pending Android confirmation without opening or approving it, and clean up those sessions afterward.
+
+Home-reset timings compare injected UI-thread work in a populated fixture with a full rebuild. They do not measure physical remote transport latency. Discovery tests invoke the registered receiver callback and exercise real Activity stop/start; they do not impersonate an OS-protected package broadcast or uninstall an owner's app.
 
 ## Build checks
 
@@ -75,7 +101,7 @@ These tests open native screens and exercise long-press menus, confirmation, hel
 Leave the TV idle with the selected layout visible and prettTV already configured as default Home. Use `-Layout CINEMA`, `QUIET` or `BALANCED` to assert the expected layout. The stress, lifecycle and soak harnesses require an absolute output directory on E:. Do not run these tests while someone is watching.
 
 ```powershell
-./tests/stress-home.ps1 -Tv '<serial>' -Cycles 15 -RestartCycles 5 -OutputDirectory '<local-results-directory>'
+./tests/stress-home.ps1 -Tv '<serial>' -Cycles 15 -RestartCycles 0 -OutputDirectory '<local-results-directory>'
 ./tests/lifecycle-home.ps1 -Tv '<serial>' -FixtureApk './launcher/testapp/build/outputs/apk/debug/testapp-debug.apk' -Cycles 10 -OutputDirectory '<local-results-directory>'
 ```
 
@@ -83,8 +109,8 @@ All scripts accept `-Adb '<adb-path>'` and `-Port <adb-server-port>`.
 
 | Script | Actions and checks |
 |---|---|
-| `stress-home.ps1` | Sends D-pad directions, Back and Home without opening media or selecting settings. Checks focus and process continuity each cycle. Cold-start checks force-stop only prettTV and verify return through the existing Home resolver. |
-| `lifecycle-home.ps1` | Temporarily installs a do-nothing fixture app, verifies Home stops, returns with Back, and checks the same focus, viewport and process. Removes the fixture afterward and refuses to overwrite an existing installation. |
+| `stress-home.ps1` | Sends D-pad directions, Back and Home without opening media or selecting settings. Checks focus and process continuity each cycle. Use `-RestartCycles 0` while prettTV Accessibility helpers are enabled; positive cold-cycle counts are refused before input because force-stop disables those helpers. Otherwise cold cycles force-stop only prettTV and verify its return. |
+| `lifecycle-home.ps1` | Temporarily installs a do-nothing fixture app, verifies Home stops, returns with Back, and checks the same focus, viewport and process. It never force-stops prettTV. Removes the fixture afterward and refuses to overwrite an existing installation. |
 
 No launcher is disabled or uninstalled. Foreground guards stop further input when another app becomes active. Timing includes ADB overhead and measures a focusable Home, not complete artwork or playback readiness.
 

@@ -266,6 +266,7 @@ internal object HomeVisualAndroidChecks {
                     waitFor(instrumentation) { activity.currentFocus?.tag=="nav-home" && visible(activity.currentFocus!!) }
                     for(hardwareHome in listOf(false,true)) {
                         focus("favorite-${syntheticApps.last().key}")
+                        val before=main(instrumentation) { root() to views().toMap() }
                         main(instrumentation) {
                             check(rows().values.any { it.scrollX>0 }) { "Home reset fixture did not scroll the app row" }
                             // Select Library first, so reset must also clear the previous tab highlight.
@@ -278,8 +279,79 @@ internal object HomeVisualAndroidChecks {
                             settled() && activity.currentFocus===field("firstCard") && root().scrollY==0 &&
                                 rows().values.all { it.scrollX==0 } && field("navigationSelection")=="nav-home"
                         }
+                        main(instrumentation) {
+                            check(root()===before.first && views().all { (key,view)->before.second[key]===view }) {
+                                "Home reset recreated unchanged cards instead of retaining their artwork and focus state"
+                            }
+                        }
                     }
                 }
+            }
+            test("Warm Home return retains the hierarchy after another activity and avoids rebuilding unchanged cards") {
+                main(instrumentation) {
+                    fun shelf(prefix:String)=(0 until 60).map { programs[it%programs.size].copy(id="$prefix:$it",title="$prefix title $it") }
+                    personal().setRowPreferences(RowPreferences())
+                    set("content",base.copy(watching=shelf("Watching"),suggestions=shelf("Suggestions"),
+                        discover=shelf("Discover"),trending=shelf("Trending"),newReleases=shelf("New")))
+                    call("onNewIntent",Intent().putExtra("layout",HomeLayout.BALANCED.name))
+                }
+                waitFor(instrumentation) { settled() }
+                focus("favorite-${syntheticApps.last().key}")
+                val before=main(instrumentation) { root() to views().toMap() }
+                val away=instrumentation.startActivitySync(Intent(context,CardFocusTestActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as CardFocusTestActivity
+                main(instrumentation) { away.finish() }
+                instrumentation.waitForIdleSync()
+                main(instrumentation) {
+                    (field("contentRepo") as ContentRepository).stop()
+                    (field("weatherRepo") as WeatherRepository).stop()
+                    call("onNewIntent",Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
+                }
+                waitFor(instrumentation) { settled() && activity.currentFocus===field("firstCard") && root().scrollY==0 }
+                main(instrumentation) {
+                    check(rows().values.all { it.scrollX==0 })
+                    check(root()===before.first && views().all { (key,view)->before.second[key]===view })
+                }
+                val rebuildNanos=ArrayList<Long>(); val resetNanos=ArrayList<Long>()
+                repeat(3) {
+                    rebuildNanos.add(main(instrumentation) {
+                        val start=System.nanoTime()
+                        MainActivity::class.java.declaredMethods.single { it.name=="render" && it.parameterTypes.size==2 }
+                            .apply { isAccessible=true }.invoke(activity,true,null)
+                        System.nanoTime()-start
+                    })
+                    waitFor(instrumentation) { settled() }
+                    resetNanos.add(main(instrumentation) {
+                        val start=System.nanoTime(); call("onNewIntent",Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
+                        System.nanoTime()-start
+                    })
+                    waitFor(instrumentation) { settled() }
+                }
+                instrumentation.sendStatus(0,android.os.Bundle().apply {
+                    putString("stream","HOME RESET TIMING (injected UI-thread work, not physical remote latency): rebuildMs="+
+                        rebuildNanos.map { it/1_000_000.0 }+" resetMs="+resetNanos.map { it/1_000_000.0 }+"\n")
+                })
+                focus("favorite-${syntheticApps.last().key}")
+                main(instrumentation) {
+                    val saved=MainActivity::class.java.declaredMethods.single { it.name=="viewport" && it.parameterTypes.size==1 }
+                        .apply { isAccessible=true }.invoke(activity,null)
+                    set("appReturnViewport",checkNotNull(saved))
+                    // Queue an app-return restore, then receive Home before that callback runs.
+                    call("onResume")
+                    call("onNewIntent",Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
+                }
+                waitFor(instrumentation) { settled() && activity.currentFocus===field("firstCard") && root().scrollY==0 && rows().values.all { it.scrollX==0 } }
+                // Home arriving before a replacement hierarchy is measured still settles at its start.
+                main(instrumentation) {
+                    val saved=MainActivity::class.java.declaredMethods.single { it.name=="viewport" && it.parameterTypes.size==1 }
+                        .apply { isAccessible=true }.invoke(activity,"favorite-${syntheticApps.last().key}")
+                    set("appReturnViewport",checkNotNull(saved))
+                    call("onNewIntent",Intent().putExtra("layout",HomeLayout.CINEMA.name))
+                    call("onNewIntent",Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
+                    check(field("appReturnViewport")==null) { "Home left a stale app-return restore while layout was pending" }
+                }
+                waitFor(instrumentation) { settled() && activity.currentFocus===field("firstCard") && root().scrollY==0 && rows().values.all { it.scrollX==0 } }
+                reset()
             }
             test("Native A B C visual captures retain usable navigation and actions at normal and enlarged text") {
                 val originalConfiguration=main(instrumentation) { Configuration(activity.resources.configuration) }

@@ -29,10 +29,12 @@ class StabilityInstrumentation:Instrumentation() {
     private var settingsKeysOnly=false
     private var forceStopOnly=false
     private var visualPolishOnly=false
+    private var reviewOnly=false
     override fun onCreate(arguments:Bundle?) {
         settingsKeysOnly=arguments?.getString("settingsKeysOnly")=="true"
         forceStopOnly=arguments?.getString("forceStopOnly")=="true"
         visualPolishOnly=arguments?.getString("visualPolishOnly")=="true"
+        reviewOnly=arguments?.getString("reviewOnly")=="true"
         super.onCreate(arguments);start()
     }
     override fun onStart() {
@@ -40,6 +42,18 @@ class StabilityInstrumentation:Instrumentation() {
         try {
             check(targetContext.packageName=="dev.zane.pretttv.stability") { "Refusing to run against the production Home" }
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
+            if(reviewOnly) {
+                SettingsKeyAndroidChecks.run(this,::test)
+                AudioDeviceSettingsAndroidChecks.run(this,::test)
+                BluetoothControlAndroidChecks.run(this,::test)
+                DiscoveryAndroidChecks.run(targetContext,::test)
+                DiscoveryActivityAndroidChecks.run(this,::test)
+                UpdateAndroidChecks.run(this,::test)
+                HomePerformanceAndroidChecks.run(this,::test)
+                HomeVisualAndroidChecks.run(this,::test)
+                finish(Activity.RESULT_OK,Bundle().apply { putString("stream","SOFTWARE REVIEW PASS: $passed Android tests\n");putInt("passed",passed) })
+                return
+            }
             if(visualPolishOnly) {
                 CardFocusAndroidChecks.run(this,::test)
                 ContentRefreshAndroidChecks.run(targetContext,::test)
@@ -61,7 +75,11 @@ class StabilityInstrumentation:Instrumentation() {
                 return
             }
             PersonalizationAndroidChecks.run(targetContext, ::test)
+            AudioDeviceSettingsAndroidChecks.run(this, ::test)
+            BluetoothControlAndroidChecks.run(this, ::test)
             DiscoveryAndroidChecks.run(targetContext, ::test)
+            DiscoveryActivityAndroidChecks.run(this, ::test)
+            HomePerformanceAndroidChecks.run(this, ::test)
             WeatherRepositoryInstrumentationTest.run(this, ::test)
             ContentRefreshAndroidChecks.run(targetContext, ::test)
             test("real decoder accepts fixture and downsamples large image") {
