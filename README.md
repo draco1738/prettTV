@@ -176,18 +176,18 @@ Personalization and viewing records are stored locally. Catalog, artwork, weathe
 
 Use **JDK 17**, **Android SDK platform 34**, **build-tools 35.0.0** and the included Gradle wrapper. See [Development](docs/development.md) for build commands, signing and the source map; [Stability testing](docs/stability-testing.md) describes isolated device checks.
 
-The **0.4.1** build has the following recorded results:
+The **0.4.2** build has the following recorded results:
 
 | Check | Result |
 | :--- | :--- |
-| JVM tests | **392 passed** across 34 suites. |
-| Targeted Android checks on the TCL TV | [Versioned device results](docs/validation.md), including Home return, remote shortcuts, Bluetooth settings access, discovery and updater recovery. |
-| Offline harness checks | **73 assertions passed**, including protection against force-stopping an enabled remote helper. |
+| JVM tests | **407 passed** across 34 suites. |
+| Targeted Android checks on the TCL TV | **14 passed**, covering remote callbacks, Inputs fallbacks and Bluetooth controls. |
+| Live speaker handoff | Off selected TV speakers; On restored the previously owned Bluetooth output. Separate saved volumes were preserved. |
 | Android lint | **0 errors**, 32 existing warnings. |
 | Installed release artifact | Pulled back from the TV and matched to the signed release SHA-256. |
 | GitHub build | [Build workflow and commit-specific results](https://github.com/draco1738/prettTV/actions/workflows/build.yml). |
 
-These are bounded release checks. The historical one-hour soak was **not repeated for 0.4.1**; no universal app coverage or sustained frame-rate guarantee is implied. Home-return work and a short scrolling route are measured separately in the validation record. CI builds the Android test APKs but does not run them on a TV. [Full versioned evidence →](docs/validation.md)
+These are bounded release checks. The historical one-hour soak and 0.4.1 Home/discovery checks were **not repeated for 0.4.2**; no universal app coverage or sustained frame-rate guarantee is implied. Speaker routing was verified through Android's state; an audible listening test and the fresh physical Mute/message confirmation remain separate. CI builds the Android test APKs but does not run them on a TV. [Full versioned evidence →](docs/validation.md)
 
 For a bug report, include the prettTV version, TV model/Android version, layout, reproduction steps and expected behavior. Keep account details, private recovery records and raw preference exports out of public issues. For contributions, describe the behavior changed and the checks actually run; preserve existing source and asset attribution.
 
