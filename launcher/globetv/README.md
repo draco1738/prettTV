@@ -32,7 +32,7 @@ Signing reuses the parent project's untracked `signing.properties` or its existi
 
 ## Validation scope
 
-The November 3, 2026 build passed lint with zero errors and warnings. Its signature and permission-free manifest were verified. The signed 21,444-byte APK installed on the TCL and its pulled-back copy matched SHA-256 `29420f2876f08d15f4e6360f275ca62d05dcd88a41f8f62113eee572273e1eaf`. The URL was confirmed from the TV's browser address bar. App-tile launches, same-tab behavior and Home exit are pending an idle TV; the public companion release remains staged until those checks finish.
+The November 3, 2026 build passed lint with zero errors and warnings. Its signature and permission-free manifest were verified. The signed 21,444-byte APK installed on the TCL and its pulled-back copy matched SHA-256 `29420f2876f08d15f4e6360f275ca62d05dcd88a41f8f62113eee572273e1eaf`. The tile launched from Library and Your apps into the correct United States page in TV Bro. The browser address and existing three-tab strip were inspected after both launches; no extra tab appeared. Home returned to prettTV with the hero focused. The website page rendered, but individual channel playback was not tested.
 
 Launching the website alone does not verify channel playback, every country or all browser features. The shortcut's same-tab handoff follows the existing TV Bro 2.1.6 integration used by the [7Movies shortcut](../webshortcut/README.md). See the [versioned validation record](../../docs/validation.md) for current results and limitations.
 

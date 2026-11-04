@@ -31,7 +31,7 @@ The optional [Remote buttons helper](docs/usage.md#remote-buttons) maps YouTube 
 
 With that helper enabled and the existing local connection authorized, **quickly press speaker Mute twice** to toggle Bluetooth without leaving the current app. A single Mute press stays immediate; the two normal mute events pass through, and a brief status reports the checked Bluetooth result. Use **Inputs → Audio devices** if the shortcut is unavailable.
 
-**The staged 0.4.2 candidate adds speaker handoff:** Bluetooth off selects the TV speakers on supported TCL firmware and preserves their saved volume. **Enable shortcut messages** in Audio devices allows the result to appear over other apps on Android 13+. On-TV checks are pending; 0.4.1 remains the stable release. [Bluetooth and output behavior →](docs/usage.md#inputs-and-audio-devices)
+**0.4.2 adds speaker handoff:** Bluetooth off selects the TV speakers on supported TCL firmware and preserves their saved volume. **Enable shortcut messages** in Audio devices allows the result to appear over other apps on Android 13+ when permission is needed. [Bluetooth and output behavior →](docs/usage.md#inputs-and-audio-devices)
 
 ## Three layouts, one Home
 
