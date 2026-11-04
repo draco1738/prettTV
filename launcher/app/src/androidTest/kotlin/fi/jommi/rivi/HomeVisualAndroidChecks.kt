@@ -353,6 +353,19 @@ internal object HomeVisualAndroidChecks {
                 waitFor(instrumentation) { settled() && activity.currentFocus===field("firstCard") && root().scrollY==0 && rows().values.all { it.scrollX==0 } }
                 reset()
             }
+            test("Home reclaims Bluetooth feedback after returning from the translucent audio panel") {
+                check(StockRecoveryStore(context).plan()==null) { "This check must not have a configured local-control connection" }
+                val panel=instrumentation.startActivitySync(Intent(context,BluetoothControlActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as BluetoothControlActivity
+                val owner=BluetoothControlSession::class.java.getDeclaredField("owner").apply { isAccessible=true }
+                try {
+                    waitFor(instrumentation) { panel.hasWindowFocus() && owner.get(BluetoothControlSession)===panel }
+                } finally { main(instrumentation) { panel.finish() } }
+                waitFor(instrumentation) { activity.hasWindowFocus() && owner.get(BluetoothControlSession)===activity && !BluetoothControlSession.busy }
+                main(instrumentation) {
+                    check((views().getValue("nav-bluetooth") as TextView).text=="Bluetooth ?") { "Header did not receive the refreshed unavailable state" }
+                }
+            }
             test("Native A B C visual captures retain usable navigation and actions at normal and enlarged text") {
                 val originalConfiguration=main(instrumentation) { Configuration(activity.resources.configuration) }
                 val originalMetrics=main(instrumentation) { DisplayMetrics().apply { setTo(activity.resources.displayMetrics) } }
@@ -368,7 +381,7 @@ internal object HomeVisualAndroidChecks {
                         check(file.length()>0)
                     } finally { screenshot.recycle() }
                 }
-                val navKeys=listOf("nav-home","nav-shows","nav-apps","nav-inputs","nav-search","nav-settings")
+                val navKeys=listOf("nav-home","nav-shows","nav-apps","nav-inputs","nav-bluetooth","nav-search","nav-settings")
                 var normalTextSize=0f
                 try {
                     for(fontScale in listOf(1f,1.3f))for(layout in HomeLayout.entries) {

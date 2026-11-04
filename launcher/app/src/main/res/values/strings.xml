@@ -38,7 +38,11 @@
     <string name="app_actions_return_hint">Back returns to the same card.</string>
     <string name="audio_devices_title">Audio devices</string>
     <string name="bluetooth_off_notice">Turns off Bluetooth headphones and remotes</string>
-    <string name="bluetooth_remote_hint">Remote shortcut: double-press Mute with Remote buttons enabled.</string>
+    <string name="bluetooth_remote_hint">Quick switch: select Bluetooth in Home’s top bar. Hold OK there for audio devices.</string>
+    <string name="bluetooth_quick_on">Bluetooth on</string>
+    <string name="bluetooth_quick_off">Bluetooth off</string>
+    <string name="bluetooth_quick_working">Bluetooth …</string>
+    <string name="bluetooth_quick_unknown">Bluetooth ?</string>
     <string name="bluetooth_enable_messages">Enable shortcut messages</string>
     <string name="bluetooth_messages_notice">Allow notifications to see Bluetooth shortcut results while using other apps. Optional: Bluetooth still works without these messages.</string>
     <string name="bluetooth_messages_denied">Messages remain off. You can enable prettTV notifications in Android app settings.</string>

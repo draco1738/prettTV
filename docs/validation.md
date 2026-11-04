@@ -2,6 +2,18 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
+## prettTV 0.4.3 native volume and Bluetooth quick switch — 2026-11-03
+
+The owner chose normal held-volume behavior over global custom remote mappings. A physical comparison with **prettTV Remote buttons** disabled showed repeated native volume adjustments, and the owner confirmed continuous adjustment. Only this helper was removed from the enabled-service list; the TV's other settings were preserved. Android reported `InputFilterEnabled: false` before and after the upgrade. The helper remains optional in the software, but custom global app/Settings remaps and double-Mute are inactive in this TV configuration. The app and installer do not silently enable it.
+
+The signed **0.4.3 / code 22** APK installed in place. Its pulled-back **678,643-byte** file matched SHA-256 `4d1804cf7776ae73097f43a1f3bbca8e4bc0c0e6d426f35d98f78e0f4d3d6330`, with the established signing certificate. **407 JVM tests across 34 suites passed**, with zero failures/errors. Android lint reports **zero errors and 32 existing warnings**. Both installer scripts passed syntax checks.
+
+**18 isolated native Android checks passed**: four Bluetooth view/action cases, two Inputs/fallback cases and twelve Home cases. They cover repeated-OK suppression, unavailable-state recovery, retained focus, a rejected operation becoming usable again, and listener ownership after returning from the translucent audio panel. A/B/C navigation and text at normal and 1.3 scale were exercised without changing the system font setting. The isolated apps have no configured local-control connection; callback checks never toggle the real radio. Test packages were removed and absence verified. Actual production C was separately inspected with weather and real content; the quick switch fits the existing top bar. [Production screenshot](screenshots/bluetooth-quickswitch.png).
+
+On the production build, D-pad navigation reached **Bluetooth on**. OK changed it to **Bluetooth off**, with radio 0, TCL output mode 2 and MUSIC `speaker(2)`, unmuted. A second OK changed it to **Bluetooth on**, with radio 1, mode 4 and MUSIC `bt_a2dp(80)`. The saved speaker and Bluetooth volumes remained 10 and 59 throughout. Holding OK opened Audio devices; Back returned to the same header button with refreshed state. After testing, the initial radio-On/speaker-output selection was restored. These checks verify radio/output selection, not audible headset playback.
+
+Home settings excluding navigation focus, app preferences and personalization matched their saved baseline. C Balanced and the existing content remained in place. These are bounded functional/navigation/lifecycle checks; no full soak, fresh frame-rate benchmark, or new universal remote-compatibility claim is made.
+
 ## prettTV 0.4.2 Bluetooth feedback and speaker handoff — 2026-11-03
 
 The signed **0.4.2 / code 21** upgrade installed in place during the owner's confirmed idle window. Its pulled-back APK matches the **677,359-byte** release artifact, SHA-256 `fc3b126bec1d3710d40eefcd9c9137c1eff23d8bf04638d962a520a117768d3c`, using the established prettTV signing certificate. **407 JVM tests across 34 suites passed**, including all **26 Bluetooth engine cases**, with zero failures or errors. Release lint has **zero errors and 32 existing warnings**. All **14 targeted native Android checks passed**: nine remote-key cases, two Inputs/fallback cases and three Bluetooth view cases. The isolated test packages were removed and their absence verified.

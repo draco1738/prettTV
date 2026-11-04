@@ -5,7 +5,7 @@
 Choose a layout, arrange your apps and use the remote to move through your Home screen. The same apps, viewing history and feeds are available in all three layouts.
 
 > [!NOTE]
-> This page describes **0.4.2** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+> This page describes **0.4.3** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
 
 ## Choose a layout
 
@@ -36,11 +36,13 @@ Continue watching applies new chronological ordering immediately and keeps the s
 | Remote Home / Home in the top bar | Reset the page and all rows to their default start. |
 | Menu | Open prettTV Settings. Settings is also available in the top bar. |
 
-The top bar contains **Home, Shows, Library, Inputs, Search and Settings**. Shows and Library move to their content sections. The bar stays visible while the page scrolls; its own navigation strip can scroll horizontally when system text sizing needs more room. **Choose default Home app** opens Android's normal Home selection; prettTV does not intercept the Home button with an accessibility service.
+The top bar contains **Home, Shows, Library, Inputs, Bluetooth, Search and Settings**. Shows and Library move to their content sections. The bar stays visible while the page scrolls; its own navigation strip can scroll horizontally when system text sizing needs more room. **Choose default Home app** opens Android's normal Home selection; prettTV does not intercept the Home button with an accessibility service.
 
 Holding OK on an app shows a brief progress cue; releasing or leaving the card cancels it. A short boundary cue responds at row ends. These cues do not run while idle. Back from the app panel returns to its originating card and viewport; choosing an arrangement or hide action applies the existing deterministic focus rules below.
 
 ### Inputs and audio devices
+
+Select **Bluetooth on/off** in the top bar and press **OK** to toggle it directly. The button shows a pending state while the existing local control connection checks and changes the radio; repeated OK presses during the operation are ignored. **Hold OK** on it to open Audio devices. An unknown state is shown as **Bluetooth ?**; pressing OK reads the real state before toggling, and holding OK provides the native **Manage devices** fallback. Returning Home refreshes the status without changing Bluetooth. No accessibility service is required for this button.
 
 Open **Inputs** in the top bar, then choose **TV inputs** for HDMI/television sources or **Audio devices** for a simple Bluetooth panel. Choose the on/off action to change Bluetooth; prettTV reads the resulting state before reporting completion. **Turning Bluetooth off disconnects Bluetooth headphones and remotes.**
 
@@ -53,6 +55,8 @@ On supported TCL firmware, switching Bluetooth off also selects **TV speakers** 
 The owner's TCL has been returned to its stock screensaver and EarthCam has been removed. This is that TV's configuration, not a new installation default imposed by prettTV. The [optional EarthCam handoff](earthcam-idle.md) remains available to other users who separately install EarthCam and explicitly select its handoff.
 
 ### Remote buttons
+
+**Normal volume holds:** leave **prettTV Remote buttons** off in Android Accessibility settings. On the tested TCL Android 14 TV, enabling key filtering prevents held Volume Up/Down from repeating even though prettTV passes those keys through. A physical comparison confirmed normal repeats with the helper off. The owner's TV now uses this configuration and the top-bar Bluetooth switch. Global custom app/Settings remaps and double-Mute are unavailable while the helper is off; Home and the visible navigation controls continue working. The installer and app updates do not enable the helper automatically.
 
 In Android **Settings → Accessibility**, enable **prettTV Remote buttons** (called **prettTV Settings button** before 0.4.1). Existing enabled installations keep the same service component and do not require setup again. On the tested TCL firmware, Settings opens TCL's native quick-settings panel over the current app. A second press closes that panel. Other manufacturers use the normal Android Settings screen, and TCL falls back to it if its panel service cannot start.
 

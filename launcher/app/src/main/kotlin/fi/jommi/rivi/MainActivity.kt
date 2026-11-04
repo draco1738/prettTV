@@ -30,6 +30,7 @@ class MainActivity : Activity() {
     private val settingsKeys=SettingsKeyPolicy(Build.MANUFACTURER)
     private val appShortcutKeys=AppShortcutKeyPolicy(Build.MANUFACTURER)
     private var weatherHeader:WeatherHeaderView?=null
+    private var bluetoothQuickSwitch:BluetoothQuickSwitch?=null
     private var weatherLoadingDialog:AlertDialog?=null
     private lateinit var artwork: ArtworkLoader
     private val settings by lazy { getSharedPreferences("pretttv", MODE_PRIVATE) }
@@ -162,9 +163,17 @@ class MainActivity : Activity() {
         (currentFocus?.tag as? String)?.let { settings.edit().putString("focus",it).apply() }
         super.onStop()
     }
-    override fun onPause() { pausedForContent=true; stopRowMotion(); super.onPause() }
+    override fun onPause() {
+        pausedForContent=true;stopRowMotion()
+        BluetoothControlSession.cancel(this);BluetoothControlSession.unlisten(this)
+        super.onPause()
+    }
     override fun onResume() {
         super.onResume(); pausedForContent=false
+        // Audio devices is translucent: returning from it can resume Home without onStart.
+        // Reclaim the listener here so its switch cannot retain a stale/busy panel state.
+        BluetoothControlSession.listen(this) { bluetoothQuickSwitch?.bind(it) }
+        if(!BluetoothControlSession.busy)BluetoothControlSession.start(this)
         if(providerRefreshPending)refreshProviderRows()
         val saved=appReturnViewport ?: return
         appReturnViewport=null
@@ -381,7 +390,8 @@ class MainActivity : Activity() {
         val entries=listOf(Triple("Home","nav-home",{ resetHomePosition() }),
             Triple("Shows","nav-shows",{ showAnchor?.requestFocusFromTouch(); Unit }),
             Triple("Library","nav-apps",{ libraryAnchor?.requestFocusFromTouch(); Unit }),
-            Triple("Inputs","nav-inputs",{ openInputs() }),Triple("Search","nav-search",{ search() }),Triple("Settings","nav-settings",{ menu() }))
+            Triple("Inputs","nav-inputs",{ openInputs() }),Triple("Bluetooth","nav-bluetooth",{ Unit }),
+            Triple("Search","nav-search",{ search() }),Triple("Settings","nav-settings",{ menu() }))
         val buttons=entries.map { (label,key,action)->
             button(label,key) { selectNavigation(key); action() }.apply {
                 setPadding(px(22),0,px(22),0)
@@ -394,6 +404,13 @@ class MainActivity : Activity() {
                     }
                 }
                 navigation.addView(this,LinearLayout.LayoutParams(-2,px(56)).apply { rightMargin=px(12) })
+                if(key=="nav-bluetooth") {
+                    minWidth=(paint.measureText(getString(R.string.bluetooth_quick_off))+.5f).toInt()+px(44)
+                    bluetoothQuickSwitch=BluetoothQuickSwitch(this,{
+                        BluetoothControlSession.toggle(this@MainActivity)
+                    },{ safeStart(Intent(this@MainActivity,BluetoothControlActivity::class.java),"Audio devices") })
+                        .also { it.bind(BluetoothControlSession.state) }
+                }
             }
         }
         buttons.forEachIndexed { index,button ->

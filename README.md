@@ -8,7 +8,7 @@
 
 ![prettTV 0.4.0 in C Balanced: persistent top navigation, a recently watched title, two discovery cards, dark app tiles and Continue watching.](docs/screenshots/C-balanced.png)
 
-*C · Balanced, running on the TCL TV. Every screenshot on this page is an unedited capture of the released 0.4.0 build.*
+*C · Balanced, running on the TCL TV. The layout gallery shows 0.4.0; the Bluetooth quick-switch capture below shows 0.4.3. All are unedited device screenshots.*
 
 ## Make Home yours
 
@@ -27,9 +27,11 @@ Library remains below the content rows. [Explore all controls →](docs/usage.md
 
 **New in 0.4.1:** faster returns to Home, repaired TCL app shortcuts and an **Inputs → Audio devices** panel with Bluetooth on/off and **Manage devices**. Direct switching uses an existing authorized local recovery connection and checks the resulting state; without that setup, use the TV's own controls. Turning Bluetooth off disconnects Bluetooth headphones and remotes. [Audio controls →](docs/usage.md#inputs-and-audio-devices)
 
-The optional [Remote buttons helper](docs/usage.md#remote-buttons) maps YouTube to TV Bro and TCL to HBO Max; Netflix, Prime Video, Apple TV and Pluto use their own apps. Disney keeps its native behavior. The Home design remains the 0.4.0 design shown here.
+**New in 0.4.3:** a **Bluetooth on/off** button in the top bar switches the radio with one OK press. Hold OK for Audio devices. It works without the optional remote helper, so the tested TCL can retain normal press-and-hold volume adjustment. Pending operations keep focus and ignore repeated clicks. The existing authorized local control connection is required; the native device-settings fallback remains available.
 
-With that helper enabled and the existing local connection authorized, **quickly press speaker Mute twice** to toggle Bluetooth without leaving the current app. A single Mute press stays immediate; the two normal mute events pass through, and a brief status reports the checked Bluetooth result. Use **Inputs → Audio devices** if the shortcut is unavailable.
+![prettTV 0.4.3 on the TCL TV, with the Bluetooth on/off quick switch focused in the top bar.](docs/screenshots/bluetooth-quickswitch.png)
+
+The optional [Remote buttons helper](docs/usage.md#remote-buttons) retains global app remaps and double-Mute Bluetooth control for users who enable it. **On the tested TCL, its key filtering stops held volume buttons from repeating.** The owner's setup now leaves this helper off and uses the top-bar switch instead. With it off, global custom app/Settings remaps and double-Mute are inactive. Neither an app update nor the installer enables the helper automatically.
 
 **0.4.2 adds speaker handoff:** Bluetooth off selects the TV speakers on supported TCL firmware and preserves their saved volume. **Enable shortcut messages** in Audio devices allows the result to appear over other apps on Android 13+ when permission is needed. [Bluetooth and output behavior →](docs/usage.md#inputs-and-audio-devices)
 
@@ -176,18 +178,19 @@ Personalization and viewing records are stored locally. Catalog, artwork, weathe
 
 Use **JDK 17**, **Android SDK platform 34**, **build-tools 35.0.0** and the included Gradle wrapper. See [Development](docs/development.md) for build commands, signing and the source map; [Stability testing](docs/stability-testing.md) describes isolated device checks.
 
-The **0.4.2** build has the following recorded results:
+The **0.4.3** build has the following recorded results:
 
 | Check | Result |
 | :--- | :--- |
 | JVM tests | **407 passed** across 34 suites. |
-| Targeted Android checks on the TCL TV | **14 passed**, covering remote callbacks, Inputs fallbacks and Bluetooth controls. |
-| Live speaker handoff | Off selected TV speakers; On restored the previously owned Bluetooth output. Separate saved volumes were preserved. |
+| Targeted Android checks on the TCL TV | **18 passed**, covering Bluetooth controls, panel return, Inputs, Home focus/navigation and normal/enlarged text in A/B/C. |
+| Live quick switch | Both directions verified; Off selected TV speakers and On restored the previously owned Bluetooth output. Separate saved volumes were preserved. |
+| Native volume | The owner confirmed continuous holds with the remote helper off; key filtering stayed off after the signed upgrade. |
 | Android lint | **0 errors**, 32 existing warnings. |
 | Installed release artifact | Pulled back from the TV and matched to the signed release SHA-256. |
 | GitHub build | [Build workflow and commit-specific results](https://github.com/draco1738/prettTV/actions/workflows/build.yml). |
 
-These are bounded release checks. The historical one-hour soak and 0.4.1 Home/discovery checks were **not repeated for 0.4.2**; no universal app coverage or sustained frame-rate guarantee is implied. Speaker routing was verified through Android's state; an audible listening test and the fresh physical Mute/message confirmation remain separate. CI builds the Android test APKs but does not run them on a TV. [Full versioned evidence →](docs/validation.md)
+These are bounded release checks. The historical one-hour soak and full discovery suite were **not repeated for 0.4.3**; no universal app coverage or sustained frame-rate guarantee is implied. Speaker routing was verified through Android's state, not an audible listening test. Global custom remote shortcuts are intentionally off on the owner's TV. CI builds the Android test APKs but does not run them on a TV. [Full versioned evidence →](docs/validation.md)
 
 For a bug report, include the prettTV version, TV model/Android version, layout, reproduction steps and expected behavior. Keep account details, private recovery records and raw preference exports out of public issues. For contributions, describe the behavior changed and the checks actually run; preserve existing source and asset attribution.
 

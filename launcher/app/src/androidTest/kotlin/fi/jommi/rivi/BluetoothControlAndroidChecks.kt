@@ -14,6 +14,34 @@ internal object BluetoothControlAndroidChecks {
     fun run(instrumentation:Instrumentation,test:(String,()->Unit)->Unit) {
         val context=instrumentation.targetContext
         check(context.packageName=="dev.zane.pretttv.stability")
+        test("Home Bluetooth switch keeps focus, rejects repeated OK and exposes recovery without changing radio on bind") {
+            val activity=instrumentation.startActivitySync(Intent(context,CardFocusTestActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as CardFocusTestActivity
+            try {
+                main(instrumentation) {
+                    var toggles=0;var managed=0;var accepted=true
+                    val button=TextView(activity).apply { isFocusable=true;isFocusableInTouchMode=true;isClickable=true }
+                    activity.setContentView(button)
+                    val quick=BluetoothQuickSwitch(button,{toggles++;accepted},{managed++})
+                    quick.bind(BluetoothControlSession.State(enabled=false,message="Bluetooth off"))
+                    check(toggles==0 && button.text=="Bluetooth off")
+                    check(button.requestFocus() && activity.currentFocus===button)
+                    button.performClick();repeat(5) { button.performClick() }
+                    check(toggles==1 && button.text=="Bluetooth …")
+                    check(activity.currentFocus===button && button.isEnabled)
+                    quick.bind(BluetoothControlSession.State(enabled=true,message="Bluetooth on"))
+                    check(button.text=="Bluetooth on" && button.contentDescription.contains("turn off"))
+                    button.performClick();check(toggles==2)
+                    quick.bind(BluetoothControlSession.State(message="Connection unavailable"))
+                    check(button.text=="Bluetooth ?" && activity.currentFocus===button)
+                    button.performLongClick();check(managed==1 && toggles==2)
+                    accepted=false;button.performClick();check(toggles==3 && button.text=="Bluetooth ?")
+                    button.performClick();check(toggles==4) { "Rejected operation left the switch stuck busy" }
+                    quick.bind(BluetoothControlSession.State(enabled=false))
+                    check(button.contentDescription.contains("turn on") && activity.currentFocus===button)
+                }
+            } finally { main(instrumentation) { activity.finish() };instrumentation.waitForIdleSync() }
+        }
         test("Bluetooth panel is private and opens read-only with explicit On Off and Manage devices actions") {
             check(!context.packageManager.getActivityInfo(ComponentName(context,BluetoothControlActivity::class.java),0).exported)
             val failure=AtomicReference<Throwable?>()
