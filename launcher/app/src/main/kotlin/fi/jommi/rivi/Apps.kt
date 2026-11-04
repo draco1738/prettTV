@@ -133,7 +133,7 @@ class AppRepository(private val context: Context) {
         return bmp
     }
 
-    fun cacheName(e: AppEntry, w: Int, h: Int, r: Float) = "pretttv-icons5_${e.key.replace('/', '_')}_${e.versionCode}_${w}x${h}r${r.toInt()}.png"
+    fun cacheName(e: AppEntry, w: Int, h: Int, r: Float) = "pretttv-icons6_${e.key.replace('/', '_')}_${e.versionCode}_${w}x${h}r${r.toInt()}.png"
 
     /** Library keeps a real installed icon inside a common dark tile, never a full bright banner. */
     fun loadLibraryMark(e:AppEntry):Bitmap? = AppIconPack.libraryMark(context,e.packageName) ?: try {
@@ -227,20 +227,15 @@ class AppRepository(private val context: Context) {
         if (e.key == "inputs") return hdmiTile(w, h)
         val cn = e.intent.component ?: return null
         val ai = try { pm.getActivityInfo(cn, 0) } catch (ex: Exception) { return null }
-        val banner: Drawable? = if (e.isBanner) try { ai.loadBanner(pm) } catch (_: Exception) { null } else null
+        // Unmapped applications use their installed icon on the same dark surface. A bright
+        // promotional banner must not replace the tile's ground or hide its identity.
+        val icon = try { ai.loadIcon(pm) } catch (_: Exception) { null } ?: return null
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        if (banner != null) {
-            // Banners are 16:9 artwork; fill the tile (center-crop).
-            drawFitted(c, banner, w, h, crop = true)
-        } else {
-            val icon = try { ai.loadIcon(pm) } catch (_: Exception) { null } ?: return null
-            c.drawColor(0xFF1A1F2A.toInt())
-            val size = (h * 0.62f).toInt()
-            val left = (w - size) / 2; val top = (h - size) / 2
-            icon.setBounds(left, top, left + size, top + size)
-            icon.draw(c)
-        }
+        c.drawColor(0xFF141C17.toInt())
+        val size = (h * 0.66f).toInt()
+        val left = (w - size) / 2; val top = (h - size) / 2
+        icon.setBounds(left, top, left + size, top + size);icon.draw(c)
         return bmp
     }
 

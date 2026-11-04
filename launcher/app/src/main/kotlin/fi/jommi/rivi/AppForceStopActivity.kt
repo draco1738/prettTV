@@ -24,6 +24,9 @@ class AppForceStopActivity : Activity() {
     private var target = ""
     private var label = "App"
     private var operationStarted = false
+    private var restart=false
+    private var resumed=false
+    private var reopenHandled=false
     private var modal: AlertDialog? = null
     private var rendered: AppForceStopSession.State? = null
     private lateinit var status: TextView
@@ -37,6 +40,8 @@ class AppForceStopActivity : Activity() {
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         target = intent.getStringExtra(EXTRA_PACKAGE).orEmpty()
+        restart=intent.getBooleanExtra(EXTRA_REOPEN,false)
+        reopenHandled=savedInstanceState?.getBoolean("reopenHandled")==true
         label = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(target,0)).toString().take(100) }
             .getOrDefault("App")
         status = TextView(this).apply {
@@ -83,7 +88,10 @@ class AppForceStopActivity : Activity() {
                 rendered=state
                 status.text=state.message
                 when(state.phase) {
-                    AppForceStopSession.Phase.SUCCEEDED -> showResult("$label stopped", "Open it again to reconnect. Your login and saved data are kept.", false, true)
+                    AppForceStopSession.Phase.SUCCEEDED -> {
+                        showResult("$label stopped", "Open it again to reconnect. Your login and saved data are kept.", false, true)
+                        reopenIfReady()
+                    }
                     AppForceStopSession.Phase.FAILED -> showResult("Couldn’t confirm $label stopped",state.message,state.fallbackToAppInfo)
                     AppForceStopSession.Phase.CANCELLED -> showResult("Check cancelled",state.message,state.fallbackToAppInfo)
                     AppForceStopSession.Phase.CANCELLING -> { progressPanel.visibility=View.VISIBLE;cancel.isEnabled=false; cancel.setText(R.string.force_stop_cancelling) }
@@ -101,8 +109,22 @@ class AppForceStopActivity : Activity() {
             AppForceStopSession.cancel()
         super.onStop()
     }
+    override fun onResume() { super.onResume();resumed=true;reopenIfReady() }
+    override fun onPause() {
+        resumed=false
+        // A departure revokes any delayed reopen; never pull the owner out of another app.
+        if(operationStarted && !isChangingConfigurations)reopenHandled=true
+        super.onPause()
+    }
+    private fun reopenIfReady() {
+        val state=AppForceStopSession.state
+        if(restart && operationStarted && resumed && !reopenHandled && !isFinishing &&
+            state.packageName==target && state.phase==AppForceStopSession.Phase.SUCCEEDED) {
+            reopenHandled=true;openApp()
+        }
+    }
     override fun onDestroy() { modal?.dismiss(); modal=null; super.onDestroy() }
-    override fun onSaveInstanceState(outState: Bundle) { outState.putBoolean("operationStarted",operationStarted); super.onSaveInstanceState(outState) }
+    override fun onSaveInstanceState(outState: Bundle) { outState.putBoolean("operationStarted",operationStarted);outState.putBoolean("reopenHandled",reopenHandled); super.onSaveInstanceState(outState) }
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() = cancelAndFinish()
 
@@ -113,9 +135,9 @@ class AppForceStopActivity : Activity() {
 
     private fun showConfirmation() {
         progressPanel.visibility=View.GONE
-        val panel=dialogBuilder("Force stop $label?")
-            .setMessage("Closes the app and its connections. Open it again to reconnect.\n\nYour login and saved data are kept.")
-            .setPositiveButton("Force stop") { _,_ ->
+        val panel=dialogBuilder(if(restart)"Restart $label?" else "Force stop $label?")
+            .setMessage(if(restart)"Stops the app and opens it again to reconnect. Current playback will end.\n\nYour login and saved data are kept." else "Closes the app and its connections. Open it again to reconnect.\n\nYour login and saved data are kept.")
+            .setPositiveButton(if(restart)"Restart" else "Force stop") { _,_ ->
                 operationStarted=true
                 progressPanel.visibility=View.VISIBLE
                 status.text=getString(R.string.force_stop_progress,label)
@@ -247,6 +269,7 @@ class AppForceStopActivity : Activity() {
 
     companion object {
         const val EXTRA_PACKAGE="appPackage"
+        const val EXTRA_REOPEN="reopenAfterStop"
         private const val EXTRA_ANCHOR="appAnchor"
         fun putAnchor(intent:Intent,anchor:View):Intent {
             val bounds=Rect()

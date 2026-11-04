@@ -18,6 +18,12 @@ internal class BluetoothControlEngine(
     private var changed=false
     fun execute(desired:Boolean?=null):BluetoothControlResult=run(desired,false)
     fun toggle():BluetoothControlResult=run(null,true)
+    fun inspectAudio():AudioOutputReport {
+        check(AppForceStopPolicy.validIdentity(identity) && launcherUser in 0..21_474)
+        check(read("id -u").trim()=="2000")
+        verifyIdentity();verifyUser();check(allowed())
+        return AudioOutputReport.parse(read("dumpsys audio"))
+    }
     private fun run(desired:Boolean?,toggle:Boolean):BluetoothControlResult {
         changed=false
         var verifiedState:Boolean?=null

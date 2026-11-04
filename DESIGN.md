@@ -321,7 +321,7 @@ Generic utility buttons retain the tonal focus treatment. The exact footer label
 
 Empty shelves are full-width, two-line focusable native TextViews with tonal fill and a visible border. Their message identifies the current state and action: TV listings permission, no published personal items, unavailable titles, or disabled discovery. Focus changes to the recorded empty-focus ground and ivory border.
 
-Search uses a native single-line `EditText` inside an Android `AlertDialog`; settings, layout selection, app choices, and title hiding use native dialogs. They are not custom web fields, chips, or sheets. Hold OK on a title exposes local hide choices; Settings → Hidden titles restores individual titles. Native surfaces outside the custom home retain their platform styling.
+Search uses a dark native dialog with a single-line `EditText`, explicit Search/Clear/Back actions, grouped app/title results and an inline empty state. It retains the current-process query and result focus; long results page in batches of 60. Settings, layout selection, app choices and title hiding use native dialogs. Hold OK on a title exposes local hide choices; Settings → Shows & recommendations → Hidden titles restores individual titles.
 
 Hold OK also offers I watched this most recently to correct local recency. Playback tracking is optional: its native settings explanation identifies Android Notification access, media-session metadata, local viewing records, and the limits of apps that omit title metadata. The tracker does not read or store notification text. Game handoff settings lead to Android Accessibility settings and explain the request-bounded RBTV helper. These additions use existing native dialogs rather than new visual components.
 
@@ -375,3 +375,13 @@ The rendered proposals live in `docs/previews/original-apps` and `docs/previews/
 - **Don't** extend Home visual checks to uncaptured dialogs or apply one build's validation results to another build.
 
 App hiding (0.1.5): keep the current viewport and move focus to the next surviving app, or the previous app at the row's end. An empty Your apps row focuses its chooser. Hiding from Library retains the same Library tile. Arrangement actions apply after the menu dismisses; they do not send the user to the hero or restart content fetching. Explicit Home still resets to the top and the beginning of the app row.
+
+### Native utility extension · 0.5.0 source
+
+This scoped extension retains the existing palette, typography, focus language and selected C layout. It updates the earlier Search and unmapped app-artwork descriptions without changing the home composition.
+
+`AppFirstAidActivity` uses an opaque sage-black page with the app name below a 42-reference-pixel heading. Two independently scrollable columns separate connection/media-output diagnostics from a 580-reference-pixel action column, with a 64-pixel gap and 80-pixel side insets. Check again receives initial focus; the finite action list also contains Restart app, Audio devices, Network settings, App info and Back. Supporting text explains the limits of the checks. Media output and Bluetooth radio status remain separate labels, including an explicit unverified-output state. Unavailable restart stays dimmed and exposes its reason to accessibility. The separate restart confirmation reuses the dark `AppForceStopActivity` surface and defaults to Cancel.
+
+`HomeSearchPanel` is a full dark native dialog with query, Search/Clear/Back controls, status and grouped results on one page. It uses 80-pixel side insets, a 42-pixel title and the shared control focus treatment. Results scroll below the query, with More results adding 60 at a time; opening a result retains the search surface behind it. Settings keeps native dialogs and presents Home & apps, Shows & recommendations, TV & audio, and Support, with Return to stock Google TV separate at the bottom. Unmapped app tiles now contain the real installed icon on `app-pack-ground`; mapped artwork and tile geometry remain intact.
+
+Native fixture review covered First aid ready/error states, enlarged text and Search, with no material visual finding. Actual checks and production observations are recorded by version in [Validation](docs/validation.md); fixture review alone does not establish a passed release gate.

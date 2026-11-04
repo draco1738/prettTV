@@ -12,6 +12,10 @@
 
 ## Make Home yours
 
+**New in 0.5.0:** hold OK on an app for **App first aid**: check this TV’s connection and selected media output, then confirm a restart if needed. Logins and saved data stay intact. Search keeps its query and results together, Settings is grouped into four sections, and apps without a curated logo use their installed icon on a dark tile. [First aid and controls →](docs/usage.md#app-first-aid)
+
+![App first aid in prettTV 0.5.0 on the TCL: connection, selected media output and manual troubleshooting actions.](docs/screenshots/app-first-aid.png)
+
 - **Return to your viewing.** A large resume feature in Cinema and Balanced follows the latest eligible viewing record. Separate Shows and Movies rows bring recent progress forward, with episode details and remaining time when an app supplies them.
 - **Keep every app within reach.** A single finite Your apps row has a clear beginning and end, rounded dark cards and color accents. Arrange favorites or hide a shortcut from this row while keeping it in Library.
 - **Find something worth watching.** Suggestions, Discover, Trending and New releases offer up to 60 titles per row. Choose the services to prioritize, hide shared-account titles and dismiss recommendations you do not want.
@@ -19,7 +23,7 @@
 - **Choose your own layout.** Cinema, Quiet and Balanced share persistent Home, Shows, Library, Inputs, Search and Settings navigation. Optional location, weather and time sit together at the top right.
 - **Move without losing your place.** Focus uses a subtle spotlight and brief artwork movement. Selected-title details occupy reserved space; refreshes retain usable content and artwork, and app actions return to the originating card.
 
-Open **Settings → Customize rows** to reorder or hide content sections, choose card sizes, and set discovery limits to **20, 40 or 60**. The default order is:
+Open **Settings → Home & apps → Customize rows** to reorder or hide content sections, choose card sizes, and set discovery limits to **20, 40 or 60**. The default order is:
 
 **Continue watching · Shows → Continue watching · Movies → Watchlist → New episodes when available → Live sports → Suggestions → Discover → Trending → New releases.**
 
@@ -35,7 +39,7 @@ The optional [Remote buttons helper](docs/usage.md#remote-buttons) retains globa
 
 **0.4.2 adds speaker handoff:** Bluetooth off selects the TV speakers on supported TCL firmware and preserves their saved volume. **Enable shortcut messages** in Audio devices allows the result to appear over other apps on Android 13+ when permission is needed. [Bluetooth and output behavior →](docs/usage.md#inputs-and-audio-devices)
 
-**New in 0.4.4:** optional **Home compatibility** keeps prettTV visible on TVs that give Google Home priority, while Google's package remains available for Gemini voice results. It observes stock Home window names only; it cannot filter keys or read screen content. Voice results and settings remain open, and the double-confirmed stock restore pauses the redirect. Enable it through **Settings → Home compatibility settings** only when needed. [Voice setup and limits →](docs/browser-and-voice.md#preserve-pretttv-as-home)
+**New in 0.4.4:** optional **Home compatibility** keeps prettTV visible on TVs that give Google Home priority, while Google's package remains available for Gemini voice results. It observes stock Home window names only; it cannot filter keys or read screen content. Voice results and settings remain open, and the double-confirmed stock restore pauses the redirect. Enable it through **Settings → Support → Home compatibility settings** only when needed. [Voice setup and limits →](docs/browser-and-voice.md#preserve-pretttv-as-home)
 
 ## Three layouts, one Home
 
@@ -43,7 +47,7 @@ The optional [Remote buttons helper](docs/usage.md#remote-buttons) retains globa
 
 **New in 0.4.6:** that switch uses a compact Bluetooth symbol: blue with a check for on, a muted slash for off, dots while checking/changing, and a question mark when unavailable. The state describes the radio, not a connected headphone. Full spoken labels and the existing OK/hold-OK actions remain available.
 
-Switch through **prettTV Settings → Layout**. Apps, saved titles, viewing records and row preferences are shared across layouts.
+Switch through **prettTV Settings → Home & apps → Layout**. Apps, saved titles, viewing records and row preferences are shared across layouts.
 
 | Layout | What leads the screen |
 | :--- | :--- |
@@ -89,7 +93,7 @@ You need **Android TV 8.0 / API 26 or newer**, a computer with Android platform-
 
 1. Download **`prettTV-<version>-with-RBTV.zip`** from [GitHub Releases](https://github.com/draco1738/prettTV/releases/latest) and extract it.
 2. Run `adb devices`, then use an entry listed as `device` in the command below. Run it from the extracted folder.
-3. Allow **TV listings** when prettTV asks. Open **Settings → Choose default Home app** and select prettTV in Android's settings.
+3. Allow **TV listings** when prettTV asks. Open **Settings → Support → Choose default Home app** and select prettTV in Android's settings.
 
 **Windows · PowerShell**
 
@@ -113,7 +117,7 @@ The installers keep other launchers in place and leave Home selection and option
 
 ### Already using prettTV?
 
-Open **Settings → Updates** to check release notes, download and install a newer official build. The updater verifies the APK's package, version, checksum and signing certificate before Android asks for installation confirmation. Compatible signed upgrades preserve settings; updating prettTV does not update RBTV.
+Open **Settings → Support → Updates** to check release notes, download and install a newer official build. The updater verifies the APK's package, version, checksum and signing certificate before Android asks for installation confirmation. Compatible signed upgrades preserve settings; updating prettTV does not update RBTV.
 
 Use the signed APK from [Releases](https://github.com/draco1738/prettTV/releases/latest) for an in-place release update. Ordinary source builds and GitHub CI artifacts use debug certificates and cannot replace a differently signed installation. [Update and signing details →](docs/installation.md#updates)
 
@@ -141,7 +145,7 @@ Meaningful progress and episode changes can move a title forward; timestamp-only
 
 **Watchlist is local to prettTV. It does not synchronize with Google account / Google TV Watchlist.** Hold OK on a title to save it. Supported confirmed playback can remove a started title, with Undo available; a provider progress observation alone does not consume a saved entry.
 
-Choose **Settings → Recommendation services** to prioritize your services explicitly, or use inference from shared viewing activity. Android does not reliably expose which streaming accounts are signed in. Provider coverage, subscriptions and regional availability vary; a listed title does not guarantee playback.
+Choose **Settings → Shows & recommendations → Recommendation services** to prioritize your services explicitly, or use inference from shared viewing activity. Android does not reliably expose which streaming accounts are signed in. Provider coverage, subscriptions and regional availability vary; a listed title does not guarantee playback.
 
 [Content sources and ordering](docs/content-and-sports.md) · [Watchlist and episode follows](docs/usage.md#save-titles-to-watchlist)
 

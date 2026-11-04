@@ -42,6 +42,8 @@ class MainActivity : Activity() {
     private var renderedRowPreferences:RowPreferences?=null
     private var homeStatus:TextView?=null
     private var appActionPanel:Dialog?=null
+    private var searchPanel:HomeSearchPanel?=null
+    private val searchState=HomeSearchState()
     private var deferActiveRefresh=false
     private var providerRefreshPending=false
     private var pausedForContent=false
@@ -186,10 +188,11 @@ class MainActivity : Activity() {
             }
         }
     }
-    override fun onDestroy() { generation++; ui.removeCallbacksAndMessages(null); unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); weatherRepo.close(); artwork.close(); super.onDestroy() }
+    override fun onDestroy() { searchPanel?.dismiss();searchPanel=null; generation++; ui.removeCallbacksAndMessages(null); unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); weatherRepo.close(); artwork.close(); super.onDestroy() }
     override fun onConfigurationChanged(newConfig:Configuration) { super.onConfigurationChanged(newConfig); scale=resources.displayMetrics.widthPixels/1920f; render() }
     override fun onNewIntent(i:Intent?) {
         super.onNewIntent(i)
+        searchPanel?.dismiss();searchPanel=null
         val configureLayout=i?.hasExtra("layout")==true
         applyIntent(i)
         if(configureLayout)render(reset=true) else resetHomePosition()
@@ -1009,6 +1012,10 @@ class MainActivity : Activity() {
         } else items+="Add to favorites" to { favs.add(e.key); prefs.favourites=favs; changed() }
         if(e.key in prefs.hidden)items+="Show in Your apps row" to { prefs.hidden=prefs.hidden-e.key; changed() }
         else items+="Hide from Your apps row" to { prefs.hidden=prefs.hidden+e.key; changed() }
+        items+="App first aid" to {
+            focusables[origin]?.requestFocusFromTouch();appReturnViewport=place
+            if(!safeStart(Intent(this,AppFirstAidActivity::class.java).putExtra(AppForceStopActivity.EXTRA_PACKAGE,e.packageName),"App first aid"))appReturnViewport=null
+        }
         if(AppForceStopSession.canOffer(this,e.packageName))items+="Force stop" to {
             // Touch menu selection clears D-pad focus. Keep the originating tile selected
             // before the separate activity opens so Cancel returns to the same place.
@@ -1043,6 +1050,10 @@ class MainActivity : Activity() {
         }
         items+="Recommendation feedback" to { feedbackSettings() }
         items+="Updates" to { safeStart(Intent(this,UpdateActivity::class.java),"Updates") }
+        items+="App first aid" to { dialog("Choose an app",orderedApps().map { e -> e.label to {
+            safeStart(Intent(this,AppFirstAidActivity::class.java).putExtra(AppForceStopActivity.EXTRA_PACKAGE,e.packageName),"App first aid");Unit
+        } }) }
+        items+="Audio devices" to { safeStart(Intent(this,BluetoothControlActivity::class.java),"Audio devices") }
         items+="Weather" to { weatherSettings() }
         items+="Choose apps one by one" to { reviewApps() }
         items+="Live sports apps" to { chooseSportsApps() }
@@ -1071,7 +1082,17 @@ class MainActivity : Activity() {
             Toast.makeText(this,"prettTV helpers resumed",Toast.LENGTH_SHORT).show()
         }
         items+="Return to stock Google TV" to { safeStart(Intent(this,StockRecoveryActivity::class.java),"Stock recovery") }
-        dialog("prettTV",items)
+        val top=items.filter { it.first.startsWith("Undo ·") }.toMutableList()
+        SettingsGroups.names.forEach { group -> top+=group to {
+            val entries=items.filter { SettingsGroups.group(it.first)==group }
+            var action:(()->Unit)?=null
+            val panel=AlertDialog.Builder(this).setTitle(group).setItems(entries.map { it.first }.toTypedArray()) { _,i -> action=entries[i].second }
+                .setNegativeButton("Back") { _,_->action={ menu() } }.create()
+            panel.setOnCancelListener { action={ menu() } }
+            panel.setOnDismissListener { if(!isFinishing && !isDestroyed)action?.invoke() };panel.show()
+        } }
+        top+=items.last()
+        dialog("Settings",top)
     }
     private fun weatherSettings() {
         val preferences=weatherRepo.prefs
@@ -1261,15 +1282,16 @@ class MainActivity : Activity() {
         } })
     }
     private fun search() {
-        val input=EditText(this).apply { hint="App or show name"; isSingleLine=true; setTextColor(ink) }
-        AlertDialog.Builder(this).setTitle("Search your home").setView(input).setPositiveButton("Search") { _,_ ->
-            val query=input.text.toString().trim()
-            if(query.isEmpty())return@setPositiveButton
-            val choices=ArrayList<Pair<String,()->Unit>>()
-            orderedApps().filter { it.label.contains(query,true) }.forEach { e -> choices+=e.label to { launch(e) } }
-            (content.watching+personal.watchlist()+content.suggestions+content.discover+content.trending+content.newReleases).filter { it.title.contains(query,true) }.distinctBy { ContentIdentity.key(it) }.forEach { p -> choices+="${p.title} · ${p.app}" to { openProgram(p) } }
-            if(choices.isEmpty())Toast.makeText(this,"No matching apps or loaded shows",Toast.LENGTH_LONG).show() else dialog("Results",choices)
-        }.setNegativeButton("Cancel",null).show()
+        if(searchPanel?.isShowing==true)return
+        searchPanel=HomeSearchPanel(this,searchState) { query ->
+            val choices=ArrayList<HomeSearchResult>()
+            orderedApps().filter { it.label.contains(query,true) }.forEach { e -> choices+=HomeSearchResult(e.key,e.label,"Apps") { launch(e) } }
+            (content.watching+personal.watchlist()+content.suggestions+content.discover+content.trending+content.newReleases)
+                .filter { it.title.contains(query,true) }.distinctBy { ContentIdentity.key(it) }.forEach { p ->
+                    choices+=HomeSearchResult(ContentIdentity.key(p),"${p.title} · ${p.app}","Shows and movies") { openProgram(p) }
+                }
+            choices
+        }.also { panel -> panel.setOnDismissListener { searchPanel=null };panel.show() }
     }
     private fun programInfo(selected:Program) {
         val p=actionProgram(selected)

@@ -33,6 +33,7 @@ class StabilityInstrumentation:Instrumentation() {
     private var bluetoothOnly=false
     private var quickSwitchOnly=false
     private var voiceHomeOnly=false
+    private var firstAidOnly=false
     override fun onCreate(arguments:Bundle?) {
         settingsKeysOnly=arguments?.getString("settingsKeysOnly")=="true"
         forceStopOnly=arguments?.getString("forceStopOnly")=="true"
@@ -41,6 +42,7 @@ class StabilityInstrumentation:Instrumentation() {
         bluetoothOnly=arguments?.getString("bluetoothOnly")=="true"
         quickSwitchOnly=arguments?.getString("quickSwitchOnly")=="true"
         voiceHomeOnly=arguments?.getString("voiceHomeOnly")=="true"
+        firstAidOnly=arguments?.getString("firstAidOnly")=="true"
         super.onCreate(arguments);start()
     }
     override fun onStart() {
@@ -48,6 +50,14 @@ class StabilityInstrumentation:Instrumentation() {
         try {
             check(targetContext.packageName=="dev.zane.pretttv.stability") { "Refusing to run against the production Home" }
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
+            if(firstAidOnly) {
+                AppFirstAidAndroidChecks.run(this,::test)
+                BluetoothControlAndroidChecks.run(this,::test)
+                HomeCompatibilityAndroidChecks.run(this,::test)
+                ForceStopAndroidChecks.run(this,::test)
+                HomeVisualAndroidChecks.run(this,::test)
+                finish(Activity.RESULT_OK,Bundle().apply { putString("stream","FIRST AID PASS: $passed Android tests\n");putInt("passed",passed) });return
+            }
             if(voiceHomeOnly) {
                 HomeCompatibilityAndroidChecks.run(this,::test)
                 BluetoothControlAndroidChecks.run(this,::test)
@@ -459,7 +469,7 @@ private object ForceStopAndroidChecks {
                         StockRecoverySession.check(context)
                         val result=StockRecoverySession.state
                         check(result.phase==StockRecoverySession.Phase.FAILED && !StockRecoverySession.busy)
-                        check(result.message.contains("force stop is still finishing") && result.message.contains("Nothing was restored"))
+                        check(result.message.contains("Another TV action is still finishing") && result.message.contains("Nothing was restored"))
                         check(result.message.contains("open recovery again"))
                         check(AppForceStopSession.state.phase==AppForceStopSession.Phase.CANCELLING)
                         check(recoveryField("generation")==beforeGeneration) { "Busy guard started a recovery worker" }

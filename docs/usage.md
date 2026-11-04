@@ -5,11 +5,11 @@
 Choose a layout, arrange your apps and use the remote to move through your Home screen. The same apps, viewing history and feeds are available in all three layouts.
 
 > [!NOTE]
-> This page describes **0.4.6** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+> This page describes **0.5.0** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
 
 ## Choose a layout
 
-Open **Settings → Layout** to switch. Every layout uses the same persistent opaque top navigation bar above the scrolling content.
+Open **Settings → Home & apps → Layout** to switch. Every layout uses the same persistent opaque top navigation bar above the scrolling content.
 
 | Layout | Arrangement |
 | --- | --- |
@@ -90,18 +90,37 @@ Your apps has a clear beginning and end. Each included launchable app appears on
 
 | To… | Do this |
 | --- | --- |
-| Review every available app | **Settings → Choose apps one by one**; choose Include or Hide for each app. |
+| Review every available app | **Settings → Home & apps → Choose apps one by one**; choose Include or Hide for each app. |
 | Hide one app from the row | Hold OK on it → **Hide from Your apps row**. |
 | Restore one app | Find it in Library, hold OK → **Show in Your apps row**. |
-| Restore all hidden apps to the row | **Settings → Restore apps to Your apps row**. This item appears when apps are hidden. |
+| Restore all hidden apps to the row | **Settings → Home & apps → Restore apps to Your apps row**. This item appears when apps are hidden. |
 | Arrange favorites | Hold OK on an app and use the available favorite and move controls. |
-| Choose sports shortcuts | **Settings → Live sports apps**. RBTV+ is the default sports app. |
+| Choose sports shortcuts | **Settings → Shows & recommendations → Live sports apps**. RBTV+ is the default sports app. |
 
 Hiding an app only changes Your apps. It stays available in Library, search and viewing history. Hiding from the row moves focus to the next visible app, or the previous app at the end, while preserving the row's scroll position. Hiding from Library keeps focus on the same Library tile. Favorite rearrangement follows the moved app. These arrangement changes do not restart the recommendation feeds.
 
 SportioTV and HD Streamz were removed at the owner's request and are not included in the release. See [companion apps](companion-apps.md) for what the installation bundle includes.
 
-### Restart an app's connections
+### App first aid
+
+Hold **OK** on an app → **App first aid**, or open **Settings → Support → App first aid** and choose an app.
+
+- **Connection** shows whether Android reports internet access, a network needing sign-in, or no connection. It does not test the streaming service’s servers or your account.
+- **Media output** reads Android’s selected media route and, on the tested TCL, checks it against the vendor selector. Bluetooth being on does not mean sound is going to Bluetooth headphones. A route that cannot be verified stays unavailable. Mute is shown only when the TV reports it.
+- **Restart app** asks for confirmation, stops the selected eligible app, verifies its stopped state and opens it again. Leaving the confirmation/progress screen cancels pending work and prevents a delayed reopen. Login, storage and saved data are kept. Current playback ends.
+- **Check again**, **Audio devices**, **Network settings** and **App info** remain available for manual troubleshooting. Opening First aid never restarts an app or changes connectivity/audio settings.
+
+Direct checks and restart use the existing authorized local control connection. Protected Home/system apps cannot be restarted here. A restart may recover a stuck app connection; it cannot establish a fix for a service outage, decoder problem or network fault.
+
+### Search and Settings
+
+**Search** keeps the query, grouped app/title results and an inline no-results explanation on one screen. Opening a result retains the search behind the app; Back returns to it when that app’s navigation permits. A Home press closes Search. The query is kept for the current prettTV process only. Searches cover installed apps and loaded Home titles, not every streaming catalog; Google voice search remains separate. Long result lists offer **More results** in batches of 60.
+
+Settings groups controls under **Home & apps**, **Shows & recommendations**, **TV & audio**, and **Support**. Recent Undo stays at the top. The double-confirmed **Return to stock Google TV** remains separate at the bottom.
+
+**Audio devices** now also shows the selected media output after checking it. Its Bluetooth symbol continues to describe radio state. App tiles retain colorful brand marks on a consistent dark ground; unmapped apps use their installed icon rather than a full bright banner.
+
+### Force stop without reopening
 
 Hold **OK** on an installed app in **Your apps** or **Library**, choose **Force stop**, then confirm. The separate dark confirmation keeps Home visible and selects **Cancel** first. This closes that app and its connections. Choose **Open app** afterward to start it again, or the initially selected **Done** to stay in prettTV. Login and saved app data are kept; the action does not clear storage, uninstall the app or reset the TV's network.
 
@@ -132,7 +151,7 @@ When supported playback confirms that you started a saved title after saving it,
 
 ## Arrange content rows
 
-Open **Settings → Customize rows**, select a row, then choose:
+Open **Settings → Home & apps → Customize rows**, select a row, then choose:
 
 | Control | Behavior |
 | --- | --- |
@@ -148,13 +167,13 @@ Row preferences apply across A, B and C. Watchlist pagination is independent of 
 
 Hold OK → **About this title / source** for the supplied synopsis, episode information, progress and source. **Open / actions** shows known app destinations for confidently matching titles. Missing details remain unavailable; an app destination does not establish a subscription or regional availability.
 
-**Not interested** appears for titles in recommendation rows. It removes that title from recommendations and gently lowers similar genres within existing service priorities. It does not hide the title from Watchlist or Continue watching. Use **Settings → Recommendation feedback → Reset feedback** to clear these choices.
+**Not interested** appears for titles in recommendation rows. It removes that title from recommendations and gently lowers similar genres within existing service priorities. It does not hide the title from Watchlist or Continue watching. Use **Settings → Shows & recommendations → Recommendation feedback → Reset feedback** to clear these choices.
 
 **Settings → Undo · [last change]** reverses supported recent changes, including app-menu arrangement/hiding, title hiding, Watchlist changes, recommendation feedback, follows, row preferences and favorite teams. The history holds up to 20 changes in the current Home session; it is not a permanent change log. Bulk app-review controls and restoring an individual hidden title do not add undo entries.
 
 ## Follow new episodes
 
-Hold OK on a show → **Follow new episodes**. Following is separate from Watchlist, so starting the show does not end its alerts. **Settings → Followed shows** lists follows and their check status; up to 100 shows can be followed.
+Hold OK on a show → **Follow new episodes**. Following is separate from Watchlist, so starting the show does not end its alerts. **Settings → Shows & recommendations → Followed shows** lists follows and their check status; up to 100 shows can be followed.
 
 The **New episodes** row shows new releases after the initial baseline. prettTV needs an identifiable TVmaze/IMDb show or an unambiguous title-and-year match; some app cards lack enough information. Checks run while Home is visible, at most daily for each checked show, with a bounded number of requests per refresh.
 
@@ -165,11 +184,11 @@ Alerts mean **“episode released,” not “confirmed available in your streami
 - **Favorite teams:** Choose a league and teams in Settings. Their fixtures are prioritized within live and upcoming groups.
 - **Kickoff reminders:** Optional reminders appear on Home during the ten minutes before a favorite team's scheduled kickoff, using fresh data. Press OK on the reminder to dismiss it. They do not interrupt other apps or start a stream.
 - **Stable refresh and offline Home:** Existing content and artwork remain visible during refresh. A quiet **Updating…** label appears only for an actual request lasting beyond the short delay. An unavailable service is labeled separately from offline connectivity, with saved-content age when available. Recommendation-row reordering waits until focus leaves where possible; Continue watching updates chronologically right away while preserving the selected title. Removed or expired content is not retained just to keep its position. Cached recommendations expire after seven days and stale live scores disappear. Saved titles and installed-app shortcuts remain available, though streaming still depends on the app and connection.
-- **Updates:** Open Settings → Updates to see official release notes, check manually, and choose Download or Install. Android asks for installation permission and confirmation. [Update behavior →](installation.md#updates)
+- **Updates:** Open Settings → Support → Updates to see official release notes, check manually, and choose Download or Install. Android asks for installation permission and confirmation. [Update behavior →](installation.md#updates)
 
 ## Weather beside the clock
 
-Open **Settings → Weather** and enter a **five-digit US ZIP code**. Setting a location enables weather; new installations start with it off and no preset location. Choose **°F or °C**; Fahrenheit is the default. The header shows the resolved place, a small condition icon and the temperature beside the existing clock in all three layouts. Changing the weather location does not change the TV's time zone or clock format.
+Open **Settings → TV & audio → Weather** and enter a **five-digit US ZIP code**. Setting a location enables weather; new installations start with it off and no preset location. Choose **°F or °C**; Fahrenheit is the default. The header shows the resolved place, a small condition icon and the temperature beside the existing clock in all three layouts. Changing the weather location does not change the TV's time zone or clock format.
 
 Weather uses nearby **NWS observation stations**, with the ZIP's approximate location supplied by Zippopotam.us. US ZIP lookup and NWS station coverage are both required; some locations or stations may have no usable reading. A station reading describes its surroundings and may differ from conditions at your home. prettTV does not request GPS permission or read your Google account's address.
 
@@ -179,7 +198,7 @@ Use **Refresh weather** to request an update; temporary service failures may del
 
 ## Keep shared-account titles out of your Home
 
-Hold OK on a title and choose **Hide from large hero**, **Hide from Continue watching**, or **Hide from both**. Restore a title individually through **Settings → Hidden titles**.
+Hold OK on a title and choose **Hide from large hero**, **Hide from Continue watching**, or **Hide from both**. Restore a title individually through **Settings → Shows & recommendations → Hidden titles**.
 
 These filters stay on this TV and do not change the shared streaming account. They match normalized titles across sources, so identically named remakes share a filter.
 

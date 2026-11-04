@@ -55,4 +55,7 @@
     <string name="bluetooth_busy">Another TV action is running. Try again shortly.</string>
     <string name="bluetooth_settings_fallback">Open Remotes &amp; accessories in TV settings</string>
     <string name="bluetooth_settings_unavailable">Audio device settings are unavailable</string>
+    <string name="first_aid_restart">Restart app</string>
+    <string name="home_search_title">Search</string>
+    <string name="home_search_scope">Your installed apps and titles loaded on Home. Use the remote microphone for Google voice search.</string>
 </resources>

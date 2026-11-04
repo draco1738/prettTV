@@ -63,3 +63,15 @@ The same version adds a clearer provider-backed resume hero, a compact anchored 
 Continue watching applies chronological changes immediately while preserving the selected title; the hero follows the newest eligible viewing record. Recommendation-row reordering can wait until focus leaves the row. Provider progress observations are stored separately from confirmed local viewing and do not consume Watchlist. Timestamp-only provider changes never promote a title; delayed or shared-account progress cannot identify who watched or establish an exact playback time.
 
 Subtle card-edge contrast and footer-only branding remain. C stays selected. RBTV+ comes with the default installation bundle. Optional bounded RBTV game matching and local playback evidence replace reliance on stale provider timestamps; app coverage and game availability remain limited and must be described honestly. SportioTV and HD Streamz remain removed.
+
+## App first aid and utilities · 0.5.0 source
+
+The owner-approved extension adds five scoped capabilities while retaining selected C, normal volume controls and Google voice search:
+
+- **App first aid:** an app action opens read-only connection and audio checks, with Check again, Restart app, Audio devices, Network settings, App info and Back. Connection status distinguishes no network, required sign-in, Android-validated internet access and unconfirmed internet access. It cannot diagnose a service outage, an account problem or playback inside another app.
+- **Selected media output:** `AudioOutputReport` reports a verified selected media route and mute state when available. Bluetooth radio power is reported separately and never establishes the output route. Missing, ambiguous or conflicting route evidence remains unverified.
+- **Confirmed restart:** Restart app uses the existing force-stop flow with a separate Cancel-first confirmation. It ends playback without clearing login or saved data. Reopening requires a verified successful stop while the action remains in the foreground; leaving the screen revokes a delayed reopen. Home and protected TV controls remain ineligible.
+- **Persistent search surface:** query and grouped app/title results share a full dark page. The query and selected result are retained within the Home session, and opening a result leaves search behind it. More results reveals additional batches of 60. Search covers installed apps and locally available Home/Watchlist titles, with explicit empty and no-match states; the remote microphone continues to use Google voice search.
+- **Settings and app clarity:** settings are grouped into Home & apps, Shows & recommendations, TV & audio, and Support. Return to stock Google TV remains a separate bottom action. Unmapped apps use their installed icon on the common dark tile ground.
+
+This is an implementation record. Actual native checks, production observations and release limitations are recorded by version in [Validation](docs/validation.md).

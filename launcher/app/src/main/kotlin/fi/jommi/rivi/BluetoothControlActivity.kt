@@ -22,7 +22,7 @@ class BluetoothControlActivity:Activity() {
         super.onCreate(savedInstanceState)
         window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         controls=BluetoothControlView(this,{ desired ->
-            if(!BluetoothControlSession.start(this,desired))controls.bind(BluetoothControlSession.State(message=getString(R.string.bluetooth_busy)))
+            if(!BluetoothControlSession.start(this,desired,includeAudio=true))controls.bind(BluetoothControlSession.State(message=getString(R.string.bluetooth_busy)))
         },{
             when(AudioDeviceSettings.open(this)) {
                 AudioDeviceSettings.Destination.SETTINGS->android.widget.Toast.makeText(this,R.string.bluetooth_settings_fallback,android.widget.Toast.LENGTH_LONG).show()
@@ -78,9 +78,17 @@ class BluetoothControlActivity:Activity() {
     }
     override fun onStart() {
         super.onStart()
-        BluetoothControlSession.listen(this) { if(!isFinishing)controls.bind(it) }
-        if(!BluetoothControlSession.busy && !BluetoothControlSession.start(this))
-            controls.bind(BluetoothControlSession.State(message=getString(R.string.bluetooth_busy)))
+        var requested=false
+        BluetoothControlSession.listen(this) {
+            if(!isFinishing) {
+                controls.bind(it)
+                if(!it.working && !requested) {
+                    requested=true
+                    if(!BluetoothControlSession.start(this,includeAudio=true))
+                        controls.bind(BluetoothControlSession.State(message=getString(R.string.bluetooth_busy)))
+                }
+            }
+        }
     }
     override fun onStop() {
         BluetoothControlSession.cancel(this);BluetoothControlSession.unlisten(this)
@@ -100,6 +108,7 @@ internal class BluetoothControlView(context:android.content.Context,private val 
     private var focusedInitial=false
     private var requestingMessages=false
     private val status=TextView(context).apply { tag="bluetooth-status";setTextColor(AppActionStyle.IVORY);AppActionStyle.textSize(this,26,scale) }
+    private val output=TextView(context).apply { tag="audio-output";setTextColor(AppActionStyle.MUTED);AppActionStyle.textSize(this,23,scale) }
     private val toggle=Button(context).apply {
         tag="bluetooth-toggle";id=View.generateViewId();AppActionStyle.button(this,scale);isFocusableInTouchMode=true
         setOnClickListener { if(!state.working)change(state.enabled?.not()) }
@@ -125,6 +134,7 @@ internal class BluetoothControlView(context:android.content.Context,private val 
         orientation=VERTICAL;setPadding(px(24),px(22),px(24),px(22));background=AppActionStyle.surface(scale)
         addView(TextView(context).apply { setText(R.string.audio_devices_title);setTextColor(AppActionStyle.IVORY);AppActionStyle.textSize(this,32,scale) },LayoutParams(-1,-2).apply { bottomMargin=px(20) })
         addView(status,LayoutParams(-1,-2).apply { bottomMargin=px(12) })
+        addView(output,LayoutParams(-1,-2).apply { bottomMargin=px(18) })
         addView(toggle,LayoutParams(-1,-2))
         addView(TextView(context).apply {
             setText(R.string.bluetooth_off_notice);setTextColor(AppActionStyle.MUTED);AppActionStyle.textSize(this,20,scale)
@@ -159,6 +169,7 @@ internal class BluetoothControlView(context:android.content.Context,private val 
     }
     fun bind(value:BluetoothControlSession.State) {
         state=value;status.text=value.message
+        output.text=if(value.working)"Checking media output…" else "Media output: ${value.audio?.description ?: "Couldn’t verify output"}"
         // Keep the remote's focus in place while the click listener ignores repeated input.
         toggle.setText(when { value.working->R.string.bluetooth_working;value.enabled==true->R.string.bluetooth_turn_off;value.enabled==false->R.string.bluetooth_turn_on;else->R.string.bluetooth_retry })
         if(!value.working && value.enabled!=null && !focusedInitial) {

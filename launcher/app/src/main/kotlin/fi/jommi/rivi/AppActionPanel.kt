@@ -104,6 +104,7 @@ object AppActionPanel {
             val save=canvas.save(); canvas.translate(bounds.left.toFloat(),bounds.top.toFloat()); canvas.scale(bounds.width()/24f,bounds.height()/24f)
             when {
                 label=="Open" -> { paint.style=Paint.Style.FILL; val path=android.graphics.Path().apply { moveTo(6f,3f);lineTo(20f,12f);lineTo(6f,21f);close() }; canvas.drawPath(path,paint) }
+                label=="App first aid" -> { paint.style=Paint.Style.STROKE; canvas.drawLine(5f,12f,19f,12f,paint);canvas.drawLine(12f,5f,12f,19f,paint) }
                 label=="Force stop" -> { paint.style=Paint.Style.STROKE; canvas.drawRoundRect(5f,5f,19f,19f,1.5f,1.5f,paint) }
                 label.contains("favorite",true) -> { paint.style=Paint.Style.STROKE; val path=android.graphics.Path(); for(i in 0..9) { val a=Math.PI*i/5-Math.PI/2;val r=if(i%2==0)10.0 else 4.6;val x=(12+kotlin.math.cos(a)*r).toFloat();val y=(12+kotlin.math.sin(a)*r).toFloat();if(i==0)path.moveTo(x,y) else path.lineTo(x,y) };path.close();canvas.drawPath(path,paint) }
                 label.startsWith("Move") -> { paint.style=Paint.Style.STROKE; val right=label.endsWith("right");val a=if(right)8f else 16f;val b=24-a;canvas.drawLine(a,4f,b,12f,paint);canvas.drawLine(b,12f,a,20f,paint) }

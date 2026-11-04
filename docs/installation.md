@@ -69,7 +69,7 @@ RBTV is a separate third-party app with its own terms. Its provenance, checksum 
 
 ## 3. Choose Home and allow shared TV rows
 
-In prettTV, open **Settings → Choose default Home app** and select prettTV through Android's Home settings. The installers do not disable system launchers or intercept the Home button.
+In prettTV, open **Settings → Support → Choose default Home app** and select prettTV through Android's Home settings. The installers do not disable system launchers or intercept the Home button.
 
 Allow **TV listings** when prompted so prettTV can read the viewing progress and program rows that apps share with Android TV. prettTV does not ask for streaming credentials. You still sign in to each streaming app normally; not every app publishes usable progress or recommendations.
 
@@ -88,7 +88,7 @@ For an optional browser, see [TV Bro, ad blocking and remote voice](browser-and-
 
 ## Updates
 
-Starting with **prettTV 0.2.0**, open **Settings → Updates**:
+Starting with **prettTV 0.2.0**, an updater is available in Settings. In **0.5.0**, open **Settings → Support → Updates**:
 
 1. Choose **Check now** to fetch the latest stable official release and read its notes. Home also makes at most one automatic check per day while visible; it does not open the update screen or download an APK automatically.
 2. Choose **Download**. The updater checks the official asset location, APK checksum, package ID, newer version and matching signing certificate. You can cancel the download.
