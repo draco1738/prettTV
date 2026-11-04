@@ -3,6 +3,8 @@ package fi.jommi.rivi
 import android.app.Instrumentation
 import android.content.ComponentName
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.SystemClock
 import android.view.View
 import android.widget.Button
@@ -24,23 +26,51 @@ internal object BluetoothControlAndroidChecks {
                     activity.setContentView(button)
                     val quick=BluetoothQuickSwitch(button,{toggles++;accepted},{managed++})
                     quick.bind(BluetoothControlSession.State(enabled=false,message="Bluetooth off"))
-                    check(toggles==0 && button.text=="Bluetooth off")
+                    check(toggles==0 && button.text.isEmpty() && button.contentDescription.contains("turn on"))
+                    check(button.compoundDrawables[0] is BluetoothStatusDrawable)
                     check(button.requestFocus() && activity.currentFocus===button)
                     button.performClick();repeat(5) { button.performClick() }
-                    check(toggles==1 && button.text=="Bluetooth …")
+                    check(toggles==1 && button.contentDescription.contains("Please wait"))
                     check(activity.currentFocus===button && button.isEnabled)
                     quick.bind(BluetoothControlSession.State(enabled=true,message="Bluetooth on"))
-                    check(button.text=="Bluetooth on" && button.contentDescription.contains("turn off"))
+                    check(button.text.isEmpty() && button.contentDescription.contains("turn off"))
                     button.performClick();check(toggles==2)
                     quick.bind(BluetoothControlSession.State(message="Connection unavailable"))
-                    check(button.text=="Bluetooth ?" && activity.currentFocus===button)
+                    check(button.contentDescription.contains("unavailable") && activity.currentFocus===button)
                     button.performLongClick();check(managed==1 && toggles==2)
-                    accepted=false;button.performClick();check(toggles==3 && button.text=="Bluetooth ?")
+                    accepted=false;button.performClick();check(toggles==3 && button.contentDescription.contains("unavailable"))
                     button.performClick();check(toggles==4) { "Rejected operation left the switch stuck busy" }
                     quick.bind(BluetoothControlSession.State(enabled=false))
                     check(button.contentDescription.contains("turn on") && activity.currentFocus===button)
                 }
             } finally { main(instrumentation) { activity.finish() };instrumentation.waitForIdleSync() }
+        }
+        test("Bluetooth icon states have distinct shapes and readable focused variants without changing size") {
+            main(instrumentation) {
+                val icon=BluetoothStatusDrawable(72).apply { setBounds(0,0,72,72) }
+                val states=linkedMapOf("on" to BluetoothControlSession.State(enabled=true),
+                    "off" to BluetoothControlSession.State(enabled=false),
+                    "pending" to BluetoothControlSession.State(enabled=true,working=true),
+                    "unknown" to BluetoothControlSession.State())
+                val shapes=HashSet<Int>();val renders=HashSet<Int>()
+                val output=java.io.File(checkNotNull(context.getExternalFilesDir(null)),"visual-review").apply { mkdirs() }
+                for(focused in listOf(false,true))for((name,value) in states) {
+                    icon.state=if(focused)intArrayOf(android.R.attr.state_focused) else intArrayOf()
+                    icon.bind(value)
+                    val bitmap=Bitmap.createBitmap(72,72,Bitmap.Config.ARGB_8888)
+                    try {
+                        icon.draw(Canvas(bitmap))
+                        val pixels=IntArray(72*72);bitmap.getPixels(pixels,0,72,0,0,72,72)
+                        check(pixels.count { it ushr 24>0 }>100) { "Empty $name icon" }
+                        check(renders.add(pixels.contentHashCode())) { "Indistinguishable $name focus=$focused" }
+                        if(!focused)check(shapes.add(pixels.map { it ushr 24>0 }.hashCode())) { "State only differs by color: $name" }
+                        check(icon.intrinsicWidth==72 && icon.bounds.width()==72)
+                        java.io.File(output,"bluetooth-$name-focus-$focused.png").outputStream().use {
+                            check(bitmap.compress(Bitmap.CompressFormat.PNG,100,it))
+                        }
+                    } finally { bitmap.recycle() }
+                }
+            }
         }
         test("Bluetooth panel is private and opens read-only with explicit On Off and Manage devices actions") {
             check(!context.packageManager.getActivityInfo(ComponentName(context,BluetoothControlActivity::class.java),0).exported)

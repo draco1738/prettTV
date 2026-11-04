@@ -406,7 +406,8 @@ class MainActivity : Activity() {
                 }
                 if(key!="nav-bluetooth")navigation.addView(this,LinearLayout.LayoutParams(-2,px(56)).apply { rightMargin=px(12) })
                 if(key=="nav-bluetooth") {
-                    minWidth=(paint.measureText(getString(R.string.bluetooth_quick_off))+.5f).toInt()+px(44)
+                    setPadding(px(18),0,px(18),0)
+                    minWidth=px(72)
                     bluetoothQuickSwitch=BluetoothQuickSwitch(this,{
                         BluetoothControlSession.toggle(this@MainActivity)
                     },{ safeStart(Intent(this@MainActivity,BluetoothControlActivity::class.java),"Audio devices") })

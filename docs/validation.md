@@ -2,6 +2,14 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
+## prettTV 0.4.6 Bluetooth state symbol — 2026-11-03
+
+The far-right Bluetooth text is replaced by a small native-drawn symbol. On has a blue check badge, off has a muted slash, pending work has dots, and unavailable has a question mark. Shapes distinguish states without color alone; focused glyphs invert for contrast. Full spoken state/action labels, the existing finite navigation, OK toggle and hold-OK Audio devices action remain intact. There is no new animation, polling or dependency, and the indicator describes the radio rather than a verified headphone connection.
+
+**407 JVM tests and 19 targeted native Android checks passed**, with **zero lint errors and 28 existing warnings**. The native checks cover distinct rendered shapes in all four states and both focus states, accessible labels, repeated-OK protection, focus retention and A/B/C navigation at normal and 1.3 text scale. The first native attempt stopped after three checks because a fixture did not gain window focus; diagnostics recorded the TV leaving its dream screen. After waking Home, the complete unchanged suite passed. This failed attempt is retained separately and is not counted as a pass.
+
+The signed APK was installed on the identified TCL and pulled back to verify its hash. Actual Home and focused-icon screenshots were inspected, and Settings/Bluetooth navigation was verified. Key filtering remains off. Native state tests use a fake shell; no radio or audio-output change was performed for this visual update. No new physical voice, volume or soak test is claimed.
+
 ## prettTV 0.4.5 Bluetooth at the far right — 2026-11-03
 
 The Bluetooth quick switch now follows weather and the clock at the right edge of the persistent top bar in all three layouts. Remote focus moves from Settings to Bluetooth and back across the passive status area. OK and hold-OK behavior are unchanged.

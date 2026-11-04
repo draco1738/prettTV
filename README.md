@@ -41,6 +41,8 @@ The optional [Remote buttons helper](docs/usage.md#remote-buttons) retains globa
 
 **New in 0.4.5:** the Bluetooth on/off quick switch sits at the far right of the top bar, after weather and time. Its OK/hold-OK actions are unchanged.
 
+**New in 0.4.6:** that switch uses a compact Bluetooth symbol: blue with a check for on, a muted slash for off, dots while checking/changing, and a question mark when unavailable. The state describes the radio, not a connected headphone. Full spoken labels and the existing OK/hold-OK actions remain available.
+
 Switch through **prettTV Settings → Layout**. Apps, saved titles, viewing records and row preferences are shared across layouts.
 
 | Layout | What leads the screen |

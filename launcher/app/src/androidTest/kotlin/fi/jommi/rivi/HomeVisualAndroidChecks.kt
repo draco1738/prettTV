@@ -363,7 +363,7 @@ internal object HomeVisualAndroidChecks {
                 } finally { main(instrumentation) { panel.finish() } }
                 waitFor(instrumentation) { activity.hasWindowFocus() && owner.get(BluetoothControlSession)===activity && !BluetoothControlSession.busy }
                 main(instrumentation) {
-                    check((views().getValue("nav-bluetooth") as TextView).text=="Bluetooth ?") { "Header did not receive the refreshed unavailable state" }
+                    check(views().getValue("nav-bluetooth").contentDescription.contains("unavailable")) { "Header did not receive the refreshed unavailable state" }
                 }
             }
             test("Native A B C visual captures retain usable navigation and actions at normal and enlarged text") {

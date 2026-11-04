@@ -5,7 +5,7 @@
 Choose a layout, arrange your apps and use the remote to move through your Home screen. The same apps, viewing history and feeds are available in all three layouts.
 
 > [!NOTE]
-> This page describes **0.4.4** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+> This page describes **0.4.6** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
 
 ## Choose a layout
 
@@ -36,13 +36,13 @@ Continue watching applies new chronological ordering immediately and keeps the s
 | Remote Home / Home in the top bar | Reset the page and all rows to their default start. |
 | Menu | Open prettTV Settings. Settings is also available in the top bar. |
 
-The top bar contains **Home, Shows, Library, Inputs, Bluetooth, Search and Settings**. Shows and Library move to their content sections. The bar stays visible while the page scrolls; its own navigation strip can scroll horizontally when system text sizing needs more room. **Choose default Home app** opens Android's normal Home selection; the optional Home compatibility helper can return stock Home windows to prettTV on TVs that ignore this choice. It does not filter remote keys. Google's voice-result screens stay open; see [remote voice setup](browser-and-voice.md#preserve-pretttv-as-home).
+The top bar contains **Home, Shows, Library, Inputs, Search and Settings**, followed by status/weather, time and the **Bluetooth symbol** at the far right. Shows and Library move to their content sections. The bar stays visible while the page scrolls; its own navigation strip can scroll horizontally when system text sizing needs more room. **Choose default Home app** opens Android's normal Home selection; the optional Home compatibility helper can return stock Home windows to prettTV on TVs that ignore this choice. It does not filter remote keys. Google's voice-result screens stay open; see [remote voice setup](browser-and-voice.md#preserve-pretttv-as-home).
 
 Holding OK on an app shows a brief progress cue; releasing or leaving the card cancels it. A short boundary cue responds at row ends. These cues do not run while idle. Back from the app panel returns to its originating card and viewport; choosing an arrangement or hide action applies the existing deterministic focus rules below.
 
 ### Inputs and audio devices
 
-Select **Bluetooth on/off** in the top bar and press **OK** to toggle it directly. The button shows a pending state while the existing local control connection checks and changes the radio; repeated OK presses during the operation are ignored. **Hold OK** on it to open Audio devices. An unknown state is shown as **Bluetooth ?**; pressing OK reads the real state before toggling, and holding OK provides the native **Manage devices** fallback. Returning Home refreshes the status without changing Bluetooth. No accessibility service is required for this button.
+Select the **Bluetooth symbol** at the far right and press **OK** to toggle it directly. Blue with a check means on; a muted symbol with a slash means off. Dots mean checking/changing, and a question mark means the state is unavailable. Shapes distinguish the states without relying on color, and full spoken labels remain available. These indicate the radio state, not whether headphones are connected. Repeated OK presses during an operation are ignored. **Hold OK** opens Audio devices and its native **Manage devices** fallback. Returning Home refreshes the status without changing Bluetooth. No accessibility service is required for this button.
 
 Open **Inputs** in the top bar, then choose **TV inputs** for HDMI/television sources or **Audio devices** for a simple Bluetooth panel. Choose the on/off action to change Bluetooth; prettTV reads the resulting state before reporting completion. **Turning Bluetooth off disconnects Bluetooth headphones and remotes.**
 
