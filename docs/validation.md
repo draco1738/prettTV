@@ -2,6 +2,32 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
+## prettTV 0.5.2 lighter Home — 2026-11-04
+
+Long discovery shelves mount cards around the viewport while retaining their full catalogs. Visible artwork takes priority, duplicate decodes share work, obsolete subscribers cancel independently, and at most two directional neighbours are prefetched. After 30 seconds stopped, Home releases its bitmap references/cache while retaining navigation and settings. Optional Quiet focus motion uses a smaller lift with still artwork; Classic remains the default. [Implementation and limits](lightweight-home.md).
+
+**422 JVM tests across 35 suites and 135 isolated Android checks passed**, with **zero lint errors and 28 existing warnings**. The Android run includes 520 held/reversed directional actions in each of A/B/C, all 60 identities in a shelf, late selected-title removal, app Back versus explicit Home, artwork saturation/cancellation/priority, pressure-triggered bitmap release, recovery cancellation, updates, app actions and native captures at normal/enlarged text. Test packages were removed with absence verified.
+
+The same synthetic large-content fixture produced these UI-thread observations on the TCL:
+
+| Measurement | 0.5.1 baseline | 0.5.2 final candidate |
+| :--- | :--- | :--- |
+| Live cards across four 60-title discovery shelves | 240 | 28; all 240 titles retained |
+| Full rebuild, three samples | 390–525 ms; median 400 ms | 162–175 ms; median 164 ms |
+| Warm Home reset, three samples | 7.7–9.6 ms | 5.3–10.7 ms |
+
+These are injected UI-thread measurements with synthetic content, not physical remote-to-panel latency or a sustained frame-rate result. Three samples do not establish a general speedup across devices, networks or providers. The main demonstrated reductions are live view count and construction work; warm return still reuses the existing hierarchy.
+
+The signed **0.5.2 / code 28** installed in place on the identity-checked TCL. The pulled installed APK matched SHA-256 `c3083756a1d17acd70b856e05e8fb6cc83fbcaf8c887c5cd9288faf6c2ddc2cb` and the established certificate. The APK is 710,308 bytes and adds no runtime dependency. Google launcher packages remained disabled, Home resolved directly to prettTV, both accessibility helpers remained off and `InputFilterEnabled: false` was verified. No streaming app data was cleared.
+
+On the installed build, finite row boundaries, reverse traversal and header/content return passed, followed by ten real stop/Back-return cycles with the same focus and viewport. The temporary lifecycle app was removed. Two repeated production motion routes recorded 1,168 rendered frames and 16 janky frames (1.37%), versus 1,157 and 16 (1.38%) before. Both had p50/p90/p95 of 24/26/27 ms; p99 was 30 ms after versus 29 ms before. This does **not** demonstrate faster scrolling; it shows essentially unchanged frame statistics on this bounded route while construction work was reduced.
+
+A separate 35-second real background interval verified that stopped Home released its app/content artwork references and repopulated them on Back without a process restart. The temporary fixture was removed with absence checked. Final Home, app and personalization settings matched the pre-install export except navigation focus; automatic playback-observation records were outside that comparison. C Balanced and Classic motion remained selected. The final Home screenshot retained the OLED controls and compact Resume action. The captured crash buffer contained older Apple TV and TCL/system failures, with no production prettTV crash; its latest recorded process exit was the expected package replacement during installation.
+
+Initial attempts are retained separately and excluded from passed totals. The broader suite exposed older pre-OLED pixel oracles and a case-sensitive platform-button lookup; they now use current theme colors and case-insensitive labels while retaining the fixed-overlay, focus and Cancel assertions. The priority fixture initially confused concurrent completion order with queue order; it now holds one worker while checking which queued request the other completes first. Local compilation/invocation errors were corrected before the passing build. Production recovery behavior was unchanged.
+
+The rendered motion comparison used native card pixels at half speed. Quiet is available as an option; it was not silently enabled. No new hour-long soak, physical remote transport measurement, streaming-playback benchmark or Google account Watchlist sync is claimed.
+
 ## prettTV 0.5.1 OLED controls and audio output — 2026-11-04
 
 Home, navigation, app tiles, utility panels and buttons use pure black, with white text and thin white focus outlines. App and Library focus no longer adds a gray spotlight. The hero's Resume action is smaller, while its title and progress positions remain unchanged. Original line glyphs and plain app names replace bright utility-app backgrounds; attributed streaming logos keep their color accents. All three layouts and the actual Audio devices panel have fresh, unedited TCL captures. [A Cinema](screenshots/A-cinema.png) · [B Quiet](screenshots/B-quiet.png) · [C Balanced](screenshots/C-balanced.png) · [Audio devices](screenshots/audio-output.png) · [Dark Library](screenshots/dark-library.png).

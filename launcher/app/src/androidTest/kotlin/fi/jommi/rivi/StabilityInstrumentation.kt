@@ -35,6 +35,8 @@ class StabilityInstrumentation:Instrumentation() {
     private var voiceHomeOnly=false
     private var firstAidOnly=false
     private var darkThemeOnly=false
+    private var lightweightOnly=false
+    private var motionPreviewOnly=false
     override fun onCreate(arguments:Bundle?) {
         settingsKeysOnly=arguments?.getString("settingsKeysOnly")=="true"
         forceStopOnly=arguments?.getString("forceStopOnly")=="true"
@@ -45,6 +47,8 @@ class StabilityInstrumentation:Instrumentation() {
         voiceHomeOnly=arguments?.getString("voiceHomeOnly")=="true"
         firstAidOnly=arguments?.getString("firstAidOnly")=="true"
         darkThemeOnly=arguments?.getString("darkThemeOnly")=="true"
+        lightweightOnly=arguments?.getString("lightweightOnly")=="true"
+        motionPreviewOnly=arguments?.getString("motionPreviewOnly")=="true"
         super.onCreate(arguments);start()
     }
     override fun onStart() {
@@ -52,6 +56,16 @@ class StabilityInstrumentation:Instrumentation() {
         try {
             check(targetContext.packageName=="dev.zane.pretttv.stability") { "Refusing to run against the production Home" }
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
+            if(motionPreviewOnly) {
+                LightweightAndroidChecks.preview(this)
+                finish(Activity.RESULT_OK,Bundle().apply { putString("stream","MOTION PREVIEW PASS\n") });return
+            }
+            if(lightweightOnly) {
+                LightweightAndroidChecks.run(this,::test)
+                HomePerformanceAndroidChecks.run(this,::test)
+                HomeVisualAndroidChecks.run(this,::test)
+                finish(Activity.RESULT_OK,Bundle().apply { putString("stream","LIGHTWEIGHT PASS: $passed Android tests\n") });return
+            }
             if(darkThemeOnly) {
                 HomeCompatibilityAndroidChecks.run(this,::test)
                 AppFirstAidAndroidChecks.run(this,::test)
@@ -121,6 +135,7 @@ class StabilityInstrumentation:Instrumentation() {
                 finish(Activity.RESULT_OK,Bundle().apply { putString("stream","SETTINGS KEYS PASS: $passed Android tests\n");putInt("passed",passed) })
                 return
             }
+            LightweightAndroidChecks.run(this, ::test)
             PersonalizationAndroidChecks.run(targetContext, ::test)
             HomeCompatibilityAndroidChecks.run(this, ::test)
             AudioDeviceSettingsAndroidChecks.run(this, ::test)
@@ -290,8 +305,8 @@ class StabilityInstrumentation:Instrumentation() {
         .put("dnsMode",JSONObject.NULL).put("dnsSpecifier",JSONObject.NULL)
         .put("managedDnsMode","hostname").put("managedDnsSpecifier","dns.adguard-dns.com")
     private fun waitForNode(text:String):AccessibilityNodeInfo {
-        repeat(20) {
-            uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText(text)?.firstOrNull { it.text?.toString()==text }?.let { return it }
+        repeat(80) {
+            uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText(text)?.firstOrNull { it.text?.toString()?.equals(text,ignoreCase=true)==true }?.let { return it }
             Thread.sleep(100)
         }
         error("Recovery confirmation did not expose $text")

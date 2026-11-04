@@ -5,7 +5,9 @@
 Choose a layout, arrange your apps and use the remote to move through your Home screen. The same apps, viewing history and feeds are available in all three layouts.
 
 > [!NOTE]
-> This page describes **0.5.1** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+> This page describes **0.5.2** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+
+**Focus motion:** Settings → Home & apps → Focus motion offers Classic (the existing lift and artwork slide) or Quiet (a smaller 120 ms lift with still artwork). Classic remains the default. Both preserve the black cards, white focus outline and remote navigation. [Performance and memory behavior](lightweight-home.md).
 
 prettTV's OLED theme uses pure-black backgrounds and app tiles, black dialogs and buttons, with white text and a thin white focus outline. Brand marks and program artwork retain their color; the hero uses a compact Resume button that stays black when selected. The theme covers all three Home layouts and prettTV's own utility screens; it does not restyle streaming apps, Google voice results or Android Settings.
 

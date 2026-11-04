@@ -83,7 +83,7 @@ object LocalSettingsTransfer {
             val expected=when(name) {
                 "home"->when {
                     key in setOf("layout","focus","weatherLocation","weatherUnits") || key.startsWith("hiddenTitleLabel:")->"string"
-                    key in setOf("discovery","tvPermissionAsked","weatherEnabled")->"boolean"
+                    key in setOf("discovery","tvPermissionAsked","weatherEnabled","quietMotion")->"boolean"
                     key in setOf("sportsPackages","preferredServices","hiddenHeroTitles","hiddenWatchingTitles")->"set"
                     else->null
                 }

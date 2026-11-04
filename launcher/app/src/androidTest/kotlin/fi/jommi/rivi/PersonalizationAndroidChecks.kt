@@ -181,6 +181,7 @@ internal object PersonalizationAndroidChecks {
                 bad += copy().apply { getJSONObject("apps").put("not-strings", JSONObject().put("type", "set").put("value", JSONArray().put(42))) }
                 bad += copy().apply { getJSONObject("home").put("layout", JSONObject().put("type", "int").put("value", 1)) }
                 bad += copy().apply { getJSONObject("home").put("discovery", JSONObject().put("type", "string").put("value", "false")) }
+                bad += copy().apply { getJSONObject("home").put("quietMotion", JSONObject().put("type", "string").put("value", "true")) }
                 bad += copy().apply { getJSONObject("home").put("hiddenTitleLabel:fixture", JSONObject().put("type", "boolean").put("value", true)) }
                 bad += copy().apply { getJSONObject("home").put("preferredServices", JSONObject().put("type", "string").put("value", "fixture")) }
                 bad += copy().apply { getJSONObject("apps").put("fav_init", JSONObject().put("type", "int").put("value", 1)) }

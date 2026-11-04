@@ -201,7 +201,7 @@ internal object CardFocusAndroidChecks {
                             assertFixedIvory(before,after,PrettTvCard.Mode.SHOW)
                             // Long titles must not escape the rounded card or cover the progress track.
                             check(Color.alpha(after.getPixel(0,0))==0)
-                            check(after.getPixel(22,182)==0xFFF4F1E9.toInt())
+                            check(after.getPixel(22,182)==PrettTvColors.TEXT)
                         } finally { before.recycle(); after.recycle() }
                     }
                 }
@@ -305,7 +305,7 @@ internal object CardFocusAndroidChecks {
         before.getPixels(a,0,before.width,0,0,before.width,before.height)
         after.getPixels(b,0,after.width,0,0,after.width,after.height)
         var fixed=0
-        for(i in a.indices)if(a[i]==0xFFF4F1E9.toInt()) {
+        for(i in a.indices)if(a[i]==PrettTvColors.TEXT) {
             fixed++
             check(b[i]==a[i]) { "$mode moved or recolored its text, progress or focus outline at ${i%before.width},${i/before.width}" }
         }

@@ -78,7 +78,9 @@ class MainActivity : Activity() {
     private var showAnchor: View? = null
     private val focusables = LinkedHashMap<String, View>()
     private val horizontalRows=LinkedHashMap<String,HorizontalScrollView>()
-    private data class FocusRow(val container:LinearLayout,val cards:List<View>)
+    private data class FocusRow(val container:ViewGroup,val cards:List<View>)
+    private val windowedRows=LinkedHashMap<String,WindowedRow>()
+    private val windowedPrograms=HashMap<String,List<Program>>()
     private val focusRows=HashMap<View,FocusRow>()
     private val rowMotion=HashMap<HorizontalScrollView,ValueAnimator>()
     private data class Viewport(val focus:String?=null,val y:Int=0,val rows:Map<String,Int> = emptyMap(),val contentFocus:String?=null)
@@ -86,13 +88,19 @@ class MainActivity : Activity() {
     private var viewportRevision=0
     private val appCards = HashMap<String, MutableList<PrettTvCard>>()
     private val originalAppArt by lazy { OriginalApp.entries.associateWith { OriginalAppArtwork.render(this,it) } }
-    private data class CardArt(val card:PrettTvCard,val url:String,val w:Int,val h:Int,val request:ArtworkRequest=ArtworkRequest(),var loaded:Boolean=false)
+    private data class CardArt(val card:PrettTvCard,val url:String,val w:Int,val h:Int,val request:ArtworkRequest=ArtworkRequest(),var loaded:Boolean=false,var ticket:ArtworkLoader.Ticket?=null)
     private val cardArt=ArrayList<CardArt>()
     private val ui = Handler(Looper.getMainLooper())
     private var artworkScanScheduled=false
     private val scanArtwork=Runnable { artworkScanScheduled=false; loadVisibleArt() }
     private val retryArtwork = Runnable { loadVisibleArt() }
     private val retryApps = Runnable { if(visible && dirty)reload() }
+    private var scrollDirection=1
+    @Volatile private var iconEpoch=0
+    private var iconsLoading=false
+    private val failedIcons=HashSet<String>()
+    private var iconsReleased=false
+    private val releaseBackgroundArt=Runnable { if(!visible)releaseArtwork(true) }
     private val loader = HandlerThread("pretttv-apps").apply { start() }
     private val background = Handler(loader.looper)
     private val packageReceiver = object : BroadcastReceiver() {
@@ -141,6 +149,7 @@ class MainActivity : Activity() {
     }
     override fun onStart() {
         super.onStart(); visible=true
+        ui.removeCallbacks(releaseBackgroundArt)
         val savedLayout=HomeLayout.parse(settings.getString("layout",null))
         if(layout!=savedLayout) { layout=savedLayout; render(reset=true) }
         AppUpdater.checkWhenHomeVisible(this)
@@ -148,7 +157,7 @@ class MainActivity : Activity() {
         registerReceiver(tickReceiver,IntentFilter(Intent.ACTION_TIME_TICK).apply { addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED) })
         updateClock()
         weatherRepo.start()
-        if(dirty || apps.isEmpty())reload() else startContent()
+        if(dirty || apps.isEmpty())reload() else { if(iconsReleased)loadAppArtwork(); startContent() }
         ui.post(retryArtwork)
         // onStop removes timers; preserve recovery for cards still in their failure backoff.
         ui.postDelayed(retryArtwork,30_000)
@@ -158,12 +167,43 @@ class MainActivity : Activity() {
         appShortcutKeys.reset()
         AppUpdater.cancelHomeCheck()
         visible=false; contentRepo.stop(); weatherRepo.stop(); artwork.cancel(); unregisterReceiver(tickReceiver)
+        iconEpoch++;iconsReleased=iconsReleased || iconsLoading;iconsLoading=false
+        ui.postDelayed(releaseBackgroundArt,30_000)
         appActionPanel?.dismiss(); appActionPanel=null
         weatherLoadingDialog?.dismiss(); weatherLoadingDialog=null
         teamLoadingDialog?.dismiss(); teamLoadingDialog=null
         stopRowMotion(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); ui.removeCallbacks(retryApps); cardArt.forEach { it.request.cancel() }
         (currentFocus?.tag as? String)?.let { settings.edit().putString("focus",it).apply() }
         super.onStop()
+    }
+    override fun onTrimMemory(level:Int) {
+        super.onTrimMemory(level)
+        // UI_HIDDEN is not critical pressure: preserve the short app-return path for 30 seconds.
+        if(level==ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)artwork.trimTo(3*1024*1024)
+        else if(level>=ComponentCallbacks2.TRIM_MEMORY_BACKGROUND || level==ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL)
+            releaseArtwork(!visible)
+        else if(level==ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW)artwork.trimTo(3*1024*1024)
+    }
+    @Deprecated("Deprecated in Java")
+    override fun onLowMemory() { super.onLowMemory();releaseArtwork(!visible) }
+    private fun releaseArtwork(all:Boolean) {
+        iconEpoch++;iconsLoading=false
+        if(all)artwork.cancel()
+        artwork.trimTo(0)
+        val bounds=Rect()
+        cardArt.forEach { item->if(all || !item.card.getGlobalVisibleRect(bounds)) {
+            item.ticket?.cancel();item.ticket=null;item.request.cancel();item.card.art=null;item.loaded=false
+        } }
+        apps.forEach { entry->
+            val cards=appCards[entry.key].orEmpty()
+            if(all || cards.none { !it.isLibraryCard && it.getGlobalVisibleRect(bounds) }) {
+                entry.bitmap=null;cards.filterNot { it.isLibraryCard }.forEach { it.art=null }
+            }
+            if(all || cards.none { it.isLibraryCard && it.getGlobalVisibleRect(bounds) }) {
+                entry.libraryBitmap=null;cards.filter { it.isLibraryCard }.forEach { it.art=null }
+            }
+        }
+        iconsReleased=true
     }
     override fun onPause() {
         pausedForContent=true;stopRowMotion()
@@ -182,8 +222,8 @@ class MainActivity : Activity() {
         val revision=viewportRevision
         ui.post {
             if(visible && !pausedForContent && !isFinishing && !isDestroyed && revision==viewportRevision) {
-                focusables[saved.focus]?.requestFocusFromTouch()
-                saved.rows.forEach { (key,x)->horizontalRows[key]?.scrollTo(x,0) }
+                restoreRows(saved.rows)
+                focusTarget(saved.focus)?.requestFocusFromTouch()
                 root.scrollTo(0,saved.y); revealFocus(currentFocus)
             }
         }
@@ -235,12 +275,15 @@ class MainActivity : Activity() {
             val row=focusRows[currentFocus]
             if(row!=null) {
                 val scroll=row.container.parent as? HorizontalScrollView
-                when(val move=RowNavigation.move(row.cards.indexOf(currentFocus),row.cards.size,
+                val window=row.container as? WindowedRow
+                scrollDirection=if(event.keyCode==KeyEvent.KEYCODE_DPAD_RIGHT)1 else -1
+                when(val move=RowNavigation.move(window?.indexOf(currentFocus) ?: row.cards.indexOf(currentFocus),window?.keys?.size ?: row.cards.size,
                     event.keyCode==KeyEvent.KEYCODE_DPAD_RIGHT,scroll?.scrollX ?: 0,event.repeatCount)) {
                     is RowNavigation.Move.Focus -> {
                         val from=scroll?.scrollX ?: 0
                         if(scroll!=null)rowMotion.remove(scroll)?.cancel()
-                        if(row.cards[move.index].requestFocus(if(event.keyCode==KeyEvent.KEYCODE_DPAD_RIGHT)View.FOCUS_RIGHT else View.FOCUS_LEFT) && scroll!=null) {
+                        val target=window?.ensure(move.index) ?: row.cards[move.index]
+                        if(target.requestFocus(if(event.keyCode==KeyEvent.KEYCODE_DPAD_RIGHT)View.FOCUS_RIGHT else View.FOCUS_LEFT) && scroll!=null) {
                             val destination=scroll.scrollX
                             scroll.scrollTo(from,0); moveRow(scroll,destination)
                         }
@@ -317,6 +360,16 @@ class MainActivity : Activity() {
         focus ?: (currentFocus?.tag as? String) ?: (lastContentFocus?.tag as? String) ?: settings.getString("focus",null),
         if(ready)root.scrollY else 0,horizontalRows.mapValues { it.value.scrollX },lastContentFocus?.tag as? String)
 
+    private fun focusTarget(key:String?):View? = focusables[key] ?: key?.let { value ->
+        windowedRows.values.firstNotNullOfOrNull { it.ensure(value) }
+    }
+    private fun restoreRows(rows:Map<String,Int>) {
+        rows.forEach { (key,x)->
+            windowedRows[key]?.updateWindow(x,horizontalRows[key]?.width ?: px(inner))
+            horizontalRows[key]?.scrollTo(x,0)
+        }
+    }
+
     /** Home resets navigation, not the unchanged hierarchy and already decoded artwork. */
     private fun resetHomePosition() {
         appReturnViewport=null
@@ -339,7 +392,7 @@ class MainActivity : Activity() {
         val saved=if(homeRequested)Viewport() else restore ?: pendingViewport ?: viewport()
         pendingViewport=saved
         val revision=++viewportRevision
-        artwork.cancel(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); focusRows.clear(); appCards.clear(); rowSections.clear(); rowValues.clear(); boundPrograms.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
+        artwork.cancel(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); windowedRows.clear(); windowedPrograms.clear(); focusRows.clear(); appCards.clear(); rowSections.clear(); rowValues.clear(); boundPrograms.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
         root=ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER; clipChildren=false; clipToPadding=false }
         page=column().apply { setPadding(px(56),0,px(56),px(40)) }
         val stage=FrameLayout(this).apply { setBackgroundColor(bgColor); clipChildren=false; clipToPadding=false }
@@ -375,9 +428,9 @@ class MainActivity : Activity() {
             override fun onPreDraw():Boolean {
                 renderedRoot.viewTreeObserver.removeOnPreDrawListener(this)
                 if(root!==renderedRoot || revision!=viewportRevision)return true
-                saved.rows.forEach { (key,x) -> horizontalRows[key]?.scrollTo(x,0) }
-                if(saved.focus?.startsWith("nav-")==true)lastContentFocus=focusables[saved.contentFocus] ?: firstCard
-                val target=focusables[saved.focus] ?: firstCard ?: focusables.values.firstOrNull()
+                restoreRows(saved.rows)
+                if(saved.focus?.startsWith("nav-")==true)lastContentFocus=focusTarget(saved.contentFocus) ?: firstCard
+                val target=focusTarget(saved.focus) ?: firstCard ?: focusables.values.firstOrNull()
                 if(target?.requestFocus()!=true)firstCard?.requestFocus()
                 root.scrollTo(0,saved.y)
                 revealFocus(currentFocus)
@@ -391,7 +444,7 @@ class MainActivity : Activity() {
         val header=row().apply { gravity=Gravity.CENTER_VERTICAL; isBaselineAligned=false; setPadding(px(56),px(16),px(56),px(16)); setBackgroundColor(PrettTvColors.BACKGROUND) }
         val navigation=row()
         val entries=listOf(Triple("Home","nav-home",{ resetHomePosition() }),
-            Triple("Shows","nav-shows",{ showAnchor?.requestFocusFromTouch(); Unit }),
+            Triple("Shows","nav-shows",{ focusTarget(showAnchor?.tag as? String)?.requestFocusFromTouch(); Unit }),
             Triple("Library","nav-apps",{ libraryAnchor?.requestFocusFromTouch(); Unit }),
             Triple("Inputs","nav-inputs",{ openInputs() }),
             Triple("Search","nav-search",{ search() }),Triple("Settings","nav-settings",{ menu() }),
@@ -403,7 +456,7 @@ class MainActivity : Activity() {
                 setOnKeyListener { _,code,event ->
                     when(code) {
                         KeyEvent.KEYCODE_DPAD_UP->true
-                        KeyEvent.KEYCODE_DPAD_DOWN->{ if(event.action==KeyEvent.ACTION_DOWN)(lastContentFocus ?: firstCard)?.requestFocusFromTouch(); true }
+                        KeyEvent.KEYCODE_DPAD_DOWN->{ if(event.action==KeyEvent.ACTION_DOWN)(focusTarget(lastContentFocus?.tag as? String) ?: firstCard)?.requestFocusFromTouch(); true }
                         else->false
                     }
                 }
@@ -550,7 +603,7 @@ class MainActivity : Activity() {
             val value=rowValue(key)
             if(rowValues[key]==value)continue
             val oldCards=focusables.values.filter { descendant(it,container) }
-            val oldIndex=oldCards.indexOf(oldFocus)
+            val oldIndex=windowedRows[key]?.indexOf(oldFocus) ?: oldCards.indexOf(oldFocus)
             // Playback return normally preserves focus in this row. Deferring its order
             // would refresh the episode/progress yet leave the newest viewing buried.
             val keepOrder=deferActiveRefresh && oldIndex>=0 && key!="watching-shows" && key!="watching-movies"
@@ -566,7 +619,9 @@ class MainActivity : Activity() {
             }
             forgetRow(container); container.removeAllViews()
             fillContentRow(key,container,config); rowValues[key]=value
-            if(oldIndex>=0)replacement=focusables.values.filter { descendant(it,container) }.let { it.getOrNull(oldIndex.coerceAtMost(it.lastIndex))?.tag as? String }
+            if(oldIndex>=0)replacement=windowedRows[key]?.let { window->
+                window.ensure(oldIndex.coerceAtMost(window.keys.lastIndex))?.tag as? String
+            } ?: focusables.values.filter { descendant(it,container) }.let { it.getOrNull(oldIndex.coerceAtMost(it.lastIndex))?.tag as? String }
         }
         if(layout!=HomeLayout.QUIET) {
             val feature=content.feature
@@ -580,14 +635,14 @@ class MainActivity : Activity() {
         if(!rebuilt) { loadVisibleArt(); return }
         pendingViewport=saved
         val revision=++viewportRevision
-        if(saved.focus !in focusables && replacement!=null)pendingViewport=saved.copy(focus=replacement)
+        if(focusTarget(saved.focus)==null && replacement!=null)pendingViewport=saved.copy(focus=replacement)
         val renderedRoot=root
         renderedRoot.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener {
             override fun onPreDraw():Boolean {
                 renderedRoot.viewTreeObserver.removeOnPreDrawListener(this)
                 if(root!==renderedRoot || revision!=viewportRevision)return true
-                saved.rows.forEach { (key,x)->horizontalRows[key]?.scrollTo(x,0) }
-                (focusables[saved.focus] ?: focusables[replacement] ?: firstCard)?.requestFocus()
+                restoreRows(saved.rows)
+                (focusTarget(saved.focus) ?: focusTarget(replacement) ?: firstCard)?.requestFocus()
                 renderedRoot.scrollTo(0,saved.y); revealFocus(currentFocus)
                 pendingViewport=null; homeRequested=false
                 loadVisibleArt(); return true
@@ -600,13 +655,15 @@ class MainActivity : Activity() {
         if(cards.isEmpty() || cards.any { it.width<=0 || it.height<=0 })return false
         val config=personal.rowPreferences()
         val next=programsFor(key).let { if(key in setOf("discover","explore","trending","new"))it.take(config.limit(key)) else it }
-        val old=cards.map { boundPrograms[it.tag as? String] ?: return false }
+        val old=windowedPrograms[key] ?: cards.map { boundPrograms[it.tag as? String] ?: return false }
         if(next.map { it.id }.distinct().size!=next.size)return false
         val byId=next.associateBy { it.id }
         // Removed/expired content must never linger just because a row has focus.
         if(old.any { it.id !in byId })return false
         if(!keepOrder && old.map { it.id }!=next.map { it.id })return false
-        cards.zip(old).forEach { (card,previous)->
+        if(key in windowedPrograms)windowedPrograms[key]=old.map { byId.getValue(it.id) }
+        cards.forEach { card->
+            val previous=boundPrograms[card.tag as? String] ?: return false
             val updated=byId.getValue(previous.id)
             if(previous!=updated)bindProgram(card,updated,(card.width/scale).toInt(),(card.height/scale).toInt())
         }
@@ -637,7 +694,8 @@ class MainActivity : Activity() {
         val removed=focusables.values.filter { descendant(it,container) }.toSet()
         removed.forEach { view->focusables.remove(view.tag as? String); boundPrograms.remove(view.tag as? String); focusRows.remove(view) }
         horizontalRows.entries.removeAll { descendant(it.value,container) }
-        cardArt.removeAll { if(it.card in removed) { it.request.cancel(); true } else false }
+        windowedRows.entries.removeAll { if(descendant(it.value,container)) { windowedPrograms.remove(it.key);true } else false }
+        cardArt.removeAll { if(it.card in removed) { it.request.cancel();it.ticket?.cancel(); true } else false }
         appCards.values.forEach { cards->cards.removeAll { it in removed } }
         if(lastContentFocus in removed)lastContentFocus=null
     }
@@ -754,7 +812,7 @@ class MainActivity : Activity() {
         val existingArt=cardArt.firstOrNull { it.card===card }
         if(!sameTitle)card.art=null
         if(existingArt==null || existingArt.url!=artUrl || existingArt.w!=px(w) || existingArt.h!=px(h))
-            cardArt.removeAll { if(it.card===card) { it.request.cancel(); true } else false }
+            cardArt.removeAll { if(it.card===card) { it.request.cancel();it.ticket?.cancel(); true } else false }
         boundPrograms[card.tag as String]=p
         val presentation=p?.let(ProgramPresentation::from)
         card.title=p?.title ?: if(discovery)"Find your next favorite" else "Make yourself at home"
@@ -773,9 +831,32 @@ class MainActivity : Activity() {
     }
     private fun buildShowRow(title:String,programs:List<Program>,height:Int,key:String,count:Int,note:String="",emptyText:String="",previous:Pair<String,()->Unit>?=null,next:Pair<String,()->Unit>?=null) {
         page.addView(section(title,if(programs.isNotEmpty())listOf("${programs.size} titles",note).filter(String::isNotBlank).joinToString(" · ") else note))
-        val strip=row()
         // Leave a visible slice of the next card to make horizontal scrolling discoverable.
         val width=(inner-count*20-46)/count
+        if(programs.size>16 && key in setOf("discover","explore","trending","new")) {
+            windowedPrograms[key]=programs
+            val strip=WindowedRow(this,programs.map { "$key-${it.id}" },px(width),px(height),px(20),{ index->
+                val p=windowedPrograms.getValue(key)[index]
+                programCard(p,PrettTvCard.Mode.SHOW,"$key-${p.id}",width,height)
+            },{ view->
+                focusables.remove(view.tag as? String);boundPrograms.remove(view.tag as? String);focusRows.remove(view)
+                cardArt.removeAll { if(it.card===view) { it.ticket?.cancel();it.request.cancel();true } else false }
+                (view as? PrettTvCard)?.art=null
+                // Keep its tag for header/Back restoration even when the card is remounted later.
+            },::constrainRow)
+            windowedRows[key]=strip
+            val scroll=HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;isFocusable=false
+                clipChildren=true;clipToPadding=true;setPadding(0,px(6),0,px(6))
+                addView(strip,ViewGroup.LayoutParams(-2,px(height)))
+                setOnScrollChangeListener { _,x,_,_,_->strip.updateWindow(x,this.width) }
+            }
+            horizontalRows[key]=scroll
+            strip.updateWindow(0,px(inner))
+            page.addView(scroll,LinearLayout.LayoutParams(-1,px(height+12)))
+            return
+        }
+        val strip=row()
         previous?.let { (label,action)->strip.addView(button(label,"$key-page-previous",action).apply { maxLines=2 },LinearLayout.LayoutParams(px(width),px(height)).apply { rightMargin=px(20) }) }
         if(programs.isEmpty()) {
             val needsPermission=key.startsWith("watching") && checkSelfPermission("android.permission.READ_TV_LISTINGS")!=android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -819,11 +900,24 @@ class MainActivity : Activity() {
     private fun loadVisibleArt() {
         if(!visible || isDestroyed)return
         val rect=Rect()
+        if(!iconsLoading && apps.any { entry->appCards[entry.key].orEmpty().any {
+            it.art==null && "${entry.key}:${it.isLibraryCard}" !in failedIcons && it.getGlobalVisibleRect(rect)
+        } })loadAppArtwork(visibleOnly=true)
         val visibility=ArtworkVisibilityScan()
-        for(item in cardArt) {
-            if(visibility.isVisible(item.card,rect) && rect.width()>px(20) && rect.height()>px(20)) {
+        val shown=cardArt.filter { visibility.isVisible(it.card,rect) && rect.width()>px(20) && rect.height()>px(20) }.toSet()
+        // At most two near neighbours across the screen, in the user's current direction.
+        val neighbours=cardArt.asSequence().filter { it !in shown }.filter { item->
+            val scroll=item.card.parent?.parent as? HorizontalScrollView ?: return@filter false
+            if(!scroll.getGlobalVisibleRect(rect))return@filter false
+            val left=scroll.scrollX;val right=left+scroll.width
+            if(scrollDirection>0)item.card.left>=right && item.card.left<right+item.w+px(20)
+            else item.card.right<=left && item.card.right>left-item.w-px(20)
+        }.take(2).toSet()
+        for(item in cardArt.toList().sortedBy { if(it in shown)0 else 1 }) {
+            if(item in shown || item in neighbours) {
+                if(item in shown)item.ticket?.promote()
                 if((!item.loaded || item.card.art==null) && item.request.begin(SystemClock.uptimeMillis())) {
-                    artwork.load(item.url,item.w,item.h) { bitmap ->
+                    item.ticket=artwork.load(item.url,item.w,item.h,prefetch=item !in shown) { bitmap ->
                         // A replaced row/hero can still have a decoding request in flight.
                         if(cardArt.none { it===item })return@load
                         item.request.complete(bitmap!=null,SystemClock.uptimeMillis())
@@ -831,7 +925,10 @@ class MainActivity : Activity() {
                         if(bitmap==null && visible) { ui.removeCallbacks(retryArtwork); ui.postDelayed(retryArtwork,30_000) }
                     }
                 }
-            } else if(item.card.art!=null) { item.card.art=null; item.loaded=false }
+            } else {
+                item.ticket?.cancel();item.ticket=null;item.request.cancel()
+                if(item.card.art!=null) { item.card.art=null; item.loaded=false }
+            }
         }
     }
     private fun orderedApps():List<AppEntry> {
@@ -897,7 +994,7 @@ class MainActivity : Activity() {
         page.addView(originals,LinearLayout.LayoutParams(-1,px(154)).apply { bottomMargin=px(20) })
         constrainRow(originals)
     }
-    private fun constrainRow(row:LinearLayout) {
+    private fun constrainRow(row:ViewGroup) {
         val cards=ArrayList<View>()
         fun collect(view:View) {
             if(view.isFocusable)cards.add(view)
@@ -915,6 +1012,7 @@ class MainActivity : Activity() {
     }
     private fun reload() {
         dirty=false; val g=++generation
+        iconEpoch++;iconsLoading=false;failedIcons.clear()
         ui.removeCallbacks(retryApps); background.removeCallbacksAndMessages(null)
         val previous=apps.associateBy { it.key }
         background.post {
@@ -928,16 +1026,48 @@ class MainActivity : Activity() {
             } ?: return@post
             if(g!=generation)return@post
             val input=AppRefreshWork.attempt({repo.inputsEntry()}) { }
-            found.forEach { it.bitmap=previous[it.key]?.bitmap; it.logoBounds=previous[it.key]?.logoBounds; it.libraryBitmap=previous[it.key]?.libraryBitmap }
-            ui.post { if(g==generation) { appLoadError=false; appDiscoveryComplete=true; apps=found; inputs=input; render(); if(visible)startContent() } }
-            AppRefreshWork.each(found,{g==generation},{e ->
-                e.libraryBitmap=repo.loadLibraryMark(e)
-                repo.loadTile(e,320,180,0f)
-            }, { e,image ->
-                e.bitmap=image
-                ui.post { if(g==generation)appCards[e.key]?.forEach { it.logoBounds=e.logoBounds; it.art=if(it.isLibraryCard)e.libraryBitmap else image } }
-            }, { _,e -> android.util.Log.w("PrettTvApps","Icon failed: ${e.javaClass.simpleName}") })
+            found.forEach { entry->previous[entry.key]?.takeIf { it.versionCode==entry.versionCode }?.let {
+                entry.bitmap=it.bitmap;entry.logoBounds=it.logoBounds;entry.libraryBitmap=it.libraryBitmap
+            } }
+            ui.post { if(g==generation) {
+                appLoadError=false; appDiscoveryComplete=true; apps=found; inputs=input; render()
+                if(visible) { loadAppArtwork();startContent() } else iconsReleased=true
+            } }
             if(g==generation)AppRefreshWork.attempt({repo.pruneCache(found.map { repo.cacheName(it,320,180,0f) }.toSet())}) { }
+        }
+    }
+    /** Snapshot priority on the UI thread; all file reads and rasterisation stay on the worker. */
+    private fun loadAppArtwork(visibleOnly:Boolean=false) {
+        iconsReleased=false
+        iconsLoading=true
+        val epoch=++iconEpoch;val g=generation
+        val bounds=Rect()
+        val visibleTiles=appCards.filterValues { cards->cards.any { !it.isLibraryCard && it.getGlobalVisibleRect(bounds) } }.keys
+        val visibleMarks=appCards.filterValues { cards->cards.any { it.isLibraryCard && it.getGlobalVisibleRect(bounds) } }.keys
+        val ordered=orderedApps().sortedBy { entry->
+            if(appCards[entry.key].orEmpty().any { it.getGlobalVisibleRect(bounds) })0
+            else if(entry.key !in prefs.hidden)1 else 2
+        }
+        val jobs=listOf(false,true).flatMap { library->
+            ordered.filter { !visibleOnly || it.key in if(library)visibleMarks else visibleTiles }.map { it to library }
+        }.sortedBy { (entry,library)->
+            if(entry.key in if(library)visibleMarks else visibleTiles)0 else if(library)2 else 1
+        }
+        background.post {
+            fun current()=g==generation && epoch==iconEpoch
+            // Visible artwork first, then other Home tiles, then offscreen Library marks.
+            AppRefreshWork.each(jobs,::current,{ (entry,library)->
+                if(library)entry.libraryBitmap ?: repo.loadLibraryMark(entry)
+                else entry.bitmap ?: repo.loadTile(entry,320,180,0f)
+            },{ (entry,library),image->ui.post { if(current() && visible) {
+                if(library)entry.libraryBitmap=image else entry.bitmap=image
+                if(image==null)failedIcons.add("${entry.key}:$library")
+                appCards[entry.key]?.filter { it.isLibraryCard==library }?.forEach { it.logoBounds=entry.logoBounds;it.art=image }
+            } } },{ (entry,library),error->
+                ui.post { if(current())failedIcons.add("${entry.key}:$library") }
+                android.util.Log.w("PrettTvApps","Icon failed: ${error.javaClass.simpleName}")
+            })
+            ui.post { if(current()) { iconsLoading=false;scheduleArtworkScan() } }
         }
     }
     private fun startContent() {
@@ -1030,7 +1160,7 @@ class MainActivity : Activity() {
             appActionPanel=null
             if(visible && !isFinishing && !isDestroyed) {
                 focusables[origin]?.requestFocusFromTouch()
-                place.rows.forEach { (key,x)->horizontalRows[key]?.scrollTo(x,0) }
+                restoreRows(place.rows)
                 root.scrollTo(0,place.y)
                 ui.post { if(visible && providerRefreshPending && !isFinishing && !isDestroyed)refreshProviderRows() }
             }
@@ -1060,6 +1190,13 @@ class MainActivity : Activity() {
         items+="Recommendation services" to { chooseRecommendationServices() }
         items+="Layout: ${layout.label}" to {
             dialog("Choose your home",HomeLayout.entries.map { choice -> choice.label to { layout=choice; settings.edit().putString("layout",choice.name).apply(); settings.edit().remove("focus").apply(); render(); root.smoothScrollTo(0,0); firstCard?.requestFocus() } })
+        }
+        items+="Focus motion: ${if(settings.getBoolean("quietMotion",false))"Quiet" else "Classic"}" to {
+            dialog("Focus motion",listOf("Quiet · smaller lift, still artwork" to {
+                settings.edit().putBoolean("quietMotion",true).apply();render()
+            },"Classic · lift and artwork slide" to {
+                settings.edit().putBoolean("quietMotion",false).apply();render()
+            }))
         }
         items+="Show discovery: ${if(discovery)"On" else "Off"}" to {
             settings.edit().putBoolean("discovery",!discovery).apply(); content=HomeContent(); render(); startContent()

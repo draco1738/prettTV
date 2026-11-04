@@ -24,6 +24,7 @@ class FaultArtworkProvider:ContentProvider() {
                     "broken" -> output.write(byteArrayOf(1,2,3,4))
                     "oversized" -> { val chunk=ByteArray(8192); repeat(734) { output.write(chunk) } }
                     "slow" -> { Thread.sleep(150); output.write(small) }
+                    "blocked" -> { blockedStarted?.countDown();unblock?.tryAcquire(8,java.util.concurrent.TimeUnit.SECONDS);output.write(small) }
                     "large" -> output.write(large)
                     else -> output.write(small)
                 }
@@ -32,6 +33,8 @@ class FaultArtworkProvider:ContentProvider() {
         return pipe[0]
     }
     companion object {
+        @Volatile var blockedStarted:java.util.concurrent.CountDownLatch?=null
+        @Volatile var unblock:java.util.concurrent.Semaphore?=null
         private fun png(w:Int,h:Int):ByteArray {
             val bitmap=Bitmap.createBitmap(w,h,Bitmap.Config.RGB_565).apply { eraseColor(0xff426f52.toInt()) }
             return ByteArrayOutputStream().use { out -> bitmap.compress(Bitmap.CompressFormat.PNG,100,out);bitmap.recycle();out.toByteArray() }

@@ -28,6 +28,7 @@ Start with installation, then make the home screen your own. These guides descri
 | [Validation history](validation.md) | Results and limitations recorded for each prettTV release. |
 | [November software review](software-review-2026-11.md) | Concrete repairs and prioritized next improvements. |
 | [Lightweight UI research](lightweight-ui-research-2026-11.md) | Source-backed lessons from other launchers and media interfaces, with proposed performance experiments for prettTV. |
+| [A lighter Home](lightweight-home.md) | Visible-first artwork, windowed shelves, background memory release and the optional Quiet focus effect. |
 | [Historical release audit](release-audit-2026-11.md) | Verified release flags, exact-commit CI, signed APK identity and remaining evidence gaps. |
 | [Native design evidence](native-design-evidence.md) | Historical design decisions, real TV captures and review scope. |
 

@@ -160,7 +160,7 @@ internal object HomePerformanceAndroidChecks {
     /** The previous drawing algorithm is the pixel oracle, including its word-break behavior. */
     private fun legacyParagraph(canvas:Canvas,value:String,x:Float,y:Float,width:Float,font:Float) {
         val paint=TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color=0xFFBCC4BA.toInt(); textSize=22f*font; typeface=Typeface.create("sans-serif",Typeface.NORMAL)
+            color=PrettTvColors.SECONDARY; textSize=22f*font; typeface=Typeface.create("sans-serif",Typeface.NORMAL)
         }
         var rest=value.trim()
         for(i in 0..1) {

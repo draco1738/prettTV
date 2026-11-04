@@ -4,6 +4,8 @@
 
 Research date: **November 4, 2026**. Implementation reviewed: **prettTV 0.5.1**, commit [`8da88c2`](https://github.com/draco1738/prettTV/tree/8da88c2478f44df76f9bfdfc852c979c99a44063). This document proposes future work; it does not describe a newly installed build.
 
+Implementation follow-up: [A lighter Home in 0.5.2](lightweight-home.md), with actual results in the [validation history](validation.md). The research observations below remain tied to the reviewed 0.5.1 source.
+
 **Recommendation: retain the native Views/Canvas foundation, make long rows cheaper, and treat focus as durable state.** The most useful references are Rivi and Luncher for restrained architecture, Projectivy for progressive loading, Jellyfin for focus restoration, and LTvLauncher/Pegasus for large collections. A framework replacement has no demonstrated benefit for this TV.
 
 ## What was researched

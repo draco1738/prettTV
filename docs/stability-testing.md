@@ -58,6 +58,8 @@ Use `gradlew.bat` on Windows. Tests do not add runtime libraries to the release 
 
 ## Artwork fault tests
 
+For the 0.5.2 image scheduler, windowed shelves, memory retention and navigation regressions, pass `-Suite Lightweight` to the script below. Require `LIGHTWEIGHT PASS` with instrumentation success. The default `-Suite All` includes these checks and the broader fault suite. Build `:testapp:assembleDebug` as well as the target/runner: the scripts install and remove that isolated fixture for app-action checks.
+
 From the repository root, with PowerShell 7 and an authorized ADB device:
 
 ```powershell

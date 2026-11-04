@@ -12,6 +12,8 @@
 
 ## Make Home yours
 
+**New in 0.5.2:** long discovery shelves keep every title while creating fewer live cards. Home prioritizes visible icons, shares duplicate image requests and releases artwork after extended time in another app. **Settings → Home & apps → Focus motion** adds an optional smaller lift with still artwork; Classic remains the default. [How the lighter Home works →](docs/lightweight-home.md)
+
 **New in 0.5.1:** OLED-black cards, dialogs and buttons, white text and thin white focus outlines. A compact **Resume** action keeps the feature uncluttered. Streaming logos retain their color accents; TV Bro, RBTV+ and utility apps use original line icons and plain names without bright background blocks. Existing app-tile caches refresh automatically.
 
 **Change output**, beside the Bluetooth status, selects TV speakers, Bluetooth audio or HDMI ARC on supported TCL firmware without turning the radio off. This theme covers prettTV; streaming apps and system screens retain their own appearance. [Validation and limits →](docs/validation.md)

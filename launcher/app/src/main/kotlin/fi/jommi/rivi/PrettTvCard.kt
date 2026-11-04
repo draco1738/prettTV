@@ -20,6 +20,8 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         val mediumTypeface:Typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL)
     }
     enum class Mode { HERO, SHOW, COMPACT, APP, LIBRARY, SPORT }
+    /** Previewable alternative: one compositor scale, without repainting moving artwork. */
+    var quietMotion=context.getSharedPreferences("pretttv",Context.MODE_PRIVATE).getBoolean("quietMotion",false)
     val isLibraryCard get()=mode==Mode.LIBRARY
     var title=""
     var detail=""
@@ -156,7 +158,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         val artW=if(compact)w*.52f else w
         val artH=if(compact)h-s(12f) else h
         val top=if(compact)s(6f) else 0f
-        val travel=s(6f); val drift=travel*focusAmount
+        val travel=s(6f); val drift=if(quietMotion)0f else travel*focusAmount
         if(image!=null && !image.isRecycled) {
             c.save()
             if(compact)c.clipPath(compactShape)
@@ -189,7 +191,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
             }
             c.restore()
         }
-        if(focusAmount>0f && mode!=Mode.APP && mode!=Mode.LIBRARY) {
+        if(!quietMotion && focusAmount>0f && mode!=Mode.APP && mode!=Mode.LIBRARY) {
             // App tiles keep a true-black face; their outline carries remote focus.
             spotlightPaint.alpha=(255*focusAmount).toInt()
             c.drawRect(rect,spotlightPaint)
@@ -292,8 +294,9 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         if(!gain)clearFeedback()
         val target=focusScale(gain); val amount=if(gain)1f else 0f
         if(ValueAnimator.areAnimatorsEnabled() && isAttachedToWindow && windowVisibility==VISIBLE && isShown) {
-            animate().scaleX(target).scaleY(target).setDuration(140).setInterpolator(focusInterpolator).start()
-            if(focusAmount!=amount) {
+            animate().scaleX(target).scaleY(target).setDuration(if(quietMotion)120 else 140).setInterpolator(focusInterpolator).start()
+            if(quietMotion)updateFocusAmount(amount)
+            else if(focusAmount!=amount) {
                 val motion=ValueAnimator.ofFloat(focusAmount,amount).apply {
                     duration=180; interpolator=focusInterpolator
                     addUpdateListener { updateFocusAmount(it.animatedValue as Float) }
@@ -306,7 +309,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         } else { scaleX=target; scaleY=target; updateFocusAmount(amount) }
         invalidate()
     }
-    private fun focusScale(focused:Boolean)=if(focused && mode!=Mode.HERO && mode!=Mode.COMPACT)1.025f else 1f
+    private fun focusScale(focused:Boolean)=if(focused && mode!=Mode.HERO && mode!=Mode.COMPACT) { if(quietMotion)1.015f else 1.025f } else 1f
     private fun updateFocusAmount(amount:Float) { if(focusAmount!=amount) { focusAmount=amount; invalidate() } }
     private fun cancelFocusMotion() { animate().cancel(); focusMotion?.cancel(); focusMotion=null }
     private fun settleFocus() {
