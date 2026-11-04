@@ -3,7 +3,6 @@ package fi.jommi.rivi
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Dialog
-import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.Paint
@@ -46,7 +45,7 @@ object AppActionPanel {
         var chosen:(()->Unit)?=null
         val buttons=items.mapIndexed { index,(title,action) ->
             if(title=="Force stop" && index>0) column.addView(View(activity).apply {
-                setBackgroundColor(0xFF4E5C47.toInt());importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                setBackgroundColor(PrettTvColors.EDGE);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },LinearLayout.LayoutParams(-1,px(1)).apply { topMargin=px(10);bottomMargin=px(10) })
             Button(activity).apply {
                 id=View.generateViewId(); text=title
@@ -99,8 +98,7 @@ object AppActionPanel {
         override fun isStateful()=true
         override fun onStateChange(stateSet:IntArray):Boolean { invalidateSelf(); return true }
         override fun draw(canvas:Canvas) {
-            val selected=state.any { it==android.R.attr.state_focused || it==android.R.attr.state_pressed }
-            paint.color=if(selected)AppActionStyle.INK else AppActionStyle.IVORY
+            paint.color=AppActionStyle.IVORY
             val save=canvas.save(); canvas.translate(bounds.left.toFloat(),bounds.top.toFloat()); canvas.scale(bounds.width()/24f,bounds.height()/24f)
             when {
                 label=="Open" -> { paint.style=Paint.Style.FILL; val path=android.graphics.Path().apply { moveTo(6f,3f);lineTo(20f,12f);lineTo(6f,21f);close() }; canvas.drawPath(path,paint) }
@@ -121,17 +119,17 @@ object AppActionPanel {
 
 /** Shared styling for actions, confirmation, progress and result; solid surfaces avoid live blur. */
 internal object AppActionStyle {
-    const val IVORY=0xFFF4F1E9.toInt()
-    const val MUTED=0xFFC0C8B6.toInt()
-    const val INK=0xFF111A13.toInt()
-    private const val SURFACE=0xFF202C21.toInt()
-    private const val SELECTED=0xFFCFD9C5.toInt()
+    const val IVORY=PrettTvColors.TEXT
+    const val MUTED=PrettTvColors.SECONDARY
+    const val INK=PrettTvColors.INK
+    private const val SURFACE=PrettTvColors.RAISED
+    private const val SELECTED=PrettTvColors.SELECTED
     val CONFIRM_KEYS=setOf(KeyEvent.KEYCODE_DPAD_CENTER,KeyEvent.KEYCODE_ENTER,KeyEvent.KEYCODE_NUMPAD_ENTER)
     fun textSize(view:TextView,size:Int,scale:Float) {
         view.setTextSize(TypedValue.COMPLEX_UNIT_PX,size*scale*view.resources.configuration.fontScale)
     }
     fun surface(scale:Float)=GradientDrawable().apply {
-        setColor(SURFACE); cornerRadius=20*scale; setStroke((scale+.5f).toInt().coerceAtLeast(1),0xFF73816A.toInt())
+        setColor(SURFACE); cornerRadius=20*scale; setStroke((scale+.5f).toInt().coerceAtLeast(1),PrettTvColors.STRONG_EDGE)
     }
     fun button(button:Button,scale:Float) {
         fun px(value:Int)=(value*scale+.5f).toInt().coerceAtLeast(1)
@@ -141,11 +139,14 @@ internal object AppActionStyle {
             textSize(this,23,scale); minimumWidth=0; minWidth=0
             minimumHeight=px(58); minHeight=px(58)
             setPadding(px(16),px(12),px(16),px(12))
-            setTextColor(ColorStateList(arrayOf(intArrayOf(android.R.attr.state_focused),intArrayOf(android.R.attr.state_pressed),intArrayOf()),intArrayOf(INK,INK,IVORY)))
+            setTextColor(IVORY)
             background=StateListDrawable().apply {
-                fun fill(color:Int)=GradientDrawable().apply { setColor(color);cornerRadius=10*scale }
-                addState(intArrayOf(android.R.attr.state_focused),fill(SELECTED))
-                addState(intArrayOf(android.R.attr.state_pressed),fill(SELECTED))
+                fun fill(color:Int,focused:Boolean=false)=GradientDrawable().apply {
+                    setColor(color);cornerRadius=10*scale
+                    if(focused)setStroke(px(2),PrettTvColors.FOCUS)
+                }
+                addState(intArrayOf(android.R.attr.state_focused),fill(SELECTED,true))
+                addState(intArrayOf(android.R.attr.state_pressed),fill(SELECTED,true))
                 addState(intArrayOf(),fill(0x00000000))
             }
             stateListAnimator=null

@@ -16,6 +16,48 @@ internal object BluetoothControlAndroidChecks {
     fun run(instrumentation:Instrumentation,test:(String,()->Unit)->Unit) {
         val context=instrumentation.targetContext
         check(context.packageName=="dev.zane.pretttv.stability")
+        test("Output action sits beside radio status, preserves focus and never toggles Bluetooth") {
+            for(fontScale in listOf(1f,1.3f)) {
+                val activity=instrumentation.startActivitySync(Intent(context,CardFocusTestActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as CardFocusTestActivity
+                try {
+                    var choices=0;val radioActions=ArrayList<Boolean?>()
+                    val panel=main(instrumentation) {
+                        val themed=activity.createConfigurationContext(android.content.res.Configuration(activity.resources.configuration).apply { this.fontScale=fontScale })
+                        BluetoothControlView(themed,{radioActions.add(it)},{},{},changeOutput={choices++}).also {
+                            it.bind(BluetoothControlSession.State(enabled=true,message="Bluetooth is on",audio=AudioOutputReport("HDMI ARC",false)))
+                            activity.setContentView(android.widget.FrameLayout(activity).apply {
+                                setBackgroundColor(PrettTvColors.BACKGROUND)
+                                addView(it,android.widget.FrameLayout.LayoutParams((620*resources.displayMetrics.widthPixels/1920f).toInt(),-2,android.view.Gravity.CENTER))
+                            })
+                        }
+                    }
+                    val deadline=SystemClock.uptimeMillis()+10_000
+                    while(!main(instrumentation) { activity.hasWindowFocus() && panel.isLaidOut && panel.isShown }) {
+                        check(SystemClock.uptimeMillis()<deadline) { "Output panel did not become ready" };SystemClock.sleep(40)
+                    }
+                    main(instrumentation) {
+                        val action=panel.findViewWithTag<Button>("audio-change-output")
+                        val status=panel.findViewWithTag<TextView>("bluetooth-status")
+                        val statusBox=android.graphics.Rect();val actionBox=android.graphics.Rect()
+                        check(status.getGlobalVisibleRect(statusBox) && action.getGlobalVisibleRect(actionBox))
+                        check(statusBox.right<=actionBox.left && actionBox.width()==action.width)
+                        check(action.layout!=null && (0 until action.layout.lineCount).all { action.layout.getEllipsisCount(it)==0 })
+                        check(action.requestFocus() && panel.findFocus()===action)
+                        action.performClick();check(choices==1 && radioActions.isEmpty())
+                        val output=java.io.File(checkNotNull(context.getExternalFilesDir(null)),"visual-review").apply { mkdirs() }
+                        val bitmap=Bitmap.createBitmap(panel.width,panel.height,Bitmap.Config.ARGB_8888)
+                        try { panel.draw(Canvas(bitmap));java.io.File(output,"audio-output-$fontScale.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) } } finally { bitmap.recycle() }
+                        panel.bind(BluetoothControlSession.State(working=true,message="Switching media output…"))
+                        repeat(4) { action.performClick() };check(choices==1 && panel.findFocus()===action)
+                        panel.bind(BluetoothControlSession.State(enabled=true,message="TV speakers selected.",audio=AudioOutputReport("TV speakers",false)))
+                        check(status.text=="Bluetooth is on" && panel.findFocus()===action && radioActions.isEmpty())
+                        check(panel.findViewWithTag<TextView>("audio-feedback").text=="TV speakers selected.")
+                        check(action.nextFocusDownId==panel.findViewWithTag<Button>("bluetooth-toggle").id)
+                    }
+                } finally { main(instrumentation) { activity.finish() };instrumentation.waitForIdleSync() }
+            }
+        }
         test("Home Bluetooth switch keeps focus, rejects repeated OK and exposes recovery without changing radio on bind") {
             val activity=instrumentation.startActivitySync(Intent(context,CardFocusTestActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as CardFocusTestActivity
@@ -161,7 +203,8 @@ internal object BluetoothControlAndroidChecks {
                     val notice=panel.findViewWithTag<TextView>("bluetooth-messages-notice")
                     val manage=panel.findViewWithTag<Button>("bluetooth-manage")
                     val close=panel.findViewWithTag<Button>("bluetooth-close")
-                    fun checkChain(vararg buttons:Button) {
+                    fun checkChain(vararg radioButtons:Button) {
+                        val buttons=listOf(panel.findViewWithTag<Button>("audio-change-output"))+radioButtons
                         buttons.forEachIndexed { index,button ->
                             check(button.isFocusableInTouchMode) { "${button.tag} cannot receive focus after touch input" }
                             check(button.nextFocusLeftId==button.id && button.nextFocusRightId==button.id)

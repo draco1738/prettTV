@@ -27,6 +27,7 @@ internal object BluetoothControlSession {
     private fun publish(value:State) { state=value; ui.post { if(state===value)listener?.invoke(value) } }
 
     fun start(context:Context,desired:Boolean?=null,includeAudio:Boolean=false):Boolean=begin(context,desired,false,includeAudio)
+    fun selectOutput(context:Context,target:TvAudioOutput):Boolean=begin(context,null,false,true,target)
     /** A completed remote gesture only; keeps playback in place and reports verified completion. */
     fun toggle(context:Context):Boolean {
         val accepted=begin(context,null,true)
@@ -36,7 +37,7 @@ internal object BluetoothControlSession {
         }
         return accepted
     }
-    private fun begin(context:Context,desired:Boolean?,toggle:Boolean,includeAudio:Boolean=false):Boolean=synchronized(StockRecoverySession) { synchronized(this) {
+    private fun begin(context:Context,desired:Boolean?,toggle:Boolean,includeAudio:Boolean=false,output:TvAudioOutput?=null):Boolean=synchronized(StockRecoverySession) { synchronized(this) {
         if(busy || StockRecoverySession.busy || AppForceStopSession.busy)return false
         val app=context.applicationContext
         if(StockRecoveryStore.paused(app)) {
@@ -47,10 +48,10 @@ internal object BluetoothControlSession {
         busy=true; cancelled=false; timedOut=false
         operationOwner=if(toggle)null else owner
         val token=++generation
-        publish(State(working=true,message=if(desired==null)"Checking Bluetooth…" else if(desired)"Turning Bluetooth on…" else "Turning Bluetooth off…"))
-        worker.execute { perform(app,desired,toggle,token,includeAudio) }; true
+        publish(State(working=true,message=if(output!=null)"Switching media output…" else if(desired==null)"Checking Bluetooth…" else if(desired)"Turning Bluetooth on…" else "Turning Bluetooth off…"))
+        worker.execute { perform(app,desired,toggle,token,includeAudio,output) }; true
     } }
-    private fun perform(app:Context,desired:Boolean?,toggle:Boolean,token:Long,includeAudio:Boolean) {
+    private fun perform(app:Context,desired:Boolean?,toggle:Boolean,token:Long,includeAudio:Boolean,output:TvAudioOutput?) {
         var connection:LocalAdbClient?=null
         var result=State(message="Bluetooth state could not be verified. Use Manage devices.")
         val timeout=timer.schedule({ synchronized(this) { if(generation==token && busy) { timedOut=true;cancelled=true;client?.close() } } },25,TimeUnit.SECONDS)
@@ -73,17 +74,17 @@ internal object BluetoothControlSession {
                     if(mode==4)edit.putInt("previous-output",4) else edit.remove("previous-output")
                     check(edit.commit()) { "The previous audio output could not be saved." }
                 })
-            val checked=if(toggle)engine.toggle() else engine.execute(desired)
+            val checked=when { output!=null->engine.selectOutput(output);toggle->engine.toggle();else->engine.execute(desired) }
             val audio=if(includeAudio && !cancelled)runCatching { engine.inspectAudio() }.getOrDefault(AudioOutputReport()) else null
             result=State(checked.enabled,message=checked.message,changed=checked.changed,audio=audio)
         } catch(failure:Exception) {
-            result=State(message=(if(state.changed)"Bluetooth may have changed. " else "")+
+            result=State(message=(if(state.changed) { if(output!=null)"Audio output may have changed. " else "Bluetooth may have changed. " } else "")+
                 (failure.message?.take(180) ?: "Local control is unavailable. Use Manage devices."),changed=state.changed)
         } finally {
             timeout.cancel(false);connection?.close()
             synchronized(this) {
                 client=null;busy=false;operationOwner=null
-                if(timedOut)result=result.copy(enabled=null,audio=null,message=if(result.changed)"Bluetooth may have changed. The connection timed out before verification." else "Bluetooth check timed out. Use Manage devices.")
+                if(timedOut)result=result.copy(enabled=null,audio=null,message=if(result.changed)"${if(output!=null)"Audio output" else "Bluetooth"} may have changed. The connection timed out before verification." else "Audio/Bluetooth check timed out. Use Manage devices.")
                 publish(result)
                 if(toggle)notifyResult(app,result)
             }

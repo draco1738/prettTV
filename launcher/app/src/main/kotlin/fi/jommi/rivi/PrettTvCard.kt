@@ -36,11 +36,11 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         set(value) {
             if(field===value)return
             field=value
-            appGround=if(value!=null && mode==Mode.APP)value.getPixel(minOf(8,value.width-1),value.height/2) else 0xFF1C241E.toInt()
+            appGround=if(value!=null && mode==Mode.APP)value.getPixel(minOf(8,value.width-1),value.height/2) else PrettTvColors.SURFACE
             appShader=if(value!=null && mode==Mode.APP)BitmapShader(value,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP) else null
             invalidate()
         }
-    private var appGround=0xFF1C241E.toInt()
+    private var appGround=PrettTvColors.SURFACE
     private val imagePaint=Paint(Paint.FILTER_BITMAP_FLAG)
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG)
     private val spotlightPaint=Paint(Paint.ANTI_ALIAS_FLAG)
@@ -67,9 +67,8 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
     private var focusAmount=0f
     private var focusMotion:ValueAnimator?=null
     private val focusInterpolator=DecelerateInterpolator()
-    private val ivory=0xFFF4F1E9.toInt()
-    private val muted=0xFFBCC4BA.toInt()
-    private val sage=0xFFCEDAC6.toInt()
+    private val ivory=PrettTvColors.TEXT
+    private val muted=PrettTvColors.SECONDARY
     private var confirmHeld=false
     private var longPressHandled=false
     private var holdStarted=0L
@@ -98,13 +97,13 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
             compactShape.addRoundRect(imageDestination,s(10f),s(10f),Path.Direction.CW)
         }
         shade=if(mode==Mode.SHOW)LinearGradient(0f,0f,0f,h.toFloat(),
-            intArrayOf(0x000A100C,0x000A100C,0xE60A100C.toInt(),0xF20A100C.toInt()),
+            intArrayOf(0x00000000,0x00000000,0xE6000000.toInt(),0xF2000000.toInt()),
             floatArrayOf(0f,.32f,.58f,1f),Shader.TileMode.CLAMP)
-        else LinearGradient(0f,h*.35f,0f,h.toFloat(),intArrayOf(0x000A100C,0xD60A100C.toInt()),null,Shader.TileMode.CLAMP)
-        leftShade=LinearGradient(0f,0f,w*.85f,0f,intArrayOf(0xB30A100C.toInt(),0x0D0A100C),null,Shader.TileMode.CLAMP)
+        else LinearGradient(0f,h*.35f,0f,h.toFloat(),intArrayOf(0x00000000,0xD6000000.toInt()),null,Shader.TileMode.CLAMP)
+        leftShade=LinearGradient(0f,0f,w*.85f,0f,intArrayOf(0xB3000000.toInt(),0x0D000000),null,Shader.TileMode.CLAMP)
         // Cache an elliptical pool of light; focus changes only its opacity.
         if(w>0 && h>0)spotlightPaint.shader=RadialGradient(0f,0f,1f,
-            intArrayOf(0x2EF4F1E9,0x0FF4F1E9,0x00F4F1E9),floatArrayOf(0f,.34f,.74f),Shader.TileMode.CLAMP).apply {
+            intArrayOf(0x2EF4F4F4,0x0FF4F4F4,0x00F4F4F4),floatArrayOf(0f,.34f,.74f),Shader.TileMode.CLAMP).apply {
             setLocalMatrix(Matrix().apply { setScale(w*.94f,h*1.4f); postTranslate(w*.23f,0f) })
         }
     }
@@ -153,8 +152,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         val w=width.toFloat(); val h=height.toFloat(); val inset=s(if(mode==Mode.HERO)38f else 22f)
         val compact=mode==Mode.COMPACT; val image=art
         c.save(); c.clipPath(shape)
-        if(!compact)c.drawColor(when(mode) { Mode.APP->appGround; Mode.LIBRARY->0xFF1F2A22.toInt(); else->0xFF1C241E.toInt() })
-        if(compact && isFocused)c.drawColor(0x0DFFFFFF)
+        if(!compact)c.drawColor(when(mode) { Mode.APP->appGround; Mode.LIBRARY->PrettTvColors.SURFACE; else->PrettTvColors.SURFACE })
         val artW=if(compact)w*.52f else w
         val artH=if(compact)h-s(12f) else h
         val top=if(compact)s(6f) else 0f
@@ -191,9 +189,8 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
             }
             c.restore()
         }
-        // A very small lift separates dark app artwork from the page without whitening logos.
-        if(mode==Mode.APP) { paint.color=0x06FFFFFF; c.drawRect(rect,paint) }
-        if(focusAmount>0f) {
+        if(focusAmount>0f && mode!=Mode.APP && mode!=Mode.LIBRARY) {
+            // App tiles keep a true-black face; their outline carries remote focus.
             spotlightPaint.alpha=(255*focusAmount).toInt()
             c.drawRect(rect,spotlightPaint)
         }
@@ -202,30 +199,37 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         when(mode) {
             Mode.HERO -> {
                 val font=resources.configuration.fontScale
-                val buttonH=s(36f+32f*font)
+                val buttonH=s(24f+22f*font)
                 val buttonTop=h-s(30f)-buttonH
-                val progressY=buttonTop-s(32f)
+                // Shrink only the action; keep the existing title/progress block anchored.
+                val progressY=h-s(98f+32f*font)
                 val detailY=progressY-s(39f)*font
                 val titleY=detailY-s(50f)*font
                 titleLine(c,inset,titleY,58f,w-2*inset)
                 line(c,detail,inset,detailY,25f,w-2*inset,ivory)
                 if(validProgress()) {
                     val trackW=minOf(s(220f),w*.30f)
-                    paint.color=0xFF414840.toInt(); c.drawRoundRect(inset,progressY-s(2f),inset+trackW,progressY+s(2f),s(2f),s(2f),paint)
+                    paint.color=PrettTvColors.EDGE; c.drawRoundRect(inset,progressY-s(2f),inset+trackW,progressY+s(2f),s(2f),s(2f),paint)
                     paint.color=ivory; c.drawRoundRect(inset,progressY-s(2f),inset+trackW*progress,progressY+s(2f),s(2f),s(2f),paint)
                     line(c,secondaryDetail,inset+trackW+s(18f),progressY+s(7f),22f,w-2*inset-trackW-s(18f),muted)
                 } else line(c,secondaryDetail,inset,progressY+s(7f),22f,w-2*inset,muted)
-                text.textSize=s(26f)*resources.configuration.fontScale; text.typeface=mediumTypeface
-                val buttonW=(text.measureText(action)+s(82f)).coerceAtMost((w-2*inset)*.72f)
+                text.textSize=s(22f)*resources.configuration.fontScale; text.typeface=mediumTypeface
+                val buttonW=(text.measureText(action)+s(56f)).coerceAtMost((w-2*inset)*.72f)
                 actionBounds.set(inset,buttonTop,inset+buttonW,h-s(30f))
-                paint.color=if(isFocused)ivory else sage; c.drawRoundRect(actionBounds,s(23f),s(23f),paint)
+                paint.color=if(isFocused)PrettTvColors.SELECTED else PrettTvColors.SURFACE
+                c.drawRoundRect(actionBounds,s(12f),s(12f),paint)
+                paint.style=Paint.Style.STROKE
+                paint.strokeWidth=s(if(isFocused)1.5f else 1f)
+                paint.color=if(isFocused)PrettTvColors.FOCUS else PrettTvColors.STRONG_EDGE
+                if(isFocused)c.drawRoundRect(actionBounds,s(12f),s(12f),paint)
+                paint.style=Paint.Style.FILL
                 val cy=actionBounds.centerY()
-                actionPlay.reset(); actionPlay.moveTo(inset+s(29f),cy-s(9f)); actionPlay.lineTo(inset+s(29f),cy+s(9f)); actionPlay.lineTo(inset+s(42f),cy); actionPlay.close()
-                paint.color=0xFF142016.toInt()
+                actionPlay.reset(); actionPlay.moveTo(inset+s(17f),cy-s(6f)); actionPlay.lineTo(inset+s(17f),cy+s(6f)); actionPlay.lineTo(inset+s(26f),cy); actionPlay.close()
+                paint.color=ivory
                 c.drawPath(actionPlay,paint)
                 text.getFontMetrics(metrics)
                 val actionY=cy-(metrics.ascent+metrics.descent)/2
-                line(c,action,inset+s(60f),actionY,26f,buttonW-s(76f),0xFF142016.toInt(),true)
+                line(c,action,inset+s(37f),actionY,22f,buttonW-s(51f),ivory,true)
                 line(c,sourceLabel,actionBounds.right+s(20f),actionY,23f,w-inset-actionBounds.right-s(20f),muted)
             }
             Mode.COMPACT -> {
@@ -262,23 +266,23 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
             }
         }
         if(validProgress() && mode==Mode.SHOW) {
-            paint.color=0xFF435448.toInt(); c.drawRect(inset,h-s(9f),w-inset,h-s(5f),paint)
+            paint.color=PrettTvColors.EDGE; c.drawRect(inset,h-s(9f),w-inset,h-s(5f),paint)
             paint.color=ivory; c.drawRect(inset,h-s(9f),inset+(w-inset*2)*progress,h-s(5f),paint)
         }
         if(holdAmount>0f) {
             val x=(w-s(80f))/2; val y=h-s(15f)
-            paint.color=0xFF667563.toInt(); c.drawRoundRect(x,y,x+s(80f),y+s(5f),s(2.5f),s(2.5f),paint)
+            paint.color=PrettTvColors.STRONG_EDGE; c.drawRoundRect(x,y,x+s(80f),y+s(5f),s(2.5f),s(2.5f),paint)
             paint.color=ivory; c.drawRoundRect(x,y,x+s(80f)*holdAmount,y+s(5f),s(2.5f),s(2.5f),paint)
         }
         if(boundaryVisible) {
             val badgeW=s(60f)*resources.configuration.fontScale
             feedbackBounds.set(w-badgeW-s(12f),s(9f),w-s(12f),s(40f)*resources.configuration.fontScale)
-            paint.color=0xF0142016.toInt(); c.drawRoundRect(feedbackBounds,s(9f),s(9f),paint)
+            paint.color=0xF00A0A0A.toInt(); c.drawRoundRect(feedbackBounds,s(9f),s(9f),paint)
             line(c,"End",feedbackBounds.left+s(10f),feedbackBounds.bottom-s(8f),18f,badgeW-s(20f),ivory,true)
         }
         c.restore()
         paint.style=Paint.Style.STROKE
-        paint.color=if(isFocused && mode!=Mode.HERO)ivory else if(mode==Mode.LIBRARY)0xFF647368.toInt() else 0xFF4B584B.toInt()
+        paint.color=if(isFocused && mode!=Mode.HERO)ivory else if(mode==Mode.LIBRARY)PrettTvColors.STRONG_EDGE else PrettTvColors.EDGE
         paint.strokeWidth=s(if(isFocused && mode!=Mode.HERO)2.4f else 1f)
         if(!compact || isFocused)c.drawRoundRect(rect,s(cornerRadius),s(cornerRadius),paint)
         paint.style=Paint.Style.FILL

@@ -19,7 +19,7 @@ class StockRecoveryActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        status = TextView(this).apply { textSize = 22f; setTextColor(0xFFF4F1E9.toInt()); setBackgroundColor(0xFF0F1510.toInt()); setPadding(64,64,64,64) }
+        status = TextView(this).apply { textSize = 22f; setTextColor(PrettTvColors.TEXT); setBackgroundColor(PrettTvColors.BACKGROUND); setPadding(64,64,64,64) }
         setContentView(status)
         if (!StockRecoverySession.busy) { StockRecoverySession.cancel(); showFirstConfirmation() }
     }

@@ -3,6 +3,13 @@ package fi.jommi.rivi
 internal fun interface BluetoothControlShell { fun run(command:String):String }
 internal data class BluetoothControlResult(val enabled:Boolean?,val message:String,val changed:Boolean=false,val cancelled:Boolean=false)
 
+/** Fixed media modes from the matched TCL audio service, not arbitrary settings values. */
+internal enum class TvAudioOutput(val label:String,val mode:Int,val device:String,val command:String) {
+    SPEAKERS("TV speakers",2,"speaker(2)","settings put global tcl_device_out_type 2"),
+    BLUETOOTH("Bluetooth audio",4,"bt_a2dp(80)","settings put global tcl_device_out_type 4"),
+    HDMI_ARC("HDMI ARC",16,"hdmi_arc(40000)","settings put global tcl_device_out_type 16"),
+}
+
 /** Fixed commands only. A command acknowledgement is never proof of the radio's state. */
 internal class BluetoothControlEngine(
     private val identity:AppForceStopIdentity,
@@ -18,6 +25,50 @@ internal class BluetoothControlEngine(
     private var changed=false
     fun execute(desired:Boolean?=null):BluetoothControlResult=run(desired,false)
     fun toggle():BluetoothControlResult=run(null,true)
+    /** An explicit output choice never enables/disables Bluetooth or writes a volume. */
+    fun selectOutput(target:TvAudioOutput):BluetoothControlResult {
+        changed=false
+        var radio:Boolean?=null
+        try {
+            check(AppForceStopPolicy.validIdentity(identity) && launcherUser in 0..21_474) { "The saved TV identity is unavailable." }
+            check(read("id -u").trim()=="2000") { "The authorized local connection is unavailable." }
+            verifyMutationAllowed()
+            radio=readState()
+            check(read("getprop ro.product.manufacturer").trim().equals("TCL",true) &&
+                read("pm has-feature com.tcl.software.audio_multidev").trim()=="true") {
+                "Direct output switching is unavailable on this TV. Use its audio settings."
+            }
+            check(target!=TvAudioOutput.BLUETOOTH || radio==true) { "Turn Bluetooth on first, then choose Bluetooth audio." }
+            val previous=read(READ_OUTPUT_MODE).trim().toIntOrNull()
+            check(previous in TCL_OUTPUT_MODES) { "The TV's audio output setting is unavailable." }
+            check(supportsOutput(read("dumpsys audio"),target)) { "This TV did not report support for ${target.label}. Use its audio settings." }
+            if(previous!=target.mode) {
+                verifyMutationAllowed()
+                checkCancelled();beforeMutation();checkCancelled()
+                check(read(READ_OUTPUT_MODE).trim()==previous.toString()) { "The output changed during the request. Try again." }
+                if(target==TvAudioOutput.BLUETOOTH)check(readState()) { "Bluetooth turned off before the output change." }
+                // An explicit manual choice takes ownership from a prior radio-off handoff.
+                rememberOutputMode(null)
+                checkCancelled();changed=true
+                check(!errorReply(read(target.command))) { "Android refused the audio output change." }
+            }
+            repeat(3) { attempt ->
+                if(attempt>0) { checkCancelled();pause(250);checkCancelled() }
+                verifyUser()
+                if(read(READ_OUTPUT_MODE).trim()==target.mode.toString() && parseMediaRoute(read("dumpsys audio"),target.mode,target.device)) {
+                    radio=readState()
+                    rememberOutputMode(null)
+                    return BluetoothControlResult(radio,"${target.label} selected.",changed)
+                }
+            }
+            error("The TV did not confirm the selected output. Check its audio settings.")
+        } catch(_:Cancelled) {
+            return BluetoothControlResult(radio,if(changed)"Audio output may have changed. Its final state was not verified." else "Cancelled before changing audio output.",changed,true)
+        } catch(failure:Exception) {
+            return BluetoothControlResult(radio,(if(changed)"Audio output may have changed. " else "")+
+                (failure.message?.take(180) ?: "Audio output could not be verified."),changed)
+        }
+    }
     fun inspectAudio():AudioOutputReport {
         check(AppForceStopPolicy.validIdentity(identity) && launcherUser in 0..21_474)
         check(read("id -u").trim()=="2000")
@@ -146,6 +197,17 @@ internal class BluetoothControlEngine(
         private const val SELECT_SPEAKERS="settings put global tcl_device_out_type 2"
         private const val RESTORE_BLUETOOTH="settings put global tcl_device_out_type 4"
         private val TCL_OUTPUT_MODES=setOf(1,2,4,6,8,10,16,18,32,64,128,256,512,514)
+        private fun supportsOutput(dump:String,target:TvAudioOutput):Boolean {
+            val headers=Regex("(?m)^TclAudioDevicesUtils Info:\\r?$").findAll(dump).toList()
+            if(headers.size!=1)return false
+            val block=dump.substring(headers.single().range.last+1).trimStart('\r','\n')
+                .lineSequence().takeWhile { it.isBlank() || it.first().isWhitespace() }.joinToString("\n")
+            val field=when(target) { TvAudioOutput.SPEAKERS->"Speaker";TvAudioOutput.BLUETOOTH->"Bluetooth";TvAudioOutput.HDMI_ARC->"Arc" }
+            val rows=Regex("(?m)^[ \\t]+$field:[ \\t]*([^\\r\\n]+)").findAll(block).map { it.groupValues[1].trim() }.toList()
+            val value=rows.singleOrNull() ?: return false
+            return value.startsWith("AudioDeviceAttributes:") && value.contains("role:output ") &&
+                Regex("(?:^|[ \\t])type:${target.device.substringBefore('(')}(?:[ \\t]|$)").containsMatchIn(value)
+        }
         internal fun parseSpeakerRoute(output:String)=parseMediaRoute(output,2,"speaker(2)")
         private fun parseMediaRoute(output:String,mode:Int,device:String):Boolean {
             fun block(header:String):String? {

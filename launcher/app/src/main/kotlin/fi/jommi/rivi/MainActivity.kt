@@ -101,9 +101,9 @@ class MainActivity : Activity() {
     private val tickReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) { updateClock() }
     }
-    private val ink = 0xFFF4F1E9.toInt()
-    private val muted = 0xFFB2C0B5.toInt()
-    private val bgColor = 0xFF0F1510.toInt()
+    private val ink = PrettTvColors.TEXT
+    private val muted = PrettTvColors.MUTED
+    private val bgColor = PrettTvColors.BACKGROUND
     private fun px(n:Int) = (n*scale+.5f).toInt()
     private val wide get() = layout==HomeLayout.BALANCED
     private val inner get() = 1808
@@ -280,8 +280,8 @@ class MainActivity : Activity() {
         focusables.filterKeys { it.startsWith("nav-") }.forEach { (key,view)->
             (view as? TextView)?.apply {
                 val selected=key==navigationSelection
-                background=round(if(isFocused)0xFFCDD9C7.toInt() else if(selected)0xFF303D30.toInt() else 0xFF19221A.toInt())
-                setTextColor(if(isFocused)bgColor else if(selected)ink else muted)
+                background=round(if(isFocused || selected)PrettTvColors.SELECTED else PrettTvColors.BACKGROUND,if(isFocused)PrettTvColors.FOCUS else 0)
+                setTextColor(ink)
                 paintFlags=if(selected)paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG else paintFlags and android.graphics.Paint.UNDERLINE_TEXT_FLAG.inv()
             }
         }
@@ -299,8 +299,8 @@ class MainActivity : Activity() {
     private fun register(v:View,key:String) { v.tag=key; v.id=View.generateViewId(); focusables[key]=v }
     private fun button(label:String,key:String,action:()->Unit):TextView=text(label,26).apply {
         isFocusable=true; isClickable=true; gravity=Gravity.CENTER; setPadding(px(17),0,px(17),0)
-        background=round(0xFF1B2922.toInt()); register(this,key)
-        setOnFocusChangeListener { _,focus -> background=round(if(focus)0xFFCDD9C7.toInt() else 0xFF1B2922.toInt()); setTextColor(if(focus)bgColor else ink) }
+        background=round(PrettTvColors.RAISED); register(this,key)
+        setOnFocusChangeListener { _,focus -> background=round(if(focus)PrettTvColors.SELECTED else PrettTvColors.RAISED,if(focus)PrettTvColors.FOCUS else 0); setTextColor(ink) }
         setOnClickListener { action() }
     }
     private fun section(title:String,extra:String=""):View=row().apply {
@@ -388,7 +388,7 @@ class MainActivity : Activity() {
         })
     }
     private fun buildHeader(stage:FrameLayout) {
-        val header=row().apply { gravity=Gravity.CENTER_VERTICAL; isBaselineAligned=false; setPadding(px(56),px(16),px(56),px(16)); setBackgroundColor(0xFF19221A.toInt()) }
+        val header=row().apply { gravity=Gravity.CENTER_VERTICAL; isBaselineAligned=false; setPadding(px(56),px(16),px(56),px(16)); setBackgroundColor(PrettTvColors.BACKGROUND) }
         val navigation=row()
         val entries=listOf(Triple("Home","nav-home",{ resetHomePosition() }),
             Triple("Shows","nav-shows",{ showAnchor?.requestFocusFromTouch(); Unit }),
@@ -437,9 +437,9 @@ class MainActivity : Activity() {
         header.addView(buttons.last(),LinearLayout.LayoutParams(-2,px(56)).apply { leftMargin=px(22) })
         updateWeatherHeader()
         val bar=FrameLayout(this).apply {
-            setBackgroundColor(0xFF19221A.toInt())
+            setBackgroundColor(PrettTvColors.BACKGROUND)
             addView(header,FrameLayout.LayoutParams(-1,-1))
-            addView(View(this@MainActivity).apply { setBackgroundColor(0xFF354032.toInt()) },FrameLayout.LayoutParams(-1,px(1),Gravity.BOTTOM))
+            addView(View(this@MainActivity).apply { setBackgroundColor(PrettTvColors.DIVIDER) },FrameLayout.LayoutParams(-1,px(1),Gravity.BOTTOM))
         }
         navigationBar=bar
         stage.addView(bar,FrameLayout.LayoutParams(-1,px(88)))
@@ -458,13 +458,13 @@ class MainActivity : Activity() {
         firstCard=hero
         val side=column().apply {
             setPadding(px(24),px(13),px(24),px(16))
-            background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(0xFF1D251E.toInt(),0xFF161E17.toInt())).apply { cornerRadius=px(16).toFloat(); setStroke(px(1),0xFF4B584B.toInt()) }
+            background=GradientDrawable().apply { setColor(PrettTvColors.SURFACE); cornerRadius=px(16).toFloat(); setStroke(px(1),PrettTvColors.EDGE) }
         }
         val next=content.suggestions.filter { it.id!=feature?.id }
         side.addView(text("Discover",28,ink,true),LinearLayout.LayoutParams(-1,px(49)))
         for(i in 0..1) {
             side.addView(programCard(next.getOrNull(i),PrettTvCard.Mode.COMPACT,"next-$i",608,184),LinearLayout.LayoutParams(-1,px(184)))
-            if(i==0)side.addView(View(this).apply { setBackgroundColor(0xFF354032.toInt()) },LinearLayout.LayoutParams(-1,px(1)).apply { topMargin=px(14); bottomMargin=px(14) })
+            if(i==0)side.addView(View(this).apply { setBackgroundColor(PrettTvColors.DIVIDER) },LinearLayout.LayoutParams(-1,px(1)).apply { topMargin=px(14); bottomMargin=px(14) })
         }
         upper.addView(side,LinearLayout.LayoutParams(px(656),px(486)))
         page.addView(upper); gap(20); buildApps(94); gap(20)
@@ -762,7 +762,7 @@ class MainActivity : Activity() {
         card.sourceLabel=presentation?.source.orEmpty()
         card.secondaryDetail=if(card.tag=="feature")presentation?.remaining.orEmpty() else presentation?.selectedDetail.orEmpty()
         card.summary=p?.summary.orEmpty()
-        card.action=if(p==null)"Browse apps" else if(presentation?.canResume==true)"Continue watching" else "Open ${p.app}"
+        card.action=if(p==null)"Browse apps" else if(presentation?.canResume==true)"Resume" else "Open ${p.app}"
         card.progress=if(p!=null && !p.catalog && p.position>0 && p.duration>p.position)p.progress else 0f
         card.stremio=p?.packageName=="com.stremio.one"
         card.contentDescription=listOf(card.title,p?.detail ?: card.detail,card.action,card.sourceLabel).filter(String::isNotBlank).distinct().joinToString(". ")
@@ -786,8 +786,8 @@ class MainActivity : Activity() {
                 else if(discovery || key.startsWith("watching"))appAnchor?.requestFocus() else menu()
             }.apply {
                 maxLines=2; gravity=Gravity.CENTER_VERTICAL; setPadding(px(32),0,px(32),0)
-                background=round(0xFF171F18.toInt(),0xFF364033.toInt())
-                setOnFocusChangeListener { _,f -> background=round(if(f)0xFF263126.toInt() else 0xFF171F18.toInt(),if(f)ink else 0xFF364033.toInt()); setTextColor(ink) }
+                background=round(PrettTvColors.SURFACE,PrettTvColors.EDGE)
+                setOnFocusChangeListener { _,f -> background=round(if(f)PrettTvColors.SELECTED else PrettTvColors.SURFACE,if(f)ink else PrettTvColors.EDGE); setTextColor(ink) }
             }
             if(showAnchor==null)showAnchor=empty
             strip.addView(empty,LinearLayout.LayoutParams(-1,px(height)))

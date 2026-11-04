@@ -34,6 +34,7 @@ class StabilityInstrumentation:Instrumentation() {
     private var quickSwitchOnly=false
     private var voiceHomeOnly=false
     private var firstAidOnly=false
+    private var darkThemeOnly=false
     override fun onCreate(arguments:Bundle?) {
         settingsKeysOnly=arguments?.getString("settingsKeysOnly")=="true"
         forceStopOnly=arguments?.getString("forceStopOnly")=="true"
@@ -43,6 +44,7 @@ class StabilityInstrumentation:Instrumentation() {
         quickSwitchOnly=arguments?.getString("quickSwitchOnly")=="true"
         voiceHomeOnly=arguments?.getString("voiceHomeOnly")=="true"
         firstAidOnly=arguments?.getString("firstAidOnly")=="true"
+        darkThemeOnly=arguments?.getString("darkThemeOnly")=="true"
         super.onCreate(arguments);start()
     }
     override fun onStart() {
@@ -50,6 +52,15 @@ class StabilityInstrumentation:Instrumentation() {
         try {
             check(targetContext.packageName=="dev.zane.pretttv.stability") { "Refusing to run against the production Home" }
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
+            if(darkThemeOnly) {
+                HomeCompatibilityAndroidChecks.run(this,::test)
+                AppFirstAidAndroidChecks.run(this,::test)
+                BluetoothControlAndroidChecks.run(this,::test)
+                DiscoveryActivityAndroidChecks.run(this,::test)
+                UpdateAndroidChecks.run(this,::test)
+                HomeVisualAndroidChecks.run(this,::test)
+                finish(Activity.RESULT_OK,Bundle().apply { putString("stream","DARK THEME PASS: $passed Android tests\n");putInt("passed",passed) });return
+            }
             if(firstAidOnly) {
                 AppFirstAidAndroidChecks.run(this,::test)
                 BluetoothControlAndroidChecks.run(this,::test)

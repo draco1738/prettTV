@@ -75,9 +75,9 @@ class DiscoveryActivity : Activity() {
         override fun onReceive(context:Context,intent:Intent) { if(active)refreshInstalledApps() }
     }
     @Volatile private var lookup: DiscoveryMetadataRepository? = null
-    private val ink = 0xFFF4F1E9.toInt()
-    private val muted = 0xFFB2C0B5.toInt()
-    private val ground = 0xFF0F1510.toInt()
+    private val ink = PrettTvColors.TEXT
+    private val muted = PrettTvColors.MUTED
+    private val ground = PrettTvColors.BACKGROUND
     private fun px(value: Int) = (value * scale + .5f).toInt()
     private fun key(p: Program) = ContentIdentity.key(p)
     private fun blockedTitles() = settings.getStringSet("hiddenHeroTitles", emptySet()).orEmpty() +
@@ -286,7 +286,7 @@ class DiscoveryActivity : Activity() {
                 val shown = id in revealed
                 val tile = column().apply {
                     setPadding(px(26), px(24), px(26), px(20))
-                    background = rounded(0xFF1C241E.toInt(), 0xFF4B584B.toInt())
+                    background = rounded(PrettTvColors.SURFACE, PrettTvColors.EDGE)
                 }
                 if (shown) {
                     val art = PrettTvCard(this, scale, PrettTvCard.Mode.SHOW).apply {
@@ -567,9 +567,9 @@ class DiscoveryActivity : Activity() {
             gravity = Gravity.CENTER; isFocusable = true; isClickable = true
             setPadding(px(20), 0, px(20), 0); register(this, id)
             fun paint(focused: Boolean) {
-                setTextColor(if (focused) ground else ink)
-                background = rounded(if (focused) 0xFFCDD9C7.toInt() else 0xFF1B2922.toInt(),
-                    if (focused) ink else if (selected) 0xFF89958A.toInt() else 0xFF354032.toInt())
+                setTextColor(ink)
+                background = rounded(if (focused) PrettTvColors.SELECTED else PrettTvColors.RAISED,
+                    if (focused) PrettTvColors.FOCUS else if (selected) PrettTvColors.STRONG_EDGE else PrettTvColors.DIVIDER)
             }
             paint(false); setOnFocusChangeListener { _, focused -> paint(focused) }; setOnClickListener { action() }
         }
@@ -583,7 +583,7 @@ class DiscoveryActivity : Activity() {
     }
     private fun empty(title: String, detail: String) {
         page.addView(column().apply {
-            setPadding(px(30), px(20), px(30), px(20)); background = rounded(0xFF171F18.toInt(), 0xFF364033.toInt())
+            setPadding(px(30), px(20), px(30), px(20)); background = rounded(PrettTvColors.SURFACE, PrettTvColors.EDGE)
             addView(label(title, 32, bold = true), lp(70))
             addView(label(detail, 26, muted, lines = 3), lp(120))
         }, lp(240))

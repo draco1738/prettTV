@@ -29,9 +29,10 @@ class NavIcon(context:Context,private val gear:Boolean):View(context) {
     }
     override fun onDraw(c:Canvas) {
         val u=minOf(width,height)/64f; val x=width/2f; val y=height/2f
-        paint.style=Paint.Style.FILL; paint.color=if(isFocused)0xFFF4F1E9.toInt() else android.graphics.Color.TRANSPARENT
+        paint.style=Paint.Style.FILL; paint.color=PrettTvColors.BACKGROUND
         c.drawRoundRect(2f*u,2f*u,width-2f*u,height-2f*u,28f*u,28f*u,paint)
-        paint.color=if(isFocused)0xFF101612.toInt() else 0xFFD5DAD2.toInt(); paint.style=Paint.Style.STROKE; paint.strokeWidth=2.2f*u
+        paint.color=PrettTvColors.TEXT; paint.style=Paint.Style.STROKE; paint.strokeWidth=2.2f*u
+        if(isFocused)c.drawRoundRect(2f*u,2f*u,width-2f*u,height-2f*u,28f*u,28f*u,paint)
         if(!gear) { c.drawCircle(x-3*u,y-3*u,11*u,paint); c.drawLine(x+5*u,y+5*u,x+15*u,y+15*u,paint) }
         else {
             c.drawPath(gearPath,paint); c.drawCircle(x,y,5.5f*u,paint)

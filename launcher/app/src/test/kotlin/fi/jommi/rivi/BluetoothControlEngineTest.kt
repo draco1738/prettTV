@@ -24,10 +24,10 @@ class BluetoothControlEngineTest {
                 "getprop ro.product.manufacturer"->manufacturer
                 "pm has-feature com.tcl.software.audio_multidev"->feature.toString()
                 "settings get global tcl_device_out_type"->output
-                "settings put global tcl_device_out_type 2","settings put global tcl_device_out_type 4"->{
+                "settings put global tcl_device_out_type 2","settings put global tcl_device_out_type 4","settings put global tcl_device_out_type 16"->{
                     if(!ignoreOutputWrite) {
-                        output=command.takeLast(1);routeMode=output.toInt()
-                        routeDevice=if(routeMode==2)"speaker(2)" else "bt_a2dp(80)"
+                        output=command.substringAfterLast(' ');routeMode=output.toInt()
+                        routeDevice=when(routeMode) { 2->"speaker(2)";16->"hdmi_arc(40000)";else->"bt_a2dp(80)" }
                     }
                     routeReply
                 }
@@ -59,11 +59,88 @@ class BluetoothControlEngineTest {
                 readOutputDevMode:$mode
 
             TclAudioDevicesUtils Info:
-                Speaker: AudioDeviceAttributes
+                Speaker: AudioDeviceAttributes: role:output type:speaker addr:tcl:
+                Bluetooth: AudioDeviceAttributes: role:output type:bt_a2dp addr:tcl:
+                Arc: AudioDeviceAttributes: role:output type:hdmi_arc addr:tcl:
         """.trimIndent()
     }
     private fun engine(tv:Tv,cancelled:()->Boolean={false},allowed:()->Boolean={true},mutation:()->Unit={})=
         BluetoothControlEngine(identity,0,tv,cancelled,allowed,mutation,{ tv.pauses++ },{ tv.remembered },{ tv.rememberWrites++;tv.remembered=it })
+    @Test fun explicitMediaChoicesVerifyEachRouteWithoutChangingRadioOrVolume() {
+        for(target in TvAudioOutput.entries) {
+            val tv=Tv().apply { manufacturer="TCL";output=if(target==TvAudioOutput.BLUETOOTH)"2" else "4";remembered=4 }
+            val result=engine(tv).selectOutput(target)
+            assertEquals("${target.label} selected.",result.message)
+            assertEquals(true,result.enabled);assertTrue(result.changed)
+            assertEquals(listOf(target.command),tv.routeWrites());assertTrue(tv.writes().isEmpty())
+            assertNull(tv.remembered);assertEquals(target.mode.toString(),tv.output)
+            assertFalse(tv.commands.any { it.contains("volume") })
+        }
+    }
+    @Test fun outputSelectionRequiresBluetoothAlreadyOnButSpeakersWorkWithRadioOff() {
+        val tv=Tv().apply { manufacturer="TCL";on=false }
+        val rejected=engine(tv).selectOutput(TvAudioOutput.BLUETOOTH)
+        assertTrue(rejected.message.contains("Turn Bluetooth on first"))
+        assertTrue(tv.routeWrites().isEmpty() && tv.writes().isEmpty())
+        val speakers=engine(tv).selectOutput(TvAudioOutput.SPEAKERS)
+        assertEquals(false,speakers.enabled);assertEquals("TV speakers selected.",speakers.message)
+        assertTrue(tv.writes().isEmpty())
+    }
+    @Test fun outputChoiceRejectsUnverifiedDeviceUserSupportOrModeBeforeWriting() {
+        for(configure in listOf<(Tv)->Unit>({it.uid="0"},{it.serial="wrong"},{it.fingerprint="other"},
+            {it.user="10"},{it.manufacturer="Other"},{it.feature=false},{it.output="bogus"})) {
+            val tv=Tv().apply { manufacturer="TCL" }.also(configure)
+            val result=engine(tv).selectOutput(TvAudioOutput.SPEAKERS)
+            assertFalse(result.changed);assertTrue(tv.routeWrites().isEmpty() && tv.writes().isEmpty())
+        }
+    }
+    @Test fun existingOutputStillNeedsActualRouteVerificationWithoutAWrite() {
+        val tv=Tv().apply { manufacturer="TCL";output="2";routeMode=2;routeDevice="speaker(2)" }
+        assertEquals("TV speakers selected.",engine(tv).selectOutput(TvAudioOutput.SPEAKERS).message)
+        assertTrue(tv.routeWrites().isEmpty())
+        tv.routeDevice="bt_a2dp(80)"
+        assertTrue(engine(tv).selectOutput(TvAudioOutput.SPEAKERS).message.contains("did not confirm"))
+        assertTrue(tv.routeWrites().isEmpty())
+    }
+    @Test fun missingOrAmbiguousOutputSupportRejectsBeforeAnyMutation() {
+        for(dump in listOf("",Tv().audio().replace("Arc: AudioDeviceAttributes: role:output type:hdmi_arc addr:tcl:","Arc: null"),
+            Tv().audio()+"\nTclAudioDevicesUtils Info:\n  Arc: AudioDeviceAttributes: role:output type:hdmi_arc addr:tcl:\n")) {
+            val tv=Tv().apply { manufacturer="TCL";audioOverride=dump }
+            assertFalse(engine(tv).selectOutput(TvAudioOutput.HDMI_ARC).changed)
+            assertTrue(tv.routeWrites().isEmpty() && tv.writes().isEmpty())
+        }
+    }
+    @Test fun refusedIgnoredAndConflictingRouteWritesNeverClaimSelection() {
+        for(configure in listOf<(Tv)->Unit>({it.routeReply="Permission denial"},
+            {it.ignoreOutputWrite=true},{it.audioOverride=it.audio(16,"speaker(2)")},
+            {it.audioOverride=it.audio(16,"hdmi_arc(40000)")+"\n- STREAM_MUSIC:\n  Devices: speaker(2)\n"})) {
+            val tv=Tv().apply { manufacturer="TCL" }.also(configure)
+            val result=engine(tv).selectOutput(TvAudioOutput.HDMI_ARC)
+            assertTrue(result.changed);assertFalse(result.message=="HDMI ARC selected.")
+            assertTrue(tv.writes().isEmpty());assertEquals(1,tv.routeWrites().size)
+        }
+    }
+    @Test fun outputSelectionRechecksCancellationOwnershipAndGateBeforeDispatch() {
+        val cancelledTv=Tv().apply { manufacturer="TCL" };var cancelled=false
+        assertTrue(engine(cancelledTv,{cancelled},mutation={cancelled=true}).selectOutput(TvAudioOutput.SPEAKERS).cancelled)
+        assertTrue(cancelledTv.routeWrites().isEmpty())
+        val changedTv=Tv().apply { manufacturer="TCL" }
+        assertFalse(engine(changedTv,mutation={changedTv.output="16"}).selectOutput(TvAudioOutput.SPEAKERS).changed)
+        assertTrue(changedTv.routeWrites().isEmpty())
+        var gates=0;val busyTv=Tv().apply { manufacturer="TCL" }
+        assertFalse(engine(busyTv,allowed={++gates==1}).selectOutput(TvAudioOutput.SPEAKERS).changed)
+        assertTrue(busyTv.routeWrites().isEmpty())
+    }
+    @Test fun outputCancellationOrUserChangeAfterDispatchReportsUnverifiedResult() {
+        val tv=Tv().apply { manufacturer="TCL" };var cancelled=false
+        tv.before={ if(it==TvAudioOutput.SPEAKERS.command)cancelled=true }
+        val result=engine(tv,{cancelled}).selectOutput(TvAudioOutput.SPEAKERS)
+        assertTrue(result.changed && result.cancelled);assertTrue(result.message.contains("not verified"))
+        assertTrue(tv.writes().isEmpty())
+        val otherUser=Tv().apply { manufacturer="TCL";before={if(it==TvAudioOutput.SPEAKERS.command)user="10"} }
+        val rejected=engine(otherUser).selectOutput(TvAudioOutput.SPEAKERS)
+        assertTrue(rejected.changed);assertFalse(rejected.message=="TV speakers selected.")
+    }
     @Test fun readOnlyAndAlreadyRequestedStateNeverWrite() {
         val tv=Tv()
         assertEquals(true,engine(tv).execute().enabled)

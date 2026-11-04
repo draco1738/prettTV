@@ -5,7 +5,9 @@
 Choose a layout, arrange your apps and use the remote to move through your Home screen. The same apps, viewing history and feeds are available in all three layouts.
 
 > [!NOTE]
-> This page describes **0.5.0** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+> This page describes **0.5.1** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+
+prettTV's OLED theme uses pure-black backgrounds and app tiles, black dialogs and buttons, with white text and a thin white focus outline. Brand marks and program artwork retain their color; the hero uses a compact Resume button that stays black when selected. The theme covers all three Home layouts and prettTV's own utility screens; it does not restyle streaming apps, Google voice results or Android Settings.
 
 ## Choose a layout
 
@@ -118,7 +120,9 @@ Direct checks and restart use the existing authorized local control connection. 
 
 Settings groups controls under **Home & apps**, **Shows & recommendations**, **TV & audio**, and **Support**. Recent Undo stays at the top. The double-confirmed **Return to stock Google TV** remains separate at the bottom.
 
-**Audio devices** now also shows the selected media output after checking it. Its Bluetooth symbol continues to describe radio state. App tiles retain colorful brand marks on a consistent dark ground; unmapped apps use their installed icon rather than a full bright banner.
+**Audio devices** shows the selected media output after checking it. **Change output**, beside the Bluetooth status, offers **TV speakers**, **Bluetooth audio**, and **HDMI ARC** on the tested TCL. It verifies the selected route without changing Bluetooth power or copying volume between outputs. Bluetooth audio requires the radio to be on and a connected audio device for sound. A selected route does not prove audible playback. The existing authorized local control setup and supported TCL firmware are required; use the TV's audio settings otherwise.
+
+The top-bar Bluetooth symbol continues to describe radio state. App tiles retain colorful brand marks on a consistent dark ground; utility apps use original line glyphs and plain names; other unmapped apps use their installed icon, with adaptive foregrounds on black, rather than a full bright banner.
 
 ### Force stop without reopening
 

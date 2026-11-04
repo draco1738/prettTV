@@ -6,7 +6,36 @@
         <item name="android:windowAllowEnterTransitionOverlap">false</item>
         <item name="android:windowAllowReturnTransitionOverlap">false</item>
         <item name="android:windowDisablePreview">false</item>
-        <item name="android:colorBackground">#FF080A0F</item>
+        <item name="android:colorBackground">@color/prett_background</item>
+        <item name="android:textColorPrimary">@color/prett_text</item>
+        <item name="android:textColorSecondary">@color/prett_muted</item>
+        <item name="android:colorAccent">@color/prett_focus</item>
+        <item name="android:colorControlHighlight">@color/prett_control_highlight</item>
+        <item name="android:alertDialogTheme">@style/Theme.PrettTvDialog</item>
+        <item name="android:buttonStyle">@style/Widget.PrettTvButton</item>
+        <item name="android:listSelector">@drawable/oled_control</item>
+        <item name="android:listViewStyle">@style/Widget.PrettTvList</item>
+    </style>
+    <style name="Theme.PrettTvDialog" parent="@android:style/Theme.DeviceDefault.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/dialog_background</item>
+        <item name="android:colorBackground">@color/prett_surface</item>
+        <item name="android:textColorPrimary">@color/prett_text</item>
+        <item name="android:textColorSecondary">@color/prett_muted</item>
+        <item name="android:colorAccent">@color/prett_focus</item>
+        <item name="android:colorControlHighlight">@color/prett_control_highlight</item>
+        <item name="android:buttonBarButtonStyle">@style/Widget.PrettTvButton</item>
+        <item name="android:listSelector">@drawable/oled_control</item>
+        <item name="android:listViewStyle">@style/Widget.PrettTvList</item>
+    </style>
+    <style name="Widget.PrettTvList" parent="@android:style/Widget.DeviceDefault.ListView">
+        <item name="android:listSelector">@drawable/oled_control</item>
+    </style>
+    <style name="Widget.PrettTvButton" parent="@android:style/Widget.DeviceDefault.Button.Borderless">
+        <item name="android:background">@drawable/oled_control</item>
+        <item name="android:backgroundTint">@null</item>
+        <item name="android:textColor">@color/oled_control_text</item>
+        <item name="android:paddingLeft">16dp</item>
+        <item name="android:paddingRight">16dp</item>
     </style>
     <style name="Theme.PrettTvActionDialog" parent="@android:style/Theme.DeviceDefault.Dialog.Alert">
         <item name="android:windowBackground">@android:color/transparent</item>
@@ -14,7 +43,7 @@
         <item name="android:backgroundDimEnabled">true</item>
         <item name="android:windowMinWidthMajor">0dp</item>
         <item name="android:windowMinWidthMinor">0dp</item>
-        <item name="android:colorAccent">#CFD9C5</item>
+        <item name="android:colorAccent">@color/prett_focus</item>
     </style>
     <style name="Theme.PrettTvActionContext" parent="Theme.Rivi">
         <item name="android:windowIsTranslucent">true</item>

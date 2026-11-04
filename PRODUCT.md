@@ -34,13 +34,15 @@ Followed-show alerts require verified release metadata and are checked while Hom
 
 ## Brand Commitments
 
+The owner's 0.5.1 direction is an OLED-black theme: pure-black page, header and app-card surfaces, black panels and focused controls with white outlines and white text, and recognizable colorful app marks. Focused controls and the hero action stay dark rather than filling white. A compact Resume button and original dark utility-app glyphs complete this revision. This palette applies across prettTV's screens without changing the selected layout, spacing, content, navigation or remote functions. Other apps and system screens keep their own appearance. Release and device verification remain recorded separately in the versioned validation history.
+
 User supplied PLUI and Rivi as explicit visual references and asked for the good parts of stock Google TV. The requested feel is progressive, lightweight and attractive. prettTV is the owner-selected project name; the Android package is dev.zane.pretttv. PLUI code and artwork are analysis references only; build original implementation on Rivi's reusable MIT base.
 
 ## Evidence on Hand
 
 Pinned Rivi source and official APK; official PLUI APK decompiled for static analysis; PLUI repository screenshots; previous TV identity and display snapshots. Actual 1920x1080 ADB captures and user photographs of the TV are available in .impeccable/review. The user requires the appearance to match the C mockup.
 
-The 0.4.0 device gallery uses docs/screenshots/A-cinema.png, B-quiet.png, C-balanced.png, top-navigation.png and app-actions.png. These show the current native layouts and contextual action panel. Rendered design proposals are separate from device evidence, and the versioned validation record holds actual checks and limitations.
+The A/B/C and audio-output gallery shows 0.5.1 on the device. Top-navigation and app-action images remain historical 0.4.0 captures. Rendered design proposals are separate from device evidence, and the versioned validation record holds actual checks and limitations.
 
 Historical 0.2.0 functional validation reported 202 JVM tests and 35 Android tests passing. Its final functional gate and the user-approved one-hour soak checkpoint review passed; see docs/validation.md. The original two-hour run was stopped at the user's request and its native outcome remains UNRECORDED. That earlier one-hour review is not a 0.4.0 soak or certification of its new navigation and app-action surfaces.
 

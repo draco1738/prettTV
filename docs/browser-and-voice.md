@@ -65,6 +65,12 @@ Google also requires the TV and its profile to belong to the same Google Home, w
 
 ### Preserve prettTV as Home
 
+**Google-free Home configuration:** on the November 4 test TV, the owner chose to disable Google TV Home and its fallback launcher rather than retain Gemini results. Android then resolved Home directly to prettTV, without an accessibility redirect. The existing Home compatibility helper and remote key filter were both off. The default ambient screensaver remained available and its Home exit returned directly to prettTV.
+
+On this TCL, the physical gear/notification button is wired to Google's dashboard and loses that destination when Google Home is disabled. Use **prettTV Settings → TV & audio → TV settings** for the native controls. Do not re-enable a global key filter to compensate without testing held volume; this firmware previously lost native repeats while key filtering was active. Google's package also supplies Gemini movie/conversation result screens, so this configuration deliberately gives up those results. Other Google services and the Play Store are separate packages.
+
+This is a device configuration choice, not an automatic installer action. The double-confirmed stock restore remains the recovery path. Keep Home compatibility off when Google Home is disabled; no redirect is needed.
+
 Enabling stock launcher packages can change what the Home button opens. On the tested TCL, Google TV Home (`com.google.android.apps.tv.launcherx`) and its recovery launcher (`com.google.android.tungsten.setupwraith`) took priority over prettTV even when Android's Home role still named prettTV.
 
 Do not enable or disable those packages as a generic voice troubleshooting step. Keep the device's working Home configuration, and verify the **actual Home button** after any launcher-related change. Use [stock recovery](stock-recovery.md) only when you intend to restore the stock setup.

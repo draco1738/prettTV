@@ -47,6 +47,8 @@
     <string name="bluetooth_messages_notice">Allow notifications to see Bluetooth shortcut results while using other apps. Optional: Bluetooth still works without these messages.</string>
     <string name="bluetooth_messages_denied">Messages remain off. You can enable prettTV notifications in Android app settings.</string>
     <string name="bluetooth_manage_devices">Manage devices</string>
+    <string name="audio_change_output">Change output</string>
+    <string name="audio_choose_output">Choose audio output</string>
     <string name="bluetooth_back">Back</string>
     <string name="bluetooth_working">Please wait…</string>
     <string name="bluetooth_turn_off">Turn Bluetooth off</string>

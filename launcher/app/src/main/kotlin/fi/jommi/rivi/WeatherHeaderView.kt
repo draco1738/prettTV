@@ -16,7 +16,7 @@ import android.widget.TextView
 class WeatherHeaderView @JvmOverloads constructor(
     context:Context,private val unit:Float=context.resources.displayMetrics.widthPixels/1920f
 ):LinearLayout(context) {
-    private val ivory=0xFFF4F1E9.toInt()
+    private val ivory=PrettTvColors.TEXT
     private fun px(value:Int)=(value*unit+.5f).toInt()
     private fun label(size:Int,color:Int)=TextView(context).apply {
         setTextColor(color);setTextSize(TypedValue.COMPLEX_UNIT_PX,px(size)*resources.configuration.fontScale)
@@ -24,7 +24,7 @@ class WeatherHeaderView @JvmOverloads constructor(
         maxLines=1;ellipsize=TextUtils.TruncateAt.END;gravity=Gravity.CENTER_VERTICAL
         importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
-    private val city=label(23,0xFFB2C0B5.toInt()).apply { maxWidth=px(240) }
+    private val city=label(23,PrettTvColors.MUTED).apply { maxWidth=px(240) }
     private val glyph=WeatherGlyph(context)
     private val temperature=label(26,ivory)
     init {
@@ -33,7 +33,7 @@ class WeatherHeaderView @JvmOverloads constructor(
         addView(city,LayoutParams(-2,-1).apply { rightMargin=px(16) })
         addView(glyph,LayoutParams(px(30),px(30)).apply { rightMargin=px(10) })
         addView(temperature,LayoutParams(-2,-1))
-        addView(View(context).apply { setBackgroundColor(0xFF4B584B.toInt());importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO },
+        addView(View(context).apply { setBackgroundColor(PrettTvColors.EDGE);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO },
             LayoutParams(px(1).coerceAtLeast(1),px(24)).apply { leftMargin=px(20);rightMargin=px(20) })
     }
     fun bind(state:WeatherState,enabled:Boolean,units:String) {
@@ -64,7 +64,7 @@ private class WeatherGlyph(context:Context):View(context) {
     fun bind(value:WeatherCondition,isNight:Boolean) { if(condition!=value || night!=isNight) { condition=value;night=isNight;invalidate() } }
     override fun onDraw(canvas:Canvas) {
         super.onDraw(canvas);canvas.save();canvas.scale(width/32f,height/32f)
-        paint.color=0xFFF4F1E9.toInt();paint.style=Paint.Style.STROKE
+        paint.color=PrettTvColors.TEXT;paint.style=Paint.Style.STROKE
         fun cloud() {
             path.reset();path.moveTo(7f,23f);path.lineTo(25f,23f)
             path.cubicTo(31f,23f,31f,13f,24f,13f)
@@ -79,7 +79,7 @@ private class WeatherGlyph(context:Context):View(context) {
         fun sun() {
             paint.color=0xFFD8BC72.toInt();canvas.drawCircle(16f,16f,6f,paint)
             repeat(8) { canvas.save();canvas.rotate(it*45f,16f,16f);canvas.drawLine(16f,3f,16f,6f,paint);canvas.restore() }
-            paint.color=0xFFF4F1E9.toInt()
+            paint.color=PrettTvColors.TEXT
         }
         when(condition) {
             WeatherCondition.CLEAR->if(night)moon() else sun()

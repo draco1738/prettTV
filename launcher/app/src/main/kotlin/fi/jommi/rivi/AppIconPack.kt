@@ -21,11 +21,19 @@ object AppIconPack {
         "com.hbo.hbonow" to "hbo-light", "com.wbd.stream" to "hbo-light")
     fun render(context:Context,pkg:String,w:Int,h:Int):Bitmap? {
         if(pkg=="com.disney.disneyplus")return renderDisney(context,w,h)
+        DarkAppGlyphs.render(pkg)?.let { source ->
+            val output=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888)
+            val canvas=Canvas(output);canvas.drawColor(PrettTvColors.SURFACE)
+            val ratio=minOf(w*.78f/source.width,h*.68f/source.height)
+            val width=source.width*ratio;val height=source.height*ratio
+            canvas.drawBitmap(source,null,RectF((w-width)/2,(h-height)/2,(w+width)/2,(h+height)/2),markPaint(pkg))
+            source.recycle();return output
+        }
         val name=icons[pkg] ?: return null
         return try {
-            val source=context.assets.open("app-icons/$name.png").use { BitmapFactory.decodeStream(it) } ?: return null
+            val source=decodeMark(context,name,pkg) ?: return null
             val output=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888)
-            val canvas=Canvas(output); canvas.drawColor(0xFF141C17.toInt())
+            val canvas=Canvas(output); canvas.drawColor(PrettTvColors.SURFACE)
             val ratio=minOf(w*.72f/source.width,h*.68f/source.height)
             val width=source.width*ratio; val height=source.height*ratio
             canvas.drawBitmap(source,null,RectF((w-width)/2,(h-height)/2,(w+width)/2,(h+height)/2),markPaint(pkg))
@@ -35,12 +43,31 @@ object AppIconPack {
     private fun markPaint(pkg:String)=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
         // This attributed asset is a black monochrome silhouette, despite its "-light" name.
         // Tint only this known mark; preserve color in all other brands.
-        if(pkg=="com.cbs.ott")colorFilter=PorterDuffColorFilter(0xFFF4F1E9.toInt(),PorterDuff.Mode.SRC_IN)
+        if(pkg=="com.cbs.ott")colorFilter=PorterDuffColorFilter(PrettTvColors.TEXT,PorterDuff.Mode.SRC_IN)
     }
+
+    private fun decodeMark(context:Context,name:String,pkg:String):Bitmap? =
+        context.assets.open("app-icons/$name.png").use { input ->
+            val source=BitmapFactory.decodeStream(input,null,BitmapFactory.Options().apply {
+                inMutable=pkg=="tv.pluto.android"
+            }) ?: return@use null
+            if(pkg=="tv.pluto.android") {
+                // Lift this asset's black wordmark, preserving alpha and its colored brand rings.
+                // Both Home and Library must remain legible on the same OLED-black surface.
+                val pixels=IntArray(source.width*source.height)
+                source.getPixels(pixels,0,source.width,0,0,source.width,source.height)
+                for(i in pixels.indices)if((pixels[i] and 0x00FFFFFF)==0) {
+                    pixels[i]=(pixels[i] and 0xFF000000.toInt()) or (PrettTvColors.TEXT and 0x00FFFFFF)
+                }
+                source.setPixels(pixels,0,source.width,0,0,source.width,source.height)
+            }
+            source
+        }
 
     /** Tight transparent brand mark for the Library's shared surface and separate label. */
     fun libraryMark(context:Context,pkg:String):Bitmap? = try {
-        if(pkg=="com.disney.disneyplus") {
+        val utility=DarkAppGlyphs.render(pkg)
+        if(utility!=null)utility else if(pkg=="com.disney.disneyplus") {
             val mark=context.getDrawable(R.drawable.ic_disney_dark)!!
             val ratio=minOf(224f/mark.intrinsicWidth,72f/mark.intrinsicHeight)
             val output=Bitmap.createBitmap((mark.intrinsicWidth*ratio).toInt().coerceAtLeast(1),
@@ -48,22 +75,11 @@ object AppIconPack {
             mark.setBounds(0,0,output.width,output.height); mark.draw(Canvas(output)); output
         } else {
             val name=icons[pkg]
-            if(name==null)null else context.assets.open("app-icons/$name.png").use { input ->
-                val source=BitmapFactory.decodeStream(input,null,BitmapFactory.Options().apply {
-                    inMutable=pkg=="tv.pluto.android"
-                }) ?: return@use null
+            if(name==null)null else decodeMark(context,name,pkg)?.let { source ->
                 try {
                     var left=source.width; var top=source.height; var right=-1; var bottom=-1
                     val pixels=IntArray(source.width*source.height)
                     source.getPixels(pixels,0,source.width,0,0,source.width,source.height)
-                    if(pkg=="tv.pluto.android") {
-                        // Lift the black wordmark and TV disc on the Library's dark surface.
-                        // Keep the original alpha edges and colored brand rings intact.
-                        for(i in pixels.indices)if((pixels[i] and 0x00FFFFFF)==0) {
-                            pixels[i]=(pixels[i] and 0xFF000000.toInt()) or 0x00F4F1E9
-                        }
-                        source.setPixels(pixels,0,source.width,0,0,source.width,source.height)
-                    }
                     for(y in 0 until source.height)for(x in 0 until source.width)if((pixels[y*source.width+x] ushr 24)>32) {
                         left=minOf(left,x); right=maxOf(right,x); top=minOf(top,y); bottom=maxOf(bottom,y)
                     }
@@ -82,7 +98,7 @@ object AppIconPack {
     private fun renderDisney(context:Context,w:Int,h:Int):Bitmap? = try {
         val mark=context.getDrawable(R.drawable.ic_disney_dark)!!
         val output=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888)
-        val canvas=Canvas(output); canvas.drawColor(0xFF141C17.toInt())
+        val canvas=Canvas(output); canvas.drawColor(PrettTvColors.SURFACE)
         val ratio=minOf(w*.72f/mark.intrinsicWidth,h*.68f/mark.intrinsicHeight)
         val width=(mark.intrinsicWidth*ratio).toInt(); val height=(mark.intrinsicHeight*ratio).toInt()
         val left=(w-width)/2; val top=(h-height)/2

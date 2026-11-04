@@ -6,11 +6,19 @@
 
 [![Release](https://img.shields.io/github/v/release/draco1738/prettTV?style=flat&color=adc1b6)](https://github.com/draco1738/prettTV/releases/latest) [![Build](https://github.com/draco1738/prettTV/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/draco1738/prettTV/actions/workflows/build.yml) [![License: MIT](https://img.shields.io/badge/code-MIT-adc1b6)](LICENSE)
 
-![prettTV 0.4.0 in C Balanced: persistent top navigation, a recently watched title, two discovery cards, dark app tiles and Continue watching.](docs/screenshots/C-balanced.png)
+![prettTV 0.5.1 in C Balanced: OLED-black navigation and app tiles, a compact Resume action and Continue watching.](docs/screenshots/C-balanced.png)
 
-*C · Balanced, running on the TCL TV. The layout gallery shows 0.4.0; the Bluetooth quick-switch capture below shows 0.4.3. All are unedited device screenshots.*
+*C · Balanced on the TCL TV. A/B/C and Audio devices show 0.5.1. Other captures retain their stated historical versions. All are unedited device screenshots.*
 
 ## Make Home yours
+
+**New in 0.5.1:** OLED-black cards, dialogs and buttons, white text and thin white focus outlines. A compact **Resume** action keeps the feature uncluttered. Streaming logos retain their color accents; TV Bro, RBTV+ and utility apps use original line icons and plain names without bright background blocks. Existing app-tile caches refresh automatically.
+
+**Change output**, beside the Bluetooth status, selects TV speakers, Bluetooth audio or HDMI ARC on supported TCL firmware without turning the radio off. This theme covers prettTV; streaming apps and system screens retain their own appearance. [Validation and limits →](docs/validation.md)
+
+![Audio devices in prettTV 0.5.1: black controls, white labels and Change output beside Bluetooth status.](docs/screenshots/audio-output.png)
+
+**Owner's current TV setup:** Google TV's launcher and fallback launcher are disabled, and Home opens prettTV directly. The default ambient screensaver remains available. This choice gives up Google's voice-result screens and its gear-button dashboard; native TV controls are available through **prettTV Settings → TV & audio → TV settings**. The installer does not disable other launchers automatically. [Configuration details →](docs/browser-and-voice.md#preserve-pretttv-as-home)
 
 **New in 0.5.0:** hold OK on an app for **App first aid**: check this TV’s connection and selected media output, then confirm a restart if needed. Logins and saved data stay intact. Search keeps its query and results together, Settings is grouped into four sections, and apps without a curated logo use their installed icon on a dark tile. [First aid and controls →](docs/usage.md#app-first-aid)
 

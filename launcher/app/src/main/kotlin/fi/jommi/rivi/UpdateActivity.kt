@@ -37,7 +37,7 @@ class UpdateActivity : Activity() {
         val page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(42), dp(26), dp(42), dp(32))
-            setBackgroundColor(0xFF0F1510.toInt())
+            setBackgroundColor(PrettTvColors.BACKGROUND)
         }
         page.addView(label("prettTV updates", 30f).apply { typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL) })
         page.addView(label("Official releases · Your apps and settings stay in place", 17f, true))
@@ -110,16 +110,16 @@ class UpdateActivity : Activity() {
         // A pointer/touch-capable TV can retain touch mode from another Activity. Initial and
         // state-change focus must still reach a real control before the next remote key.
         isFocusable = true; isFocusableInTouchMode = true
-        setTextColor(ColorStateList(arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf(android.R.attr.state_focused), intArrayOf()), intArrayOf(0xFF7C897E.toInt(), 0xFF0F1510.toInt(), 0xFFF4F1E9.toInt())))
+        setTextColor(ColorStateList(arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()), intArrayOf(PrettTvColors.DISABLED, PrettTvColors.TEXT)))
         background = StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_focused, android.R.attr.state_enabled), ground(0xFFCDD9C7.toInt()))
-            addState(intArrayOf(), ground(0xFF1B2922.toInt()))
+            addState(intArrayOf(android.R.attr.state_focused, android.R.attr.state_enabled), ground(PrettTvColors.SELECTED, PrettTvColors.FOCUS))
+            addState(intArrayOf(), ground(PrettTvColors.RAISED))
         }
         setOnClickListener { clicked() }
     }
-    private fun ground(color: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(8).toFloat(); setStroke(dp(1), 0xFF4B584B.toInt()) }
+    private fun ground(color: Int, edge: Int = PrettTvColors.EDGE) = GradientDrawable().apply { setColor(color); cornerRadius = dp(8).toFloat(); setStroke(dp(1), edge) }
     private fun label(value: String, size: Float, muted: Boolean = false) = TextView(this).apply {
-        text = value; textSize = size; setTextColor(if (muted) 0xFFB2C0B5.toInt() else 0xFFF4F1E9.toInt()); setLineSpacing(dp(3).toFloat(), 1f)
+        text = value; textSize = size; setTextColor(if (muted) PrettTvColors.MUTED else PrettTvColors.TEXT); setLineSpacing(dp(3).toFloat(), 1f)
     }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     // Android 8–10 do not expose WindowInsetsController.

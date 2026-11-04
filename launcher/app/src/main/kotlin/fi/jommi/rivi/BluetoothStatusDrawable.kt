@@ -44,7 +44,7 @@ internal class BluetoothStatusDrawable(private val size:Int):Drawable() {
         val save=canvas.save()
         canvas.translate(bounds.left.toFloat(),bounds.top.toFloat())
         canvas.scale(bounds.width()/36f,bounds.height()/36f)
-        val foreground=if(focused)0xFF19221A.toInt() else if(enabled==true && !working)0xFF93C5FD.toInt() else 0xFFB2C0B5.toInt()
+        val foreground=if(focused)PrettTvColors.TEXT else if(enabled==true && !working)0xFF93C5FD.toInt() else PrettTvColors.MUTED
         paint.color=foreground;paint.alpha=opacity;paint.style=Paint.Style.STROKE
         canvas.drawPath(rune,paint)
         when {
@@ -57,7 +57,7 @@ internal class BluetoothStatusDrawable(private val size:Int):Drawable() {
             enabled==true->{
                 paint.style=Paint.Style.FILL;canvas.drawCircle(28f,28f,6f,paint)
                 paint.style=Paint.Style.STROKE;paint.strokeWidth=1.8f
-                paint.color=if(focused)0xFFCDD9C7.toInt() else 0xFF19221A.toInt();paint.alpha=opacity
+                paint.color=PrettTvColors.BACKGROUND;paint.alpha=opacity
                 mark.reset();mark.moveTo(25f,28f);mark.lineTo(27f,30f);mark.lineTo(31f,26f)
                 canvas.drawPath(mark,paint);paint.strokeWidth=2.2f
             }

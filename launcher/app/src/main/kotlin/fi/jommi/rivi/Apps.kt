@@ -133,13 +133,14 @@ class AppRepository(private val context: Context) {
         return bmp
     }
 
-    fun cacheName(e: AppEntry, w: Int, h: Int, r: Float) = "pretttv-icons6_${e.key.replace('/', '_')}_${e.versionCode}_${w}x${h}r${r.toInt()}.png"
+    fun cacheName(e: AppEntry, w: Int, h: Int, r: Float) = "pretttv-icons9_${e.key.replace('/', '_')}_${e.versionCode}_${w}x${h}r${r.toInt()}.png"
 
     /** Library keeps a real installed icon inside a common dark tile, never a full bright banner. */
     fun loadLibraryMark(e:AppEntry):Bitmap? = AppIconPack.libraryMark(context,e.packageName) ?: try {
         val component=e.intent.component
         if(component==null)null else {
-            val mark=pm.getActivityInfo(component,0).loadIcon(pm)
+            val installed=pm.getActivityInfo(component,0).loadIcon(pm)
+            val mark=if(installed is android.graphics.drawable.AdaptiveIconDrawable)installed.foreground else installed
             val result=Bitmap.createBitmap(96,96,Bitmap.Config.ARGB_8888)
             mark.setBounds(0,0,96,96); mark.draw(Canvas(result)); result
         }
@@ -229,10 +230,11 @@ class AppRepository(private val context: Context) {
         val ai = try { pm.getActivityInfo(cn, 0) } catch (ex: Exception) { return null }
         // Unmapped applications use their installed icon on the same dark surface. A bright
         // promotional banner must not replace the tile's ground or hide its identity.
-        val icon = try { ai.loadIcon(pm) } catch (_: Exception) { null } ?: return null
+        val installed = try { ai.loadIcon(pm) } catch (_: Exception) { null } ?: return null
+        val icon = if(installed is android.graphics.drawable.AdaptiveIconDrawable)installed.foreground else installed
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        c.drawColor(0xFF141C17.toInt())
+        c.drawColor(PrettTvColors.SURFACE)
         val size = (h * 0.66f).toInt()
         val left = (w - size) / 2; val top = (h - size) / 2
         icon.setBounds(left, top, left + size, top + size);icon.draw(c)
@@ -287,7 +289,7 @@ class AppRepository(private val context: Context) {
         fun hdmiTile(w: Int, h: Int): Bitmap {
             val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             val c = Canvas(bmp)
-            c.drawColor(0xFF1A1F2A.toInt())
+            c.drawColor(PrettTvColors.SURFACE)
             val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFE9EDF4.toInt(); style = Paint.Style.STROKE; strokeWidth = h * 0.045f; strokeJoin = Paint.Join.ROUND }
             val cx = w / 2f; val cy = h / 2f; val pw = h * 0.42f; val ph = h * 0.26f
             val path = android.graphics.Path().apply {

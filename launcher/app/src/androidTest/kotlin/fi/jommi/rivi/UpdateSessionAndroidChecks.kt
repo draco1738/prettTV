@@ -61,8 +61,10 @@ internal object UpdateSessionAndroidChecks {
                 // Android removes abandoned sessions on its own handler. Until removal is
                 // observed recovery must remain blocked rather than inventing success.
                 awaitRemoved(id)
-                if(AppUpdater.state.phase==AppUpdater.Phase.RECOVERY_REQUIRED)main { restore() }
-                check(!prefs.contains("session"))
+                // Re-inspect the observed absence, regardless of the intermediate phase
+                // returned while Android was still processing abandonment.
+                main { restore() }
+                check(!prefs.contains("session")) { "Removed session $id remained saved: ${AppUpdater.state}" }
                 check(AppUpdater.state.phase in setOf(AppUpdater.Phase.IDLE,AppUpdater.Phase.AVAILABLE))
             }
         }

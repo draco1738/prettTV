@@ -36,7 +36,7 @@ internal class HomeSearchPanel(activity:Activity,private val state:HomeSearchSta
     private var limit=60
     init {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
-        val page=LinearLayout(context).apply { orientation=LinearLayout.VERTICAL;setPadding(px(80),px(48),px(80),px(48));setBackgroundColor(0xFF0F1510.toInt()) }
+        val page=LinearLayout(context).apply { orientation=LinearLayout.VERTICAL;setPadding(px(80),px(48),px(80),px(48));setBackgroundColor(PrettTvColors.BACKGROUND) }
         page.addView(TextView(context).apply { setText(R.string.home_search_title);setTextColor(AppActionStyle.IVORY);AppActionStyle.textSize(this,42,scale) })
         page.addView(TextView(context).apply {
             setText(R.string.home_search_scope)
@@ -50,7 +50,7 @@ internal class HomeSearchPanel(activity:Activity,private val state:HomeSearchSta
         page.addView(ScrollView(context).apply { tag="home-search-results";addView(results) },LinearLayout.LayoutParams(-1,0,1f))
         setContentView(page)
         window?.apply {
-            setBackgroundDrawable(ColorDrawable(0xFF0F1510.toInt()));setLayout(-1,-1)
+            setBackgroundDrawable(ColorDrawable(PrettTvColors.BACKGROUND));setLayout(-1,-1)
             setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
             decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         }

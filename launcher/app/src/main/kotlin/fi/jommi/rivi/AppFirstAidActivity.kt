@@ -92,7 +92,7 @@ internal class AppFirstAidView(context:android.content.Context,label:String,refr
         setOnClickListener { if(canRestart)restart() }
     }
     init {
-        orientation=VERTICAL;setBackgroundColor(0xFF0F1510.toInt());setPadding(px(80),px(56),px(80),px(56))
+        orientation=VERTICAL;setBackgroundColor(PrettTvColors.BACKGROUND);setPadding(px(80),px(56),px(80),px(56))
         addView(text("App first aid",42))
         addView(text(label,28,AppActionStyle.MUTED),LayoutParams(-1,-2).apply { topMargin=px(8);bottomMargin=px(36) })
         val body=LinearLayout(context).apply { orientation=HORIZONTAL }
