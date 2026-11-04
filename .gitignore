@@ -3,6 +3,7 @@ launcher/build/
 launcher/app/build/
 launcher/testapp/build/
 launcher/webshortcut/build/
+launcher/globetv/build/
 launcher/.gradle/
 launcher/.kotlin/
 launcher/local.properties

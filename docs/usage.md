@@ -5,7 +5,7 @@
 Choose a layout, arrange your apps and use the remote to move through your Home screen. The same apps, viewing history and feeds are available in all three layouts.
 
 > [!NOTE]
-> This page describes **0.4.1** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+> This page describes **0.4.2** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
 
 ## Choose a layout
 
@@ -46,6 +46,8 @@ Open **Inputs** in the top bar, then choose **TV inputs** for HDMI/television so
 
 Direct switching uses the already-authorized TV-local connection configured for [stock recovery](stock-recovery.md). Opening this panel does not change the radio, run a restore, or request a new debugging authorization. If that setup is unavailable, choose **Manage devices** to use the TV's native controls. On the tested TCL, this opens **Remotes and accessories**; other TVs fall back to their Bluetooth or general Settings screen when needed.
 
+On supported TCL firmware, switching Bluetooth off also selects **TV speakers** and verifies the resulting media route. TCL applies its saved speaker volume; prettTV does not copy headphone volume or issue an unmute command. If the previous selection was Bluetooth-only, switching back on restores it only while the output is still the speaker setting prettTV selected. A different manual output choice takes priority. Bluetooth audio still requires a connected audio device. Other firmware keeps its native routing; an unverified selection is reported instead of claiming speaker success.
+
 ### Screensaver
 
 The owner's TCL has been returned to its stock screensaver and EarthCam has been removed. This is that TV's configuration, not a new installation default imposed by prettTV. The [optional EarthCam handoff](earthcam-idle.md) remains available to other users who separately install EarthCam and explicitly select its handoff.
@@ -71,6 +73,8 @@ Targets must already be installed and enabled. A missing target produces an unav
 **Bluetooth shortcut:** Quickly press the TCL remote's **speaker Mute** button twice. With **prettTV Remote buttons** enabled and the existing TV-local recovery connection authorized, the gesture toggles Bluetooth and shows a brief result after reading the resulting state. It does not open another app or settings screen. Use **Inputs → Audio devices** if the shortcut is unavailable. Turning Bluetooth off disconnects Bluetooth headphones and remotes.
 
 A single Mute press keeps its immediate native behavior. Both presses of a double press pass through normally, so a native toggle returns to its previous mute state after the second press; prettTV neither delays nor replays those events. This shortcut recognizes the captured TCL speaker key, `KEYCODE_VOLUME_MUTE` (164). The microphone key, `KEYCODE_MUTE` (91), is not a Bluetooth shortcut. Physical gesture results and firmware limits are tracked in [Validation](validation.md).
+
+On Android 13+, choose **Inputs → Audio devices → Enable shortcut messages** to allow the brief result while another app is open. Android can otherwise suppress background status messages even when Bluetooth changes successfully. This permission is optional and separate from playback-tracking notification access. Declining it leaves the toggle functional; inspect its state in Audio devices.
 
 For mapped Settings and app shortcuts, the helper handles each complete press once and suppresses held-key repeats, canceled gestures and queued work during recovery. Home, arrows, volume, controller buttons and unknown keys pass through. It requests key filtering without window-content access. Disable it in Accessibility to restore the original key handling; stock troubleshooting recovery also pauses it. Without the optional helper, prettTV can handle only keys that actually reach its foreground window; Android-reserved global keys can still be intercepted by the firmware.
 

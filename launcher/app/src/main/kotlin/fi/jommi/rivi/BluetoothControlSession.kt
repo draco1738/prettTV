@@ -62,10 +62,17 @@ internal object BluetoothControlSession {
             connection=connected
             synchronized(this) { check(!cancelled) { "Check cancelled." };client=connection }
             connected.connect { error("The existing local key is not authorized. Use Manage devices.") }
+            val outputPrefs=app.getSharedPreferences("bluetooth-output",Context.MODE_PRIVATE)
             val engine=BluetoothControlEngine(AppForceStopIdentity(plan.deviceSerial,plan.fingerprint),Process.myUid()/100_000,
                 BluetoothControlShell { connected.shell(it) },{ cancelled },
                 { !StockRecoverySession.busy && !AppForceStopSession.busy && !StockRecoveryStore.paused(app) },
-                { synchronized(this) { check(!cancelled) { "Check cancelled." }; publish(state.copy(changed=true)) } })
+                { synchronized(this) { check(!cancelled) { "Check cancelled." }; publish(state.copy(changed=true)) } },
+                rememberedOutputMode={ outputPrefs.getInt("previous-output",0).takeIf { it==4 } },
+                rememberOutputMode={ mode->
+                    val edit=outputPrefs.edit()
+                    if(mode==4)edit.putInt("previous-output",4) else edit.remove("previous-output")
+                    check(edit.commit()) { "The previous audio output could not be saved." }
+                })
             val checked=if(toggle)engine.toggle() else engine.execute(desired)
             result=State(checked.enabled,message=checked.message,changed=checked.changed)
         } catch(failure:Exception) {
@@ -85,11 +92,8 @@ internal object BluetoothControlSession {
         ui.post {
             // A newer request may already be running by the time this queued message arrives.
             if(state!==result)return@post
-            val message=when(result.enabled) {
-                true->"Bluetooth is on"
-                false->"Bluetooth is off"
-                null->if(result.changed)"Bluetooth may have changed; check Inputs → Audio devices." else result.message
-            }
+            // Keep the checked route result or partial-failure explanation supplied by the engine.
+            val message=result.message.take(260)
             android.widget.Toast.makeText(context,message,android.widget.Toast.LENGTH_SHORT).show()
         }
     }

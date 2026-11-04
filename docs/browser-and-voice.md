@@ -37,9 +37,11 @@ Replace the device placeholder with the authorized device shown by `adb devices`
 
 TV Bro appears in prettTV's Library as a normal installed TV app. Hiding it from **Your apps** does not remove it from Library. Browser microphone, camera or location permission is not needed for the TV remote's system voice assistant.
 
-### Optional website tile
+### Optional website tiles
 
 The separate [7Movies shortcut](../launcher/webshortcut/README.md) adds a dark app tile that opens the website's Discover page in TV Bro. It reuses the selected tab and the browser's existing sessions and blocking settings. The shortcut requests no permissions and finishes after opening the browser; it is not a standalone streaming client or an official website app. It is built separately and is not added to the prettTV + RBTV bundle.
+
+The separate [Globe TV shortcut](../launcher/globetv/README.md) opens [Globe TV's US live-TV page](https://globetv.app/tv?country=united-states), with other countries available through the website's selector. It also uses TV Bro's selected tab, existing sessions and filtering. Its dark globe artwork is original to the shortcut. It requests no permissions, does not include a player, and is not an official Globe TV app. Installing it adds an independent **Globe TV** entry to the TV app library; the 7Movies shortcut and prettTV launcher remain separate.
 
 ## Browser ad blocking
 

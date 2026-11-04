@@ -67,7 +67,6 @@ internal object BluetoothControlAndroidChecks {
                     check(activity.currentFocus===toggle) { "Verified result moved focus away from the toggle" }
                     toggle.performClick();check(actions==listOf(false,true)) { "Next OK did not turn Bluetooth back on" }
                     panel.bind(BluetoothControlSession.State(working=true,message="Turning Bluetooth on…"))
-                    manage.isFocusableInTouchMode=true
                     check(manage.requestFocus() && activity.currentFocus===manage) { "Manage devices was not reachable while pending" }
                     panel.bind(BluetoothControlSession.State(enabled=true,message="Bluetooth is on"))
                     check(activity.currentFocus===manage) { "Completion stole focus after deliberate navigation" }
@@ -77,6 +76,79 @@ internal object BluetoothControlAndroidChecks {
                 instrumentation.waitForIdleSync()
                 main(instrumentation) {
                     check(activity.currentFocus?.tag=="bluetooth-manage") { "A deferred layout stole the selected button" }
+                }
+            } finally {
+                main(instrumentation) { activity.finish() }
+                instrumentation.waitForIdleSync()
+            }
+        }
+        test("Shortcut messages stay optional and preserve focus across denied granted and legacy states") {
+            val activity=instrumentation.startActivitySync(Intent(context,CardFocusTestActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as CardFocusTestActivity
+            try {
+                var requests=0
+                val actions=ArrayList<Boolean?>()
+                val panel=main(instrumentation) {
+                    BluetoothControlView(activity,{ actions.add(it) },{},{},{ requests++ })
+                        .also { activity.setContentView(it) }
+                }
+                val deadline=SystemClock.uptimeMillis()+10_000
+                while(!main(instrumentation) { activity.hasWindowFocus() && panel.isLaidOut && panel.isShown }) {
+                    check(SystemClock.uptimeMillis()<deadline) { "Bluetooth permission fixture did not become ready" }
+                    SystemClock.sleep(40)
+                }
+                main(instrumentation) {
+                    val toggle=panel.findViewWithTag<Button>("bluetooth-toggle")
+                    val messages=panel.findViewWithTag<Button>("bluetooth-messages")
+                    val notice=panel.findViewWithTag<TextView>("bluetooth-messages-notice")
+                    val manage=panel.findViewWithTag<Button>("bluetooth-manage")
+                    val close=panel.findViewWithTag<Button>("bluetooth-close")
+                    fun checkChain(vararg buttons:Button) {
+                        buttons.forEachIndexed { index,button ->
+                            check(button.isFocusableInTouchMode) { "${button.tag} cannot receive focus after touch input" }
+                            check(button.nextFocusLeftId==button.id && button.nextFocusRightId==button.id)
+                            check(button.nextFocusUpId==buttons[(index-1).coerceAtLeast(0)].id)
+                            check(button.nextFocusDownId==buttons[(index+1).coerceAtMost(buttons.lastIndex)].id)
+                        }
+                    }
+                    panel.bind(BluetoothControlSession.State(enabled=true,message="Bluetooth is on"))
+                    check(toggle.requestFocus())
+                    panel.bindShortcutMessages(33,false)
+                    check(messages.visibility==View.VISIBLE && notice.visibility==View.VISIBLE)
+                    check(messages.text=="Enable shortcut messages" && requests==0 && actions.isEmpty())
+                    check(activity.currentFocus===toggle) { "Permission offer stole Bluetooth toggle focus" }
+                    checkChain(toggle,messages,manage,close)
+                    check(messages.requestFocus() && messages.performClick())
+                    check(requests==1 && actions.isEmpty()) { "Permission action changed Bluetooth or did not request permission" }
+                    panel.bindShortcutMessages(33,false,true)
+                    repeat(3) { messages.performClick() }
+                    check(requests==1) { "Pending permission action requested more dialogs" }
+                    panel.bindShortcutMessages(33,false,denied=true)
+                    check(messages.visibility==View.VISIBLE && activity.currentFocus===messages && requests==1)
+                    check(notice.text=="Messages remain off. You can enable prettTV notifications in Android app settings.")
+                    checkChain(toggle,messages,manage,close)
+                    panel.bindShortcutMessages(33,true)
+                    check(messages.visibility==View.GONE && notice.visibility==View.GONE)
+                    check(activity.currentFocus===toggle && toggle.nextFocusDownId==manage.id)
+                    checkChain(toggle,manage,close)
+                    panel.bindShortcutMessages(34,false)
+                    check(activity.currentFocus===toggle && messages.visibility==View.VISIBLE)
+                    checkChain(toggle,messages,manage,close)
+                    check(manage.requestFocus())
+                    panel.bindShortcutMessages(34,true)
+                    check(activity.currentFocus===manage) { "Grant refresh stole a deliberate selection" }
+                    panel.bindShortcutMessages(32,false)
+                    check(messages.visibility==View.GONE && notice.visibility==View.GONE)
+                    check(toggle.nextFocusDownId==manage.id && activity.currentFocus===manage)
+                    checkChain(toggle,manage,close)
+                    check(close.requestFocus() && activity.currentFocus===close)
+                    panel.bindShortcutMessages(34,false)
+                    check(activity.currentFocus===close) { "Permission offer stole Back button focus" }
+                    checkChain(toggle,messages,manage,close)
+                    panel.bindShortcutMessages(34,true)
+                    check(activity.currentFocus===close) { "Grant refresh stole Back button focus" }
+                    checkChain(toggle,manage,close)
+                    check(requests==1 && actions.isEmpty()) { "Permission state refresh dispatched an action" }
                 }
             } finally {
                 main(instrumentation) { activity.finish() }

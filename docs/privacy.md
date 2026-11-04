@@ -2,7 +2,7 @@
 
 [Documentation](README.md) · [Project home](../README.md) · [Using prettTV](usage.md)
 
-prettTV has no analytics SDK, advertising-identifier access or account collection. It does not ask for streaming credentials, use root operations or modify firmware. Its declared permissions cover Internet access, network-state checks, TV listings and user-confirmed package installation.
+prettTV has no analytics SDK, advertising-identifier access or account collection. It does not ask for streaming credentials, use root operations or modify firmware. Its declared permissions cover Internet access, network-state checks, TV listings, user-confirmed package installation and optional notification posting for shortcut status messages.
 
 ## Data stored on the TV
 
@@ -62,6 +62,7 @@ The installers do not grant Notification or Accessibility access. You enable the
 | --- | --- | --- |
 | Shared viewing progress | TV listings | Read Watch Next and app-published program rows. |
 | Playback tracking | Notification access | Observe active media-session metadata for supported titles. Notification text is not read or retained. |
+| Shortcut status messages | Optional notification posting permission on Android 13+ | Let Android show a brief Bluetooth result while another app is foreground. This is separate from notification-reading access. **Inputs → Audio devices → Enable shortcut messages** offers the normal Android permission request; no background prompt or overlay bypass is used. |
 | RBTV game handoff | Accessibility access | Navigate RBTV during an explicit, bounded game request. It does not intercept Home or choose a server. |
 | Remote buttons | Accessibility key filtering | Handle Settings, documented TCL app shortcuts and the speaker-Mute double-press gesture across apps. Subscribes only to prettTV's own window-state events and discards them. No window-content access or key logging. Home, volume, navigation, controllers and unknown keys pass through. |
 | EarthCam idle handoff | Select prettTV's EarthCam service as the system screensaver | Open the already-installed official app once when Android starts the dream; no Accessibility, overlay or account access. |
@@ -75,6 +76,8 @@ Stock recovery connects only to the TV itself at `127.0.0.1:5555`, using its own
 The app-menu Force stop action reuses that existing TV-local key. It does not generate or authorize a new key, import account information, or invoke stock recovery. It checks the saved TV identity, current Android user and selected app before issuing a bounded stop command. System controls and Home are excluded. If prerequisites are missing, it offers Android's App info screen. No background app-killing service or remote command endpoint is exposed.
 
 **Inputs → Audio devices** also reuses the existing authorized TV-local key. Opening the panel does not create a key, request a new authorization, change Bluetooth, or invoke stock recovery. A requested on/off action is followed by a state check; **Manage devices** opens the TV's own controls and remains the fallback when direct switching is unavailable. Switching Bluetooth off disconnects Bluetooth audio devices and remotes. The control does not send device information to a remote server.
+
+On supported TCL firmware, Bluetooth off selects and verifies the built-in speaker route using TCL's existing audio-output setting. A private local marker remembers a previous Bluetooth-only selection so it can be restored on Bluetooth on while the output is still prettTV's speaker selection. A different manual selection wins. The marker contains only the known numeric output mode, stays outside settings exports, and holds no Bluetooth address or device name. Speaker and headphone volumes remain under TCL's own control.
 
 The enabled Remote buttons helper can request the same Bluetooth change after a quick double press of the TCL speaker-Mute key (`VOLUME_MUTE`, 164). It leaves both native mute events untouched, with no delay or replay, and shows a brief checked result without navigating away from the current app. The microphone-Mute key (91) does not trigger this action. Gesture detection does not record a key history or send input to a server, and it does not create or authorize a new debugging key. The Inputs panel remains available when the helper or local setup is unavailable.
 

@@ -30,11 +30,13 @@ class StabilityInstrumentation:Instrumentation() {
     private var forceStopOnly=false
     private var visualPolishOnly=false
     private var reviewOnly=false
+    private var bluetoothOnly=false
     override fun onCreate(arguments:Bundle?) {
         settingsKeysOnly=arguments?.getString("settingsKeysOnly")=="true"
         forceStopOnly=arguments?.getString("forceStopOnly")=="true"
         visualPolishOnly=arguments?.getString("visualPolishOnly")=="true"
         reviewOnly=arguments?.getString("reviewOnly")=="true"
+        bluetoothOnly=arguments?.getString("bluetoothOnly")=="true"
         super.onCreate(arguments);start()
     }
     override fun onStart() {
@@ -42,6 +44,13 @@ class StabilityInstrumentation:Instrumentation() {
         try {
             check(targetContext.packageName=="dev.zane.pretttv.stability") { "Refusing to run against the production Home" }
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
+            if(bluetoothOnly) {
+                SettingsKeyAndroidChecks.run(this,::test)
+                AudioDeviceSettingsAndroidChecks.run(this,::test)
+                BluetoothControlAndroidChecks.run(this,::test)
+                finish(Activity.RESULT_OK,Bundle().apply { putString("stream","BLUETOOTH REVIEW PASS: $passed Android tests\n");putInt("passed",passed) })
+                return
+            }
             if(reviewOnly) {
                 SettingsKeyAndroidChecks.run(this,::test)
                 AudioDeviceSettingsAndroidChecks.run(this,::test)

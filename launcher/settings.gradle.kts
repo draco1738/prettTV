@@ -4,3 +4,4 @@ rootProject.name = "rivi"
 include(":app")
 include(":testapp")
 include(":webshortcut")
+include(":globetv")
