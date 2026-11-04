@@ -390,8 +390,9 @@ class MainActivity : Activity() {
         val entries=listOf(Triple("Home","nav-home",{ resetHomePosition() }),
             Triple("Shows","nav-shows",{ showAnchor?.requestFocusFromTouch(); Unit }),
             Triple("Library","nav-apps",{ libraryAnchor?.requestFocusFromTouch(); Unit }),
-            Triple("Inputs","nav-inputs",{ openInputs() }),Triple("Bluetooth","nav-bluetooth",{ Unit }),
-            Triple("Search","nav-search",{ search() }),Triple("Settings","nav-settings",{ menu() }))
+            Triple("Inputs","nav-inputs",{ openInputs() }),
+            Triple("Search","nav-search",{ search() }),Triple("Settings","nav-settings",{ menu() }),
+            Triple("Bluetooth","nav-bluetooth",{ Unit }))
         val buttons=entries.map { (label,key,action)->
             button(label,key) { selectNavigation(key); action() }.apply {
                 setPadding(px(22),0,px(22),0)
@@ -403,7 +404,7 @@ class MainActivity : Activity() {
                         else->false
                     }
                 }
-                navigation.addView(this,LinearLayout.LayoutParams(-2,px(56)).apply { rightMargin=px(12) })
+                if(key!="nav-bluetooth")navigation.addView(this,LinearLayout.LayoutParams(-2,px(56)).apply { rightMargin=px(12) })
                 if(key=="nav-bluetooth") {
                     minWidth=(paint.measureText(getString(R.string.bluetooth_quick_off))+.5f).toInt()+px(44)
                     bluetoothQuickSwitch=BluetoothQuickSwitch(this,{
@@ -428,6 +429,8 @@ class MainActivity : Activity() {
         header.addView(weatherHeader,LinearLayout.LayoutParams(-2,px(56)).apply { leftMargin=px(22) })
         clock=text("",26,ink).apply { gravity=Gravity.CENTER_VERTICAL or Gravity.END }
         header.addView(clock,LinearLayout.LayoutParams(-2,px(56)))
+        // Keep the quick switch at the trailing edge, after the passive weather and clock.
+        header.addView(buttons.last(),LinearLayout.LayoutParams(-2,px(56)).apply { leftMargin=px(22) })
         updateWeatherHeader()
         val bar=FrameLayout(this).apply {
             setBackgroundColor(0xFF19221A.toInt())

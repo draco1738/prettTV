@@ -2,6 +2,12 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
+## prettTV 0.4.5 Bluetooth at the far right — 2026-11-03
+
+The Bluetooth quick switch now follows weather and the clock at the right edge of the persistent top bar in all three layouts. Remote focus moves from Settings to Bluetooth and back across the passive status area. OK and hold-OK behavior are unchanged.
+
+**407 JVM tests and 18 targeted native Android checks passed**, with **zero lint errors and 28 existing warnings**. Existing navigation checks were updated for the requested order and exercised A/B/C at normal and 1.3 text scale, finite row boundaries and return to content. Native screenshots were inspected. The signed production APK was installed on the identified TCL, then pulled back and hash-matched; its far-right placement and Settings/Bluetooth focus traversal were verified on the installed build. Android key filtering remains off. This small layout update did not repeat the earlier soak or the pending physical microphone test.
+
 ## prettTV 0.4.4 Google voice results with native volume — 2026-11-03
 
 Google recognized speech but failed to launch `com.google.android.apps.tv.launcherx/.gemini.chat.ChatActivity` because its package was disabled. The owner authorized restoring Google support while retaining prettTV Home. TCL rejected individual component-state changes; those protected components remained unchanged. Simply selecting prettTV's Home role still opened Google Home. That diagnostic change was rolled back before implementing compatibility.

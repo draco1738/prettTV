@@ -39,6 +39,8 @@ The optional [Remote buttons helper](docs/usage.md#remote-buttons) retains globa
 
 ## Three layouts, one Home
 
+**New in 0.4.5:** the Bluetooth on/off quick switch sits at the far right of the top bar, after weather and time. Its OK/hold-OK actions are unchanged.
+
 Switch through **prettTV Settings → Layout**. Apps, saved titles, viewing records and row preferences are shared across layouts.
 
 | Layout | What leads the screen |

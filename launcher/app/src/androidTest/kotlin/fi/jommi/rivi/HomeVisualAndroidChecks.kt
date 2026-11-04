@@ -381,7 +381,7 @@ internal object HomeVisualAndroidChecks {
                         check(file.length()>0)
                     } finally { screenshot.recycle() }
                 }
-                val navKeys=listOf("nav-home","nav-shows","nav-apps","nav-inputs","nav-bluetooth","nav-search","nav-settings")
+                val navKeys=listOf("nav-home","nav-shows","nav-apps","nav-inputs","nav-search","nav-settings","nav-bluetooth")
                 var normalTextSize=0f
                 try {
                     for(fontScale in listOf(1f,1.3f))for(layout in HomeLayout.entries) {
