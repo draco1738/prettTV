@@ -64,6 +64,7 @@ The installers do not grant Notification or Accessibility access. You enable the
 | Playback tracking | Notification access | Observe active media-session metadata for supported titles. Notification text is not read or retained. |
 | Shortcut status messages | Optional notification posting permission on Android 13+ | Let Android show a brief Bluetooth result while another app is foreground. This is separate from notification-reading access. **Inputs → Audio devices → Enable shortcut messages** offers the normal Android permission request; no background prompt or overlay bypass is used. |
 | RBTV game handoff | Accessibility access | Navigate RBTV during an explicit, bounded game request. It does not intercept Home or choose a server. |
+| Home compatibility | Accessibility window-state events | Observe only stock launcher window names and return recognized Home screens to prettTV. No screen-content access, key filtering, microphone access or event logging. Gemini results and other activities stay open. |
 | Remote buttons | Accessibility key filtering | Handle Settings, documented TCL app shortcuts and the speaker-Mute double-press gesture across apps. Subscribes only to prettTV's own window-state events and discards them. No window-content access or key logging. Home, volume, navigation, controllers and unknown keys pass through. |
 | EarthCam idle handoff | Select prettTV's EarthCam service as the system screensaver | Open the already-installed official app once when Android starts the dream; no Accessibility, overlay or account access. |
 | prettTV updates | Allow installation from prettTV, then Android's installation confirmation | Install a verified newer prettTV APK only after you choose Install. It does not update RBTV or other apps. |
@@ -81,7 +82,7 @@ On supported TCL firmware, Bluetooth off selects and verifies the built-in speak
 
 The enabled Remote buttons helper can request the same Bluetooth change after a quick double press of the TCL speaker-Mute key (`VOLUME_MUTE`, 164). It leaves both native mute events untouched, with no delay or replay, and shows a brief checked result without navigating away from the current app. The microphone-Mute key (91) does not trigger this action. Gesture detection does not record a key history or send input to a server, and it does not create or authorize a new debugging key. The Inputs panel remains available when the helper or local setup is unavailable.
 
-After a successful stock restore, the optional playback, game and remote-button helpers pause. **Resume prettTV helpers** in prettTV Settings reactivates them using their existing Android permissions if you return to the launcher later.
+After a successful stock restore, the optional playback, game, remote-button and Home compatibility helpers pause. Home compatibility also suspends its redirect while the confirmed restore is running. **Resume prettTV helpers** in prettTV Settings reactivates them using their existing Android permissions if you return to the launcher later.
 
 ## Companion apps and scope
 

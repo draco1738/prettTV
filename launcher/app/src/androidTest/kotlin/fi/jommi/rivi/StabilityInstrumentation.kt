@@ -32,6 +32,7 @@ class StabilityInstrumentation:Instrumentation() {
     private var reviewOnly=false
     private var bluetoothOnly=false
     private var quickSwitchOnly=false
+    private var voiceHomeOnly=false
     override fun onCreate(arguments:Bundle?) {
         settingsKeysOnly=arguments?.getString("settingsKeysOnly")=="true"
         forceStopOnly=arguments?.getString("forceStopOnly")=="true"
@@ -39,6 +40,7 @@ class StabilityInstrumentation:Instrumentation() {
         reviewOnly=arguments?.getString("reviewOnly")=="true"
         bluetoothOnly=arguments?.getString("bluetoothOnly")=="true"
         quickSwitchOnly=arguments?.getString("quickSwitchOnly")=="true"
+        voiceHomeOnly=arguments?.getString("voiceHomeOnly")=="true"
         super.onCreate(arguments);start()
     }
     override fun onStart() {
@@ -46,6 +48,12 @@ class StabilityInstrumentation:Instrumentation() {
         try {
             check(targetContext.packageName=="dev.zane.pretttv.stability") { "Refusing to run against the production Home" }
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
+            if(voiceHomeOnly) {
+                HomeCompatibilityAndroidChecks.run(this,::test)
+                BluetoothControlAndroidChecks.run(this,::test)
+                finish(Activity.RESULT_OK,Bundle().apply { putString("stream","VOICE HOME PASS: $passed Android tests\n");putInt("passed",passed) })
+                return
+            }
             if(quickSwitchOnly) {
                 BluetoothControlAndroidChecks.run(this,::test)
                 AudioDeviceSettingsAndroidChecks.run(this,::test)
@@ -93,6 +101,7 @@ class StabilityInstrumentation:Instrumentation() {
                 return
             }
             PersonalizationAndroidChecks.run(targetContext, ::test)
+            HomeCompatibilityAndroidChecks.run(this, ::test)
             AudioDeviceSettingsAndroidChecks.run(this, ::test)
             BluetoothControlAndroidChecks.run(this, ::test)
             DiscoveryAndroidChecks.run(targetContext, ::test)

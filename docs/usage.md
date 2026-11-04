@@ -5,7 +5,7 @@
 Choose a layout, arrange your apps and use the remote to move through your Home screen. The same apps, viewing history and feeds are available in all three layouts.
 
 > [!NOTE]
-> This page describes **0.4.3** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+> This page describes **0.4.4** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
 
 ## Choose a layout
 
@@ -36,7 +36,7 @@ Continue watching applies new chronological ordering immediately and keeps the s
 | Remote Home / Home in the top bar | Reset the page and all rows to their default start. |
 | Menu | Open prettTV Settings. Settings is also available in the top bar. |
 
-The top bar contains **Home, Shows, Library, Inputs, Bluetooth, Search and Settings**. Shows and Library move to their content sections. The bar stays visible while the page scrolls; its own navigation strip can scroll horizontally when system text sizing needs more room. **Choose default Home app** opens Android's normal Home selection; prettTV does not intercept the Home button with an accessibility service.
+The top bar contains **Home, Shows, Library, Inputs, Bluetooth, Search and Settings**. Shows and Library move to their content sections. The bar stays visible while the page scrolls; its own navigation strip can scroll horizontally when system text sizing needs more room. **Choose default Home app** opens Android's normal Home selection; the optional Home compatibility helper can return stock Home windows to prettTV on TVs that ignore this choice. It does not filter remote keys. Google's voice-result screens stay open; see [remote voice setup](browser-and-voice.md#preserve-pretttv-as-home).
 
 Holding OK on an app shows a brief progress cue; releasing or leaving the card cancels it. A short boundary cue responds at row ends. These cues do not run while idle. Back from the app panel returns to its originating card and viewport; choosing an arrangement or hide action applies the existing deterministic focus rules below.
 

@@ -35,6 +35,8 @@ The optional [Remote buttons helper](docs/usage.md#remote-buttons) retains globa
 
 **0.4.2 adds speaker handoff:** Bluetooth off selects the TV speakers on supported TCL firmware and preserves their saved volume. **Enable shortcut messages** in Audio devices allows the result to appear over other apps on Android 13+ when permission is needed. [Bluetooth and output behavior →](docs/usage.md#inputs-and-audio-devices)
 
+**New in 0.4.4:** optional **Home compatibility** keeps prettTV visible on TVs that give Google Home priority, while Google's package remains available for Gemini voice results. It observes stock Home window names only; it cannot filter keys or read screen content. Voice results and settings remain open, and the double-confirmed stock restore pauses the redirect. Enable it through **Settings → Home compatibility settings** only when needed. [Voice setup and limits →](docs/browser-and-voice.md#preserve-pretttv-as-home)
+
 ## Three layouts, one Home
 
 Switch through **prettTV Settings → Layout**. Apps, saved titles, viewing records and row preferences are shared across layouts.
@@ -178,7 +180,9 @@ Personalization and viewing records are stored locally. Catalog, artwork, weathe
 
 Use **JDK 17**, **Android SDK platform 34**, **build-tools 35.0.0** and the included Gradle wrapper. See [Development](docs/development.md) for build commands, signing and the source map; [Stability testing](docs/stability-testing.md) describes isolated device checks.
 
-The **0.4.3** build has the following recorded results:
+The **0.4.4** build passed **407 JVM tests** and **seven targeted Android checks**, with **zero lint errors and 28 warnings**. The signed installed APK matched its release artifact. Google movie details and Gemini responses loaded through text requests to the assistant; Home returned to prettTV with key filtering off. Fresh physical microphone/volume confirmation remains pending. [0.4.4 scope and evidence →](docs/validation.md#pretttv-044-google-voice-results-with-native-volume--2026-11-03)
+
+The preceding **0.4.3** quick-switch build has the following recorded results:
 
 | Check | Result |
 | :--- | :--- |

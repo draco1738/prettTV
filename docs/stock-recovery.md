@@ -90,7 +90,7 @@ Both screens begin with **Cancel** selected.
 
 ## After a restore
 
-After a successful restore, prettTV's optional playback tracking and game handoff helpers pause. If you return to prettTV later, **Resume prettTV helpers** in its Settings reactivates them using their existing Android permissions. Choosing prettTV as the default Home is a separate step.
+After a successful restore, prettTV's optional playback, game, remote-button and Home compatibility helpers pause. Home compatibility also suspends redirects during the confirmed restore so Google Home can open. If you return to prettTV later, **Resume prettTV helpers** in its Settings reactivates them using their existing Android permissions. Choosing prettTV as the default Home is a separate step.
 
 > [!IMPORTANT]
 > `restore.sh --stock-home` is a separate **uninstall helper**: it removes prettTV and does not restore the full disabled-app and DNS baseline. It is not a substitute for the in-app troubleshooting button.

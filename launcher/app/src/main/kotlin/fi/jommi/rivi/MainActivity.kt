@@ -1052,6 +1052,7 @@ class MainActivity : Activity() {
         repo.settingsIntent()?.let { i -> items+="TV settings" to { safeStart(i,"TV settings") } }
         items+="Inputs" to { openInputs() }
         items+="Choose default Home app" to { safeStart(Intent(android.provider.Settings.ACTION_HOME_SETTINGS),"Home settings") }
+        items+="Home compatibility settings" to { safeStart(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),"Accessibility settings") }
         items+="Other home screens" to { otherHomes() }
         if(prefs.hidden.isNotEmpty())items+="Restore apps to Your apps row" to { prefs.hidden=emptySet(); render(); startContent() }
         items+="Hidden titles" to { hiddenTitles() }

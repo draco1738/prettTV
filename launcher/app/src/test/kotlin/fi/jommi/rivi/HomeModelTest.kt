@@ -128,6 +128,10 @@ class HomeModelTest {
         assertEquals(false, HomeKeyService.isStockHomeScreen(lx, "$lx.profile.chooser.ProfileChooserActivity"))
         assertEquals(false, HomeKeyService.isStockHomeScreen(lx, "com.google.android.libraries.tv.reauth.ReauthActivity"))
         assertEquals(false, HomeKeyService.isStockHomeScreen(lx, "android.widget.FrameLayout"))
+        assertEquals(false, HomeKeyService.isStockHomeScreen(lx, "$lx.gemini.chat.ChatActivity"))
+        assertEquals(false, HomeKeyService.isStockHomeScreen(lx, "$lx.gemini.MainActivity"))
+        assertEquals(false, HomeKeyService.isStockHomeScreen(lx, "$lx.MainActivity"))
+        assertEquals(true, HomeKeyService.isStockHomeScreen("com.google.android.tvlauncher", "com.google.android.tvlauncher.MainActivity"))
         // other apps are never redirected, whatever their class is called
         assertEquals(false, HomeKeyService.isStockHomeScreen("com.netflix.ninja", "com.netflix.ninja.home.HomeActivity"))
         assertEquals(false, HomeKeyService.isStockHomeScreen(null, null))

@@ -2,6 +2,22 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
+## prettTV 0.4.4 Google voice results with native volume — 2026-11-03
+
+Google recognized speech but failed to launch `com.google.android.apps.tv.launcherx/.gemini.chat.ChatActivity` because its package was disabled. The owner authorized restoring Google support while retaining prettTV Home. TCL rejected individual component-state changes; those protected components remained unchanged. Simply selecting prettTV's Home role still opened Google Home. That diagnostic change was rolled back before implementing compatibility.
+
+The optional **Home compatibility** service observes only stock launcher window names. It redirects exact Home activity names, leaving Gemini, entity/details, settings, profiles and other apps alone. It cannot filter keys or read screen content. Stock recovery suspends redirects while restoring, then retains its existing persistent helper pause. Neither an upgrade nor the installer enables this service or changes Google packages automatically.
+
+**407 JVM tests across 34 suites passed. Seven targeted native Android checks passed:** three Home-service metadata/callback/recovery-pause checks and four Bluetooth view/status cases. These cover native volume/voice/Home key pass-through, Gemini/settings exclusions, persisted pause across service recreation, repeated-click protection and retained Bluetooth focus. Isolated test packages were removed and absence verified. Release lint reported **zero errors and 28 warnings**, down from 32 after previously unused helper resources became used. Installer syntax checks passed.
+
+The signed **0.4.4 / code 23** APK installed in place; its pulled copy matched the **680,451-byte** artifact, SHA-256 `ec32a4f8963b6b980fc517aeb441dcfd324536738f94c8deab49fed0aab33b53`, signed by the established certificate `46fecddaaff65d9500c6cfddee90e07c6ca3fe7941c8a405829258b5e7ff9ded`. Home/app/personalization preferences matched the pre-upgrade export, excluding focus. The older Remote buttons helper remained off. Only Home compatibility was enabled; **`InputFilterEnabled: false` remained verified**.
+
+Google TV and its setup support package returned to their original/default enabled states. The latter supplies the CastInfoProvider missing from repeated result requests. The first movie-details request still stalled; Google's process was restarted and its Home initialization allowed to complete briefly before restoring the compatibility helper. A bounded comparison with Private DNS in opportunistic mode did not resolve the stall; the original AdGuard hostname mode was restored. No app data or account was cleared.
+
+Final text requests through Google's installed assistant displayed the complete **What a Girl Wants** result page, artwork, synopsis, cast and viewing options. A conversational request displayed the corresponding Gemini response. Neither purchase nor playback was selected. Both result activities remained open with the helper active, and Home returned to prettTV afterward. Bluetooth remained on for the remote microphone. These verify Google's query/result route, not a fresh physical microphone capture. The owner was asked to repeat the spoken phrase and a volume hold; confirmation was pending at publication. The preceding physical native-volume confirmation is recorded under 0.4.3.
+
+No new soak, reboot, exhaustive app navigation or audible playback test was performed. A brief stock-Home transition may be visible because this helper reacts to window events. A real full stock restore was not executed; its pause behavior was checked in isolation. Google controls result availability. This release does not add Google account Watchlist synchronization.
+
 ## prettTV 0.4.3 native volume and Bluetooth quick switch — 2026-11-03
 
 The owner chose normal held-volume behavior over global custom remote mappings. A physical comparison with **prettTV Remote buttons** disabled showed repeated native volume adjustments, and the owner confirmed continuous adjustment. Only this helper was removed from the enabled-service list; the TV's other settings were preserved. Android reported `InputFilterEnabled: false` before and after the upgrade. The helper remains optional in the software, but custom global app/Settings remaps and double-Mute are inactive in this TV configuration. The app and installer do not silently enable it.

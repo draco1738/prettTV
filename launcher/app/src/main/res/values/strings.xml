@@ -23,13 +23,13 @@
     <string name="menu_refresh">Refresh app list</string>
     <string name="menu_android_settings">Android settings</string>
     <string name="menu_about">About Rivi</string>
-    <string name="home_service_label">Rivi Home button</string>
-    <string name="home_service_summary">Make the Home button open Rivi</string>
-    <string name="home_service_desc">When on, pressing Home opens Rivi instead of the Google TV home screen. Nothing on the projector is disabled or removed. It only sees the Home key and when the Google TV home screen appears; it cannot read screen content. Turn it off here to get the Google TV home screen back.</string>
+    <string name="home_service_label">prettTV Home compatibility</string>
+    <string name="home_service_summary">Keep prettTV Home with Google voice results available</string>
+    <string name="home_service_desc">Returns Google TV’s Home screen to prettTV while leaving voice results, details and settings open. Observes only stock launcher window names; cannot read screen content or filter remote keys. Google’s package must remain enabled for Gemini results. Turn this helper off to use Google TV Home.</string>
     <string name="menu_stock_home">Open Google TV home</string>
     <string name="menu_home_button">Home button setup</string>
     <string name="home_button_on">Home button: opens Rivi</string>
-    <string name="home_button_off">Home button: opens Google TV. Turn on \"Rivi Home button\" under Accessibility.</string>
+    <string name="home_button_off">Home compatibility is available under Accessibility.</string>
     <string name="stock_recovery_title">Return to stock Google TV</string>
     <string name="stock_recovery_status">Return to stock Google TV\n\n%1$s</string>
     <string name="force_stop_title">Force stop · %1$s</string>
