@@ -208,7 +208,7 @@ internal object CardFocusAndroidChecks {
             }
             test("Hero and show progress reject invalid and out-of-range values") {
                 main(instrumentation) {
-                    for(mode in listOf(PrettTvCard.Mode.HERO,PrettTvCard.Mode.SHOW)) {
+                    for(mode in listOf(PrettTvCard.Mode.HERO,PrettTvCard.Mode.SHOW,PrettTvCard.Mode.SPLIT_HERO,PrettTvCard.Mode.CONTINUATION)) {
                         val (w,h)=dimensions(mode)
                         val card=PrettTvCard(context,1f,mode).apply { title="Title"; action="Open app"; layout(0,0,w,h) }
                         card.progress=0f; val empty=raster(card)
@@ -221,7 +221,7 @@ internal object CardFocusAndroidChecks {
                     }
                 }
             }
-            test("All card modes move artwork while preserving overlays and covered landscape edges") {
+            test("Legacy card artwork moves while Balanced modes keep still art and overlays") {
                 main(instrumentation) {
                     val art=Bitmap.createBitmap(160,90,Bitmap.Config.ARGB_8888).apply {
                         eraseColor(0xFF0040C0.toInt())
@@ -241,9 +241,14 @@ internal object CardFocusAndroidChecks {
                             amountField.setFloat(card,1f)
                             val after=raster(card)
                             try {
-                                val scanY=if(mode==PrettTvCard.Mode.SPORT)75 else 30
-                                val shift=redCenter(after,scanY)-redCenter(before,scanY)
-                                check(shift in 5f..7f) { "$mode artwork moved $shift pixels instead of six" }
+                                if(isBalanced(mode)) {
+                                    check(before.sameAs(after)) { "$mode added a spotlight, changed text or moved artwork with focusAmount" }
+                                    check(near(card.scaleX,1f) && near(card.scaleY,1f)) { "$mode scaled its artwork on focus" }
+                                } else {
+                                    val scanY=if(mode==PrettTvCard.Mode.SPORT)75 else 30
+                                    val shift=redCenter(after,scanY)-redCenter(before,scanY)
+                                    check(shift in 5f..7f) { "$mode artwork moved $shift pixels instead of six" }
+                                }
                                 assertFixedIvory(before,after,mode)
                                 if(mode==PrettTvCard.Mode.HERO || mode==PrettTvCard.Mode.SHOW || mode==PrettTvCard.Mode.COMPACT) {
                                     val right=if(mode==PrettTvCard.Mode.COMPACT)(w*.52f).toInt()-6 else w-6
@@ -277,6 +282,7 @@ internal object CardFocusAndroidChecks {
                     } finally { portrait.recycle() }
                 }
             }
+            BalancedCardAndroidChecks.run(instrumentation,test,activity)
         } finally {
             main(instrumentation) { row?.removeAllViews(); if(!activity.isFinishing)activity.finish() }
             instrumentation.waitForIdleSync()
@@ -289,8 +295,12 @@ internal object CardFocusAndroidChecks {
         PrettTvCard.Mode.HERO -> 1132 to 486
         PrettTvCard.Mode.COMPACT -> 608 to 184
         PrettTvCard.Mode.APP -> 208 to 94
-        else -> 420 to 218
+        PrettTvCard.Mode.SHOW, PrettTvCard.Mode.LIBRARY, PrettTvCard.Mode.SPORT -> 420 to 218
+        PrettTvCard.Mode.SPLIT_HERO -> 1112 to 510
+        PrettTvCard.Mode.POSTER -> 202 to 384
+        PrettTvCard.Mode.CONTINUATION -> 586 to 128
     }
+    private fun isBalanced(mode:PrettTvCard.Mode)=mode in listOf(PrettTvCard.Mode.SPLIT_HERO,PrettTvCard.Mode.POSTER,PrettTvCard.Mode.CONTINUATION)
     private fun raster(card:PrettTvCard)=Bitmap.createBitmap(card.width,card.height,Bitmap.Config.ARGB_8888).also { card.draw(Canvas(it)) }
     private fun red(pixel:Int)=Color.red(pixel)>Color.green(pixel)*2 && Color.red(pixel)>Color.blue(pixel)*2
     private fun redCount(bitmap:Bitmap,y:Int)=(0 until bitmap.width).count { red(bitmap.getPixel(it,y)) }

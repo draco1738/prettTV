@@ -6,6 +6,17 @@ import java.util.Locale
 
 class ContentPolicyTest {
     private fun show(title:String="Severance",pkg:String="apple",catalog:Boolean=false)=Program("$pkg:$title",title,"","",pkg,pkg,catalog=catalog)
+    @Test fun portraitArtworkDefaultsEmptyAndSurvivesMetadataAndEpisodeCopies() {
+        val legacy=show().copy(art="https://example.test/landscape")
+        assertEquals("",legacy.posterArt)
+        val portrait=legacy.copy(posterArt="https://example.test/poster")
+        assertEquals(legacy.art,portrait.art); assertEquals(legacy.titleKey,portrait.titleKey)
+        val updated=portrait.copy(position=20,duration=100,engagedAt=123,detail="Updated episode")
+        assertEquals(portrait.posterArt,updated.posterArt); assertEquals(portrait.art,updated.art)
+        val alert=EpisodeAlert("episode","show",updated,2,3,"Episode",456,"https://example.test/source").asProgram()
+        assertEquals(portrait.posterArt,alert.posterArt); assertEquals(portrait.art,alert.art)
+        assertEquals(listOf(updated),ContentPolicy.discover(listOf(updated),emptyList()))
+    }
     @Test fun discoverAvoidsOtherRowsAndPrefersAppCardsOverDuplicateCatalogTitles() {
         val app=show("Fresh Pick","apple")
         val catalog=show(" fresh   pick ","com.stremio.one",true)

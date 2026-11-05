@@ -63,6 +63,8 @@ class MainActivity : Activity() {
     private var inputs: AppEntry? = null
     private var visible = false
     private var dirty = true
+    // Private, default-off seam used only by isolated instrumentation injecting fixed rows.
+    private var fixtureRefreshSuspended=false
     @Volatile private var generation = 0
     private var appLoadError=false
     private var appDiscoveryComplete=false
@@ -114,7 +116,8 @@ class MainActivity : Activity() {
     private val bgColor = PrettTvColors.BACKGROUND
     private fun px(n:Int) = (n*scale+.5f).toInt()
     private val wide get() = layout==HomeLayout.BALANCED
-    private val inner get() = 1808
+    private val inner get() = if(wide)BalancedHomeLayout.WIDTH else 1808
+    private val balancedFont get() = resources.configuration.fontScale
     private val discovery get() = settings.getBoolean("discovery",true)
     private val sportsPackages get() = settings.getStringSet("sportsPackages",setOf("com.rblive.app")).orEmpty().toSet()
 
@@ -360,8 +363,13 @@ class MainActivity : Activity() {
         focus ?: (currentFocus?.tag as? String) ?: (lastContentFocus?.tag as? String) ?: settings.getString("focus",null),
         if(ready)root.scrollY else 0,horizontalRows.mapValues { it.value.scrollX },lastContentFocus?.tag as? String)
 
-    private fun focusTarget(key:String?):View? = focusables[key] ?: key?.let { value ->
-        windowedRows.values.firstNotNullOfOrNull { it.ensure(value) }
+    private fun focusTarget(key:String?):View? {
+        fun available(view:View?)=view?.takeIf { it.isFocusable && it.visibility==View.VISIBLE }
+        available(focusables[key])?.let { return it }
+        if(wide && (key?.startsWith("next-")==true || key=="discovery-empty"))
+            return (0 until BalancedHomeLayout.POSTER_COUNT).firstNotNullOfOrNull { available(focusables["next-$it"]) }
+                ?: available(focusables["discovery-empty"])
+        return key?.let { value -> windowedRows.values.firstNotNullOfOrNull { available(it.ensure(value)) } }
     }
     private fun restoreRows(rows:Map<String,Int>) {
         rows.forEach { (key,x)->
@@ -394,7 +402,7 @@ class MainActivity : Activity() {
         val revision=++viewportRevision
         artwork.cancel(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); windowedRows.clear(); windowedPrograms.clear(); focusRows.clear(); appCards.clear(); rowSections.clear(); rowValues.clear(); boundPrograms.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
         root=ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER; clipChildren=false; clipToPadding=false }
-        page=column().apply { setPadding(px(56),0,px(56),px(40)) }
+        page=column().apply { val inset=if(wide)BalancedHomeLayout.INSET else 56; setPadding(px(inset),0,px(inset),px(40)) }
         val stage=FrameLayout(this).apply { setBackgroundColor(bgColor); clipChildren=false; clipToPadding=false }
         root.addView(page,ViewGroup.LayoutParams(-1,-2)); stage.addView(root,FrameLayout.LayoutParams(-1,-1).apply { topMargin=px(104) })
         buildHeader(stage)
@@ -504,24 +512,77 @@ class MainActivity : Activity() {
         page.addView(reminderBanner,LinearLayout.LayoutParams(-1,px(70)))
     }
     private fun buildBalanced() {
+        gap(BalancedHomeLayout.TOP_GAP)
         val upper=row()
         val feature=content.feature
-        val hero=programCard(feature,PrettTvCard.Mode.HERO,"feature",1132,486)
-        upper.addView(hero,LinearLayout.LayoutParams(px(1132),px(486)).apply { rightMargin=px(20) })
+        val stageHeight=BalancedHomeLayout.stageHeight(balancedFont)
+        val hero=programCard(feature,PrettTvCard.Mode.SPLIT_HERO,"feature",BalancedHomeLayout.HERO_WIDTH,stageHeight)
+        upper.addView(hero,LinearLayout.LayoutParams(px(BalancedHomeLayout.HERO_WIDTH),px(stageHeight)).apply { rightMargin=px(BalancedHomeLayout.SPLIT_GAP) })
         firstCard=hero
-        val side=column().apply {
-            setPadding(px(24),px(13),px(24),px(16))
-            background=GradientDrawable().apply { setColor(PrettTvColors.SURFACE); cornerRadius=px(16).toFloat(); setStroke(px(1),PrettTvColors.EDGE) }
+        val side=column()
+        side.addView(text("Discover",29,ink,true).apply { gravity=Gravity.TOP },LinearLayout.LayoutParams(-1,px(BalancedHomeLayout.headingHeight(balancedFont))))
+        val shelf=FrameLayout(this).apply { clipChildren=false; clipToPadding=false }
+        val posters=row()
+        val next=balancedDiscovery()
+        repeat(BalancedHomeLayout.POSTER_COUNT) { i ->
+            posters.addView(programCard(next.getOrNull(i),PrettTvCard.Mode.POSTER,"next-$i",BalancedHomeLayout.POSTER_WIDTH,BalancedHomeLayout.posterHeight(balancedFont)),
+                LinearLayout.LayoutParams(px(BalancedHomeLayout.POSTER_WIDTH),px(BalancedHomeLayout.posterHeight(balancedFont))).apply { if(i<2)rightMargin=px(BalancedHomeLayout.POSTER_GAP) })
         }
-        val next=content.suggestions.filter { it.id!=feature?.id }
-        side.addView(text("Discover",28,ink,true),LinearLayout.LayoutParams(-1,px(49)))
-        for(i in 0..1) {
-            side.addView(programCard(next.getOrNull(i),PrettTvCard.Mode.COMPACT,"next-$i",608,184),LinearLayout.LayoutParams(-1,px(184)))
-            if(i==0)side.addView(View(this).apply { setBackgroundColor(PrettTvColors.DIVIDER) },LinearLayout.LayoutParams(-1,px(1)).apply { topMargin=px(14); bottomMargin=px(14) })
+        shelf.addView(posters,FrameLayout.LayoutParams(-1,-1))
+        val empty=button("No recommendations yet\nOpen your apps to explore","discovery-empty") { appAnchor?.requestFocusFromTouch() }.apply {
+            maxLines=3; gravity=Gravity.CENTER; setPadding(px(24),px(24),px(24),px(24))
         }
-        upper.addView(side,LinearLayout.LayoutParams(px(656),px(486)))
-        page.addView(upper); gap(20); buildApps(94); gap(20)
+        shelf.addView(empty,FrameLayout.LayoutParams(-1,-1))
+        side.addView(shelf,LinearLayout.LayoutParams(-1,px(BalancedHomeLayout.posterHeight(balancedFont))))
+        side.addView(View(this),LinearLayout.LayoutParams(1,0,1f))
+        val browse=button("Browse shows","browse-shows") { browseDiscovery() }.apply {
+            gravity=Gravity.CENTER_VERTICAL; setPadding(px(19),0,px(19),0)
+            background=round(PrettTvColors.SURFACE,PrettTvColors.EDGE)
+            setOnFocusChangeListener { _,focused -> background=round(PrettTvColors.SURFACE,if(focused)ink else PrettTvColors.EDGE) }
+        }
+        side.addView(browse,LinearLayout.LayoutParams(-1,px(BalancedHomeLayout.browseHeight(balancedFont))))
+        upper.addView(side,LinearLayout.LayoutParams(px(BalancedHomeLayout.DISCOVERY_WIDTH),px(stageHeight)))
+        page.addView(upper); gap(36); buildApps(94); gap(36)
+        updateBalancedDiscovery(next)
         buildContentRows()
+    }
+    private fun browseDiscovery() {
+        val target=listOf("explore","discover","trending").firstNotNullOfOrNull { key ->
+            windowedRows[key]?.ensure(0) ?: rowSections[key]?.let { section ->
+                focusables.values.firstOrNull { it.isFocusable && it.visibility==View.VISIBLE && descendant(it,section) }
+            }
+        } ?: showAnchor ?: appAnchor
+        target?.requestFocusFromTouch()
+        revealFocus(target)
+    }
+    private fun updateBalancedDiscovery(next:List<Program>) {
+        val hero=focusables["feature"] ?: return
+        val browse=focusables["browse-shows"] ?: return
+        val empty=focusables["discovery-empty"] ?: return
+        val posters=(0 until BalancedHomeLayout.POSTER_COUNT).mapNotNull { focusables["next-$it"] }
+        val focused=currentFocus
+        posters.forEachIndexed { i,card ->
+            updateBoundProgram("next-$i",next.getOrNull(i),BalancedHomeLayout.POSTER_WIDTH,BalancedHomeLayout.posterHeight(balancedFont))
+            card.visibility=if(i<next.size)View.VISIBLE else View.INVISIBLE
+        }
+        val available=posters.take(next.size)
+        empty.visibility=if(available.isEmpty())View.VISIBLE else View.GONE
+        val entry=available.firstOrNull() ?: empty
+        hero.nextFocusRightId=entry.id
+        available.forEachIndexed { i,card ->
+            card.nextFocusLeftId=available.getOrNull(i-1)?.id ?: hero.id
+            card.nextFocusRightId=available.getOrNull(i+1)?.id ?: card.id
+            card.nextFocusUpId=focusables.getValue("nav-home").id
+            card.nextFocusDownId=browse.id
+        }
+        empty.nextFocusLeftId=hero.id; empty.nextFocusRightId=empty.id
+        empty.nextFocusUpId=focusables.getValue("nav-home").id; empty.nextFocusDownId=browse.id
+        browse.nextFocusLeftId=hero.id; browse.nextFocusRightId=browse.id
+        browse.nextFocusUpId=entry.id; browse.nextFocusDownId=appAnchor?.id ?: hero.id
+        focusables.filterKeys { it.startsWith("favorite-") || it=="empty-app-row" }.values.forEachIndexed { i,view ->
+            view.nextFocusUpId=if(i<5)hero.id else browse.id
+        }
+        if((focused in posters || focused===empty) && focused?.visibility!=View.VISIBLE)entry.requestFocusFromTouch()
     }
     private fun buildCinema() {
         val hero=programCard(content.feature,PrettTvCard.Mode.HERO,"feature",inner,470)
@@ -560,7 +621,8 @@ class MainActivity : Activity() {
         val outer=page; page=container
         try {
             if(key=="sports")buildLiveSports() else {
-                val height=when(config.size(key)) { RowCardSize.SMALL->190; RowCardSize.STANDARD->218; RowCardSize.LARGE->270 }
+                val continuation=wide && key.startsWith("watching-") && config.size(key)==RowCardSize.STANDARD
+                val height=if(continuation)BalancedHomeLayout.continuationHeight(balancedFont) else when(config.size(key)) { RowCardSize.SMALL->190; RowCardSize.STANDARD->218; RowCardSize.LARGE->270 }
                 val note=when(key) { "watchlist"->"Saved by you"; "episodes"->"Episode released · availability unconfirmed"; "new"->"Past 120 days"; "watching-shows","watching-movies"->"Most recent first"; else->"" }
                 val empty=when(key) { "watchlist"->"Save something for later\nHold OK on a title → Add to Watchlist"; "watching-shows"->"No shared shows yet\nOpen your apps to start watching"; "watching-movies"->"No shared movies yet\nOpen your apps to start watching"; else->"" }
                 val all=programsFor(key)
@@ -577,7 +639,8 @@ class MainActivity : Activity() {
                 val previous=if(key=="watchlist" && watchlistOffset>0)"Newer saved titles" to { turnSavedPage(watchlistOffset-60) } else null
                 val next=if(key=="watchlist" && watchlistOffset+60<all.size)"Older saved titles" to { turnSavedPage(watchlistOffset+60) } else null
                 val sourceNote=if(key=="watchlist" && all.size>60)"${watchlistOffset+1}–${watchlistOffset+titles.size} of ${all.size} saved" else note
-                buildShowRow(rowLabels[key].orEmpty(),titles,height,key,config.size(key).visibleCards,sourceNote,empty,previous,next)
+                buildShowRow(rowLabels[key].orEmpty(),titles,height,key,if(continuation)3 else config.size(key).visibleCards,sourceNote,empty,previous,next,
+                    if(continuation)PrettTvCard.Mode.CONTINUATION else PrettTvCard.Mode.SHOW)
             }
             gap(24)
         } finally { page=outer }
@@ -625,10 +688,8 @@ class MainActivity : Activity() {
         }
         if(layout!=HomeLayout.QUIET) {
             val feature=content.feature
-            updateBoundProgram("feature",feature,if(wide)1132 else inner,if(wide)486 else 470)
-            if(wide)content.suggestions.filter { it.id!=feature?.id }.let { next ->
-                for(i in 0..1)updateBoundProgram("next-$i",next.getOrNull(i),608,184)
-            }
+            updateBoundProgram("feature",feature,if(wide)BalancedHomeLayout.HERO_WIDTH else inner,if(wide)BalancedHomeLayout.stageHeight(balancedFont) else 470)
+            if(wide)updateBalancedDiscovery(balancedDiscovery())
         }
         updateHomeStatus()
         showAnchor=rowSections.values.asSequence().flatMap { section -> focusables.values.asSequence().filter { descendant(it,section) } }.firstOrNull() ?: firstCard
@@ -808,7 +869,9 @@ class MainActivity : Activity() {
     private fun bindProgram(card:PrettTvCard,p:Program?,w:Int,h:Int) {
         val old=boundPrograms[card.tag as? String]
         val sameTitle=old!=null && p!=null && ContentIdentity.key(old)==ContentIdentity.key(p) && old.packageName==p.packageName
-        val artUrl=p?.art?.takeIf(String::isNotBlank) ?: if(sameTitle)old?.art.orEmpty() else ""
+        val portrait=wide && (card.tag as? String)?.startsWith("next-")==true
+        fun artworkFor(program:Program?)=if(portrait)program?.posterArt?.ifBlank { program.art }.orEmpty() else program?.art.orEmpty()
+        val artUrl=artworkFor(p).ifBlank { if(sameTitle)artworkFor(old) else "" }
         val existingArt=cardArt.firstOrNull { it.card===card }
         if(!sameTitle)card.art=null
         if(existingArt==null || existingArt.url!=artUrl || existingArt.w!=px(w) || existingArt.h!=px(h))
@@ -829,10 +892,12 @@ class MainActivity : Activity() {
         if(artUrl.isNotBlank() && cardArt.none { it.card===card })cardArt.add(CardArt(card,artUrl,px(w),px(h)))
         card.invalidate()
     }
-    private fun buildShowRow(title:String,programs:List<Program>,height:Int,key:String,count:Int,note:String="",emptyText:String="",previous:Pair<String,()->Unit>?=null,next:Pair<String,()->Unit>?=null) {
+    private fun buildShowRow(title:String,programs:List<Program>,height:Int,key:String,count:Int,note:String="",emptyText:String="",previous:Pair<String,()->Unit>?=null,next:Pair<String,()->Unit>?=null,mode:PrettTvCard.Mode=PrettTvCard.Mode.SHOW) {
         page.addView(section(title,if(programs.isNotEmpty())listOf("${programs.size} titles",note).filter(String::isNotBlank).joinToString(" · ") else note))
+        if(wide)gap(10)
         // Leave a visible slice of the next card to make horizontal scrolling discoverable.
-        val width=(inner-count*20-46)/count
+        val cardGap=if(mode==PrettTvCard.Mode.CONTINUATION)16 else 20
+        val width=if(mode==PrettTvCard.Mode.CONTINUATION)(inner-(count-1)*cardGap)/count else (inner-count*cardGap-46)/count
         if(programs.size>16 && key in setOf("discover","explore","trending","new")) {
             windowedPrograms[key]=programs
             val strip=WindowedRow(this,programs.map { "$key-${it.id}" },px(width),px(height),px(20),{ index->
@@ -874,7 +939,7 @@ class MainActivity : Activity() {
             strip.addView(empty,LinearLayout.LayoutParams(-1,px(height)))
         } else programs.forEachIndexed { i,p ->
             val identity=if(key=="watchlist")ContentIdentity.key(p) else p.id
-            strip.addView(programCard(p,PrettTvCard.Mode.SHOW,"$key-$identity",width,height),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<programs.lastIndex)rightMargin=px(20) })
+            strip.addView(programCard(p,mode,"$key-$identity",width,height),LinearLayout.LayoutParams(px(width),px(height)).apply { if(i<programs.lastIndex)rightMargin=px(cardGap) })
         }
         next?.let { (label,action)->strip.addView(button(label,"$key-page-next",action).apply { maxLines=2 },LinearLayout.LayoutParams(px(width),px(height)).apply { leftMargin=px(20) }) }
         if(programs.isEmpty())page.addView(strip) else {
@@ -948,6 +1013,7 @@ class MainActivity : Activity() {
     private fun buildApps(height:Int) {
         val entries=orderedApps().filter { it.key !in prefs.hidden }
         page.addView(section("Your apps","Hold OK for app actions"))
+        if(wide)gap(14)
         val strip=row(); val width=208
         if(entries.isEmpty()) {
             val choose=button(if(apps.isEmpty()) { if(appLoadError)"Apps unavailable · Retry" else if(appDiscoveryComplete)"No apps found · Retry" else "Loading your apps…" } else "Choose apps for this row","empty-app-row") { if(apps.isEmpty())reload() else reviewApps() }
@@ -1011,6 +1077,7 @@ class MainActivity : Activity() {
         }
     }
     private fun reload() {
+        if(fixtureRefreshSuspended)return
         dirty=false; val g=++generation
         iconEpoch++;iconsLoading=false;failedIcons.clear()
         ui.removeCallbacks(retryApps); background.removeCallbacksAndMessages(null)
@@ -1070,8 +1137,12 @@ class MainActivity : Activity() {
             ui.post { if(current()) { iconsLoading=false;scheduleArtworkScan() } }
         }
     }
+    private fun recentServices()=prefs.recentOrder().entries.sortedByDescending { it.value }
+        .mapNotNull { entry -> apps.firstOrNull { it.key==entry.key }?.packageName }.distinct()
+    private fun balancedDiscovery()=BalancedHomeLayout.discovery(content,contentRepo.recommendationServices,recentServices(),personal.recommendationFeedback())
     private fun startContent() {
-        val recent=prefs.recentOrder().entries.sortedByDescending { it.value }.mapNotNull { entry -> apps.firstOrNull { it.key==entry.key }?.packageName }.distinct()
+        if(fixtureRefreshSuspended)return
+        val recent=recentServices()
         val services=if(settings.contains("preferredServices"))settings.getStringSet("preferredServices",emptySet()).orEmpty().toSet() else null
         contentRepo.start(apps.map { it.packageName }.toSet(),emptySet(),discovery,recent,services)
     }

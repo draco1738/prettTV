@@ -31,7 +31,7 @@ internal class OfflineSnapshotStore(private val file:File) {
 
     companion object {
         private const val MAGIC=0x5054534e
-        private const val VERSION=1
+        private const val VERSION=2
         private const val MAX_BYTES=4_000_000L
         internal fun encode(s:OfflineSnapshot):ByteArray = BoundedByteArrayOutputStream(MAX_BYTES.toInt()).use { buffer ->
             DataOutputStream(buffer).use { out ->
@@ -56,13 +56,14 @@ internal class OfflineSnapshotStore(private val file:File) {
         internal fun decode(bytes:ByteArray):OfflineSnapshot {
             require(bytes.size<=MAX_BYTES)
             return DataInputStream(ByteArrayInputStream(bytes)).use { input ->
-                require(input.readInt()==MAGIC && input.readInt()==VERSION)
+                require(input.readInt()==MAGIC)
+                val version=input.readInt(); require(version in 1..VERSION)
                 val sharedAt=input.readLong(); val catalogAt=input.readLong()
-                val published=ProgramBinaryCodec.readList(input,1200); val watching=ProgramBinaryCodec.readList(input,300)
+                val published=ProgramBinaryCodec.readList(input,1200,version); val watching=ProgramBinaryCodec.readList(input,300,version)
                 val channels=buildMap { repeat(input.count(1000)) { put(input.readLong(),input.readUTF()) } }
-                val seeds=ProgramBinaryCodec.readList(input,20)
+                val seeds=ProgramBinaryCodec.readList(input,20,version)
                 val popular=mutableMapOf<String,List<Program>>(); val releases=mutableMapOf<String,List<Program>>()
-                for(type in listOf("series","movie")) { popular[type]=ProgramBinaryCodec.readList(input,100); releases[type]=ProgramBinaryCodec.readList(input,100) }
+                for(type in listOf("series","movie")) { popular[type]=ProgramBinaryCodec.readList(input,100,version); releases[type]=ProgramBinaryCodec.readList(input,100,version) }
                 val games=List(input.count(60)) {
                     val v=List(9) { input.readUTF() }; val start=input.readLong(); val fetched=input.readLong()
                     val teams=List(input.count(10)) { input.readUTF() }; val ids=List(input.count(10)) { input.readUTF() }
@@ -88,18 +89,20 @@ internal object AtomicPrivateFile {
     }
 }
 
-/** Fixed field order avoids platform JSON stubs in deterministic persistence/failure tests. */
+/** Version 2 appends portrait art; version 1 retains its exact field layout for offline upgrades. */
 internal object ProgramBinaryCodec {
     fun writeList(out:DataOutputStream,rows:List<Program>,max:Int) { out.writeInt(rows.take(max).size); rows.take(max).forEach { write(out,it) } }
-    fun readList(input:DataInputStream,max:Int)=List(input.count(max)) { read(input) }
+    fun readList(input:DataInputStream,max:Int,version:Int)=List(input.count(max)) { read(input,version) }
     fun write(out:DataOutputStream,p:Program) {
         for(value in listOf(p.id,p.title,p.detail,p.art,p.packageName,p.app,p.intentUri,p.sourceUrl,p.summary,p.sourceName,p.detailUri,p.mediaType,p.genres,p.imdbId))out.writeUTF(value.take(8000))
         for(value in listOf(p.position,p.duration,p.released,p.engagedAt,p.providerWeight))out.writeLong(value)
         out.writeBoolean(p.catalog); out.writeBoolean(p.watchingSource); out.writeBoolean(p.liveSports); out.writeInt(p.releaseYear)
+        out.writeUTF(p.posterArt.take(8000))
     }
-    fun read(input:DataInputStream):Program {
+    fun read(input:DataInputStream,version:Int):Program {
         val s=List(14) { input.readUTF() }; val n=List(5) { input.readLong() }
-        return Program(s[0],s[1],s[2],s[3],s[4],s[5],s[6],n[0],n[1],input.readBoolean(),s[7],s[8],input.readBoolean(),s[9],n[2],s[10],n[3],s[11],input.readBoolean(),s[12],n[4],input.readInt(),s[13])
+        return Program(s[0],s[1],s[2],s[3],s[4],s[5],s[6],n[0],n[1],input.readBoolean(),s[7],s[8],input.readBoolean(),s[9],n[2],s[10],n[3],s[11],input.readBoolean(),s[12],n[4],input.readInt(),s[13],
+            posterArt=if(version>=2)input.readUTF() else "")
     }
 }
 

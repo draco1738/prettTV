@@ -6,11 +6,13 @@
 
 [![Release](https://img.shields.io/github/v/release/draco1738/prettTV?style=flat&color=adc1b6)](https://github.com/draco1738/prettTV/releases/latest) [![Build](https://github.com/draco1738/prettTV/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/draco1738/prettTV/actions/workflows/build.yml) [![License: MIT](https://img.shields.io/badge/code-MIT-adc1b6)](LICENSE)
 
-![prettTV 0.5.1 in C Balanced: OLED-black navigation and app tiles, a compact Resume action and Continue watching.](docs/screenshots/C-balanced.png)
+![prettTV 0.6.0 in C Balanced: a large resume feature, three portrait discovery frames, one app row and compact Continue watching cards.](docs/screenshots/C-balanced-0.6.0.png)
 
-*C · Balanced on the TCL TV. A/B/C and Audio devices show 0.5.1. Other captures retain their stated historical versions. All are unedited device screenshots.*
+*C · Balanced 0.6.0 on the TCL TV, using real viewing data. These discovery picks supply wide artwork, so their portrait frames show the contained fallback. A/B and Audio devices below retain their 0.5.1 captures; other images retain their stated historical versions. All are unedited device screenshots.*
 
 ## Make Home yours
+
+**New in 0.6.0:** C Balanced adopts the approved split composition: a larger resume feature, three portrait discovery picks and **Browse shows**, followed by the familiar single app row and compact Continue watching cards. It uses real provider artwork and progress, preserves row preferences, and leaves Cinema and Quiet available. [Native design and controls →](docs/balanced-home.md)
 
 **New in 0.5.2:** long discovery shelves keep every title while creating fewer live cards. Home prioritizes visible icons, shares duplicate image requests and releases artwork after extended time in another app. **Settings → Home & apps → Focus motion** adds an optional smaller lift with still artwork; Classic remains the default. [How the lighter Home works →](docs/lightweight-home.md)
 
@@ -31,7 +33,7 @@
 - **Find something worth watching.** Suggestions, Discover, Trending and New releases offer up to 60 titles per row. Choose the services to prioritize, hide shared-account titles and dismiss recommendations you do not want.
 - **Save and follow.** Keep a dedicated local Watchlist, follow identifiable shows for new-episode alerts, and undo supported recent changes.
 - **Choose your own layout.** Cinema, Quiet and Balanced share persistent Home, Shows, Library, Inputs, Search and Settings navigation. Optional location, weather and time sit together at the top right.
-- **Move without losing your place.** Focus uses a subtle spotlight and brief artwork movement. Selected-title details occupy reserved space; refreshes retain usable content and artwork, and app actions return to the originating card.
+- **Move without losing your place.** Thin white outlines track focus. The new Balanced cards keep artwork still; other card styles retain the Classic/Quiet motion choice. Selected-title details occupy reserved space; refreshes retain usable content and artwork, and app actions return to the originating card.
 
 Open **Settings → Home & apps → Customize rows** to reorder or hide content sections, choose card sizes, and set discovery limits to **20, 40 or 60**. The default order is:
 
@@ -63,7 +65,7 @@ Switch through **prettTV Settings → Home & apps → Layout**. Apps, saved titl
 | :--- | :--- |
 | **A · Cinema** | A wide feature, followed by apps and content rows. |
 | **B · Quiet** | Apps first, followed by content rows. |
-| **C · Balanced** | A large feature, two discovery cards and a compact app row. **Default.** |
+| **C · Balanced** | A large resume feature beside three portrait picks, one app row and compact continuation cards. **Default.** |
 
 <details>
 <summary><strong>A · Cinema</strong></summary>

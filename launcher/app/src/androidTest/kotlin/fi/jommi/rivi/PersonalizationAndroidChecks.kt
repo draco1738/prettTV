@@ -19,6 +19,7 @@ internal object PersonalizationAndroidChecks {
         fun card(title: String = "Fixture", pkg: String = "fixture.provider") = Program(
             "preview:fixture", title, "Drama", "https://example.invalid/art", pkg, "Fixture app",
             intentUri = "fixture://title", mediaType = "series", genres = "Drama", summary = "A summary", releaseYear = 2026,
+            posterArt = "https://example.invalid/poster",
         )
         fun fresh(): PersonalizationStore {
             check(prefs.edit().clear().commit())
@@ -36,6 +37,22 @@ internal object PersonalizationAndroidChecks {
                 check(store.follow(first, 150))
                 check(!store.follow(second))
                 check(PersonalizationStore(context).followedShows().single().program == first)
+            }
+            test("Legacy saved and followed title JSON loads without poster art and new fields are validated") {
+                val store = fresh()
+                val program = card()
+                check(store.save(program, 100) && store.follow(program, 150))
+                val legacy = JSONObject(store.exportJson())
+                for(key in listOf("watchlist", "followed"))legacy.getJSONArray(key).getJSONObject(0).getJSONObject("program").remove("posterArt")
+                check(store.importJson(legacy.toString()))
+                val restored = PersonalizationStore(context)
+                check(restored.watchlist() == listOf(program.copy(posterArt = "")))
+                check(restored.followedShows().single().program == program.copy(posterArt = ""))
+                val before = restored.exportJson()
+                for(key in listOf("watchlist", "followed")) {
+                    val malformed = JSONObject(before).apply { getJSONArray(key).getJSONObject(0).getJSONObject("program").put("posterArt", 42) }
+                    check(!restored.importJson(malformed.toString()) && restored.exportJson() == before)
+                }
             }
             test("Only new confirmed playback removes Watchlist and undo survives refresh and restart") {
                 val store = fresh()
@@ -69,6 +86,7 @@ internal object PersonalizationAndroidChecks {
                 check(recreated.importJson(exported))
                 check(recreated.watchlist() == listOf(program))
                 check(recreated.isFollowed(program))
+                check(recreated.followedShows().single().program == program)
                 check(recreated.recommendationFeedback().isDismissed(program))
                 check(recreated.recommendationFeedback().dismissedTitleKeys == setOf(program.titleKey))
                 check(recreated.rowPreferences().order.first() == "watchlist")
@@ -129,6 +147,7 @@ internal object PersonalizationAndroidChecks {
                 val program = card()
                 check(store.save(program, 100))
                 check(!store.save(card("Too large").copy(summary = "x".repeat(8 * 1024 * 1024)), 200))
+                check(!store.save(card("Too large poster").copy(posterArt = "x".repeat(8 * 1024 * 1024)), 200))
                 check(store.lastError != null)
                 check(PersonalizationStore(context).watchlist() == listOf(program))
             }
@@ -189,6 +208,7 @@ internal object PersonalizationAndroidChecks {
                 bad += copy().apply { getJSONObject("playback").put("played:fixture|title", JSONObject().put("type", "int").put("value", 1)) }
                 bad += copy().apply { getJSONObject("playback").put("event:fixture|title", JSONObject().put("type", "string").put("value", "1")) }
                 bad += copy().apply { getJSONObject("playback").put("known", JSONObject().put("type", "string").put("value", "{}")) }
+                bad += copy().apply { getJSONObject("playback").put("known", JSONObject().put("type", "string").put("value", """[{"posterArt":42}]""")) }
                 bad += copy().apply { getJSONObject(PersonalizationStore.PREFS_NAME).put("state", JSONObject().put("type", "boolean").put("value", true)) }
                 for (state in listOf("""{"version":2}""", """{"version":1,"watchlist":"bad"}""",
                     """{"version":1,"reminders":"true"}""", """{"version":1,"followed":[{"program":false}]}""", "{broken")) {

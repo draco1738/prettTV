@@ -11,17 +11,33 @@ internal object PlaybackHistoryAndroidChecks {
         val personal=context.getSharedPreferences(PersonalizationStore.PREFS_NAME,Context.MODE_PRIVATE)
         val stores=mapOf("playback" to playback,PersonalizationStore.PREFS_NAME to personal)
         val backup=LocalSettingsTransfer.export(stores)
-        val a=Program("fixture:a","First show","First service · S1 E1 · 9 min left","","fixture.first","First service",
-            position=60_000,duration=600_000,watchingSource=true,engagedAt=100,mediaType="series")
+        val a=Program("fixture:a","First show","First service · S1 E1 · 9 min left","https://example.test/scene","fixture.first","First service",
+            position=60_000,duration=600_000,watchingSource=true,engagedAt=100,mediaType="series",posterArt="https://example.test/poster")
         val b=a.copy(id="fixture:b",title="Second show",detail="Second service · S1 E1 · 9 min left",packageName="fixture.second",app="Second service",engagedAt=200)
         fun key(p:Program)="${p.packageName}|${p.titleKey}"
         fun reset():PlaybackHistory { check(playback.edit().clear().commit()); check(personal.edit().clear().commit());return PlaybackHistory(context) }
         try {
             test("Provider history import and timestamp-only churn preserve original chronology") {
                 val history=reset(); check(history.merge(listOf(a,b)).map { it.title }==listOf(b.title,a.title))
-                val result=history.merge(listOf(a.copy(engagedAt=System.currentTimeMillis(),art="different"),b))
+                val result=history.merge(listOf(a.copy(engagedAt=System.currentTimeMillis(),art="different",posterArt="different-poster"),b))
                 check(result.map { it.engagedAt }==listOf(200L,100L))
                 check(!playback.contains("providerLastObserved"))
+            }
+            test("Playback snapshots preserve both artwork fields through recreation copies and legacy JSON") {
+                val history=reset();history.merge(listOf(a))
+                val raw=JSONArray(playback.getString("known","[]"))
+                check(raw.getJSONObject(0).getString("posterArt")==a.posterArt)
+                check(raw.getJSONObject(0).getJSONObject("providerProgressBaseline").getString("posterArt")==a.posterArt)
+                val matched=PlaybackHistory(context).match(a.packageName,listOf(a.title))!!
+                check(matched.art==a.art && matched.posterArt==a.posterArt)
+                history.confirm(matched,90_000,600_000,222)
+                val confirmed=history.merge(listOf(matched)).single()
+                check(confirmed.position==90_000L && confirmed.art==a.art && confirmed.posterArt==a.posterArt)
+                raw.getJSONObject(0).remove("posterArt")
+                raw.getJSONObject(0).getJSONObject("providerProgressBaseline").remove("posterArt")
+                check(playback.edit().putString("known",raw.toString()).commit())
+                val legacy=PlaybackHistory(context).match(a.packageName,listOf(a.title))!!
+                check(legacy.posterArt.isEmpty() && legacy.art==a.art)
             }
             test("A changed provider playback position promotes the row and hero and survives recreation") {
                 val history=reset();history.merge(listOf(a,b))
@@ -95,6 +111,7 @@ internal object PlaybackHistoryAndroidChecks {
                 val exported=LocalSettingsTransfer.export(stores)
                 check(playback.edit().clear().commit());LocalSettingsTransfer.restore(exported,stores)
                 check(playback.getLong("providerLastObserved",0)==future+1)
+                check(PlaybackHistory(context).match(a.packageName,listOf(a.title))?.posterArt==a.posterArt)
             }
         } finally { LocalSettingsTransfer.restore(backup,stores) }
     }

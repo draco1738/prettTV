@@ -21,10 +21,10 @@ class PlaybackHistory(context:Context) {
     private fun key(p:Program)=p.packageName+"|"+p.titleKey
     private fun json(p:Program)=JSONObject().put("id",p.id).put("title",p.title).put("detail",p.detail).put("art",p.art)
         .put("pkg",p.packageName).put("app",p.app).put("uri",p.intentUri).put("pos",p.position).put("dur",p.duration).put("type",p.mediaType)
-        .put("imdbId",p.imdbId).put("releaseYear",p.releaseYear)
+        .put("imdbId",p.imdbId).put("releaseYear",p.releaseYear).put("posterArt",p.posterArt)
     private fun program(j:JSONObject)=Program(j.optString("id"),j.optString("title"),j.optString("detail"),j.optString("art"),j.optString("pkg"),j.optString("app"),
         j.optString("uri"),j.optLong("pos"),j.optLong("dur"),mediaType=j.optString("type"),watchingSource=true,
-        imdbId=j.optString("imdbId"),releaseYear=j.optInt("releaseYear"))
+        imdbId=j.optString("imdbId"),releaseYear=j.optInt("releaseYear"),posterArt=(j.opt("posterArt") as? String).orEmpty())
     fun merge(rows:List<Program>):List<Program> = synchronized(historyLock) {
         val now=System.currentTimeMillis(); val cutoff=prefs.getLong("baselineCutoff",now)
         val initialImport=!prefs.contains("baselineCutoff")

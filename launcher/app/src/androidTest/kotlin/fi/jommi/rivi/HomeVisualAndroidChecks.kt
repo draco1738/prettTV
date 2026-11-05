@@ -82,6 +82,7 @@ internal object HomeVisualAndroidChecks {
             fun publish(value:HomeContent) { main(instrumentation) { set("content",value); call("refreshProviderRows") } }
             waitFor(instrumentation) { activity.hasWindowFocus() && field("appDiscoveryComplete")==true && root().isLaidOut }
             main(instrumentation) {
+                set("fixtureRefreshSuspended",true)
                 (field("contentRepo") as ContentRepository).stop()
                 (field("weatherRepo") as WeatherRepository).stop()
                 // In-flight icon callbacks belong to the prior discovery generation.
@@ -95,6 +96,60 @@ internal object HomeVisualAndroidChecks {
             }
             waitFor(instrumentation) { settled() }
 
+            test("Balanced composition has three portrait destinations and a finite remote path") {
+                reset(); focus("feature")
+                for(key in listOf("next-0","next-1","next-2","next-2")) {
+                    instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_RIGHT)
+                    waitFor(instrumentation) { activity.currentFocus?.tag==key && visible(activity.currentFocus!!) }
+                }
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
+                waitFor(instrumentation) { activity.currentFocus?.tag=="browse-shows" }
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
+                waitFor(instrumentation) { activity.currentFocus===field("appAnchor") && visible(activity.currentFocus!!) }
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
+                waitFor(instrumentation) { activity.currentFocus?.tag=="feature" }
+                focus("next-0")
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_LEFT)
+                waitFor(instrumentation) { activity.currentFocus?.tag=="feature" }
+            }
+            test("Balanced Browse shows opens an existing discovery shelf without launching a provider") {
+                reset(); focus("browse-shows")
+                main(instrumentation) { check(views().getValue("browse-shows").performClick()) }
+                waitFor(instrumentation) { activity.currentFocus?.tag.toString().startsWith("discover-") && visible(activity.currentFocus!!) }
+                main(instrumentation) { check(activity.hasWindowFocus()) }
+            }
+            test("Balanced discovery survives incomplete and empty feeds without dead focus targets") {
+                reset(); focus("next-2")
+                val one=base.copy(suggestions=listOf(programs[1]),trending=emptyList(),discover=emptyList())
+                publish(one)
+                waitFor(instrumentation) { settled() && bound()["next-0"]==programs[1] && views().getValue("next-2").visibility==View.INVISIBLE && activity.currentFocus?.tag=="next-0" }
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_RIGHT)
+                waitFor(instrumentation) { activity.currentFocus?.tag=="next-0" }
+                publish(one.copy(suggestions=emptyList()))
+                waitFor(instrumentation) { settled() && activity.currentFocus?.tag=="discovery-empty" && views().getValue("discovery-empty").visibility==View.VISIBLE && (0..2).all { views().getValue("next-$it").visibility==View.INVISIBLE } }
+                focus("feature")
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_RIGHT)
+                waitFor(instrumentation) { activity.currentFocus?.tag=="discovery-empty" }
+                publish(base)
+                waitFor(instrumentation) { settled() && activity.currentFocus?.tag=="next-0" && (0..2).all { views().getValue("next-$it").visibility==View.VISIBLE } && views().getValue("discovery-empty").visibility==View.GONE }
+                focus("feature")
+            }
+            test("Balanced posters use supplied portrait art without replacing landscape card metadata") {
+                reset()
+                val updated=programs[1].copy(art="content://visual.fixture/landscape",posterArt="content://visual.fixture/poster")
+                publish(base.copy(suggestions=programs.map { if(it.id==updated.id)updated else it }))
+                waitFor(instrumentation) { bound()["next-0"]==updated && bound()[tag(updated)]==updated }
+                main(instrumentation) {
+                    val requests=field("cardArt") as List<*>
+                    fun artwork(key:String)=requests.first { request ->
+                        request!!::class.java.getDeclaredField("card").apply { isAccessible=true }.get(request)===views().getValue(key)
+                    }.let { request -> request!!::class.java.getDeclaredField("url").apply { isAccessible=true }.get(request) }
+                    check(artwork("next-0")==updated.posterArt)
+                    check(artwork(tag(updated))==updated.art)
+                    check(bound()["feature"]==base.feature)
+                }
+                reset()
+            }
             test("Provider metadata refresh retains the focused native card and its bitmap") {
                 reset(); val target=programs[3]; focus(tag(target))
                 val card=main(instrumentation) { (views().getValue(tag(target)) as PrettTvCard).apply { art=injectedArt } }
@@ -416,6 +471,21 @@ internal object HomeVisualAndroidChecks {
                         instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
                         waitFor(instrumentation) { activity.currentFocus===first && visible(first) }
                         if(layout==HomeLayout.BALANCED) {
+                            main(instrumentation) {
+                                val unit=field("scale") as Float
+                                val hero=views().getValue("feature")
+                                val poster=views().getValue("next-0")
+                                val last=views().getValue("next-2")
+                                val browse=views().getValue("browse-shows")
+                                fun bounds(view:View)=Rect(0,0,view.width,view.height).also { root().offsetDescendantRectToMyCoords(view,it) }
+                                check(abs(hero.width/unit-BalancedHomeLayout.HERO_WIDTH)<2)
+                                check(abs(hero.height/unit-BalancedHomeLayout.stageHeight(fontScale))<2)
+                                check(abs(poster.width/unit-BalancedHomeLayout.POSTER_WIDTH)<2)
+                                check(bounds(hero).right<bounds(poster).left && bounds(last).right<=root().width)
+                                check(bounds(poster).bottom<=bounds(browse).top) { "Enlarged poster title overlaps Browse shows" }
+                                check(visible(hero) && visible(last) && visible(browse)) { "Approved C first-stage content is clipped" }
+                                check((0..2).all { bound()["next-$it"]?.id!=bound()["feature"]?.id })
+                            }
                             focus("next-0")
                             val side=main(instrumentation) { activity.currentFocus }
                             instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)

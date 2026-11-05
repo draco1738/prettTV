@@ -1,6 +1,7 @@
 package fi.jommi.rivi
 
 import android.app.Instrumentation
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -95,6 +96,8 @@ internal object LightweightAndroidChecks {
         try {
             waitFor(i) { field("appDiscoveryComplete")==true && settled() }
             main(i) {
+                check(field("fixtureRefreshSuspended")==false)
+                set("fixtureRefreshSuspended",true)
                 (field("contentRepo") as ContentRepository).stop();(field("weatherRepo") as WeatherRepository).stop()
                 set("generation",(field("generation") as Int)+1)
                 val personal=(field("personal\$delegate") as Lazy<*>).value as PersonalizationStore
@@ -107,6 +110,20 @@ internal object LightweightAndroidChecks {
                     val shelves=listOf("discover","explore","trending","new").map { rows().getValue(it).getChildAt(0) as WindowedRow }
                     check(shelves.all { it.keys.size==60 });check(shelves.sumOf { it.childCount }<40)
                     i.sendStatus(0,Bundle().apply { putString("stream","WINDOWED CARDS ${shelves.sumOf { it.childCount }} / 240; full title count 240\n") })
+                }
+            }
+            test("External package updates and lifecycle refreshes cannot replace injected fixture rows") {
+                main(i) {
+                    val appGeneration=field("generation")
+                    val repository=field("contentRepo") as ContentRepository
+                    val generation=ContentRepository::class.java.getDeclaredField("generation").apply { isAccessible=true }
+                    val contentGeneration=generation.get(repository)
+                    // Invoke only this isolated Activity's receiver, not a global system broadcast.
+                    (field("packageReceiver") as BroadcastReceiver).onReceive(activity,Intent(Intent.ACTION_PACKAGE_CHANGED))
+                    call("startContent")
+                    check(field("dirty")==true)
+                    check(field("generation")==appGeneration && generation.get(repository)==contentGeneration)
+                    check(field("content")===base && views().containsKey("discover-light:0"))
                 }
             }
             test("All 60 identities remain reachable through held-key boundaries and reversals in A B C") {

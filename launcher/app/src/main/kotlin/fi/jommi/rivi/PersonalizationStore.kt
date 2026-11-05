@@ -31,7 +31,7 @@ class PersonalizationStore(context: Context) {
                 if (obj.has(key)) require(obj.opt(key) is Int || obj.opt(key) is Long) { "Invalid $key number" }
             }
             fun program(obj: JSONObject) {
-                val textFields = listOf("id","title","detail","art","package","app","intent","sourceUrl","summary","sourceName","detailUri","mediaType","genres","imdbId")
+                val textFields = listOf("id","title","detail","art","package","app","intent","sourceUrl","summary","sourceName","detailUri","mediaType","genres","imdbId","posterArt")
                 textFields.forEach { if (obj.has(it)) require(obj.opt(it) is String) { "Invalid program $it" } }
                 require((obj.opt("title") as? String)?.isNotBlank() == true && (obj.opt("package") as? String)?.isNotBlank() == true) { "Incomplete title" }
                 listOf("position","duration","released","engagedAt","providerWeight","releaseYear").forEach { number(obj,it) }
@@ -231,7 +231,7 @@ class PersonalizationStore(context: Context) {
 
     private fun valid(program: Program) = program.title.isNotBlank() && program.packageName.isNotBlank()
     private fun programTextLength(p: Program) = listOf(p.id,p.title,p.detail,p.art,p.packageName,p.app,p.intentUri,
-        p.sourceUrl,p.summary,p.sourceName,p.detailUri,p.mediaType,p.genres,p.imdbId).sumOf { it.length.toLong() }
+        p.sourceUrl,p.summary,p.sourceName,p.detailUri,p.mediaType,p.genres,p.imdbId,p.posterArt).sumOf { it.length.toLong() }
     private fun read() = synchronized(stateLock) { readLocked() }
     private fun readLocked(): State = try {
         val raw = prefs.getString(STATE_KEY, "{}") ?: "{}"
@@ -312,7 +312,7 @@ class PersonalizationStore(context: Context) {
         .put("catalog", p.catalog).put("sourceUrl", p.sourceUrl).put("summary", p.summary).put("watchingSource", p.watchingSource)
         .put("sourceName", p.sourceName).put("released", p.released).put("detailUri", p.detailUri).put("engagedAt", p.engagedAt)
         .put("mediaType", p.mediaType).put("liveSports", p.liveSports).put("genres", p.genres).put("providerWeight", p.providerWeight)
-        .put("releaseYear", p.releaseYear).put("imdbId", p.imdbId)
+        .put("releaseYear", p.releaseYear).put("imdbId", p.imdbId).put("posterArt", p.posterArt)
     private fun parseProgram(j: JSONObject?): Program? {
         if (j == null) return null
         fun string(name: String) = if (j.isNull(name)) "" else j.optString(name)
@@ -321,6 +321,6 @@ class PersonalizationStore(context: Context) {
             catalog = j.optBoolean("catalog"), sourceUrl = string("sourceUrl"), summary = string("summary"), watchingSource = j.optBoolean("watchingSource"),
             sourceName = string("sourceName"), released = j.optLong("released"), detailUri = string("detailUri"), engagedAt = j.optLong("engagedAt"),
             mediaType = string("mediaType").ifBlank { "unknown" }, liveSports = j.optBoolean("liveSports"), genres = string("genres"), providerWeight = j.optLong("providerWeight"),
-            releaseYear = j.optInt("releaseYear"), imdbId = string("imdbId")).takeIf(::valid)
+            releaseYear = j.optInt("releaseYear"), imdbId = string("imdbId"), posterArt = string("posterArt")).takeIf(::valid)
     }
 }

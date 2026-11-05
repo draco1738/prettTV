@@ -114,7 +114,7 @@ object LocalSettingsTransfer {
                 val rows=JSONArray(value as String)
                 repeat(rows.length()) { index->
                     val row=rows.optJSONObject(index) ?: error("Invalid playback title")
-                    listOf("id","title","detail","art","pkg","app","uri","type","imdbId").forEach {
+                    listOf("id","title","detail","art","pkg","app","uri","type","imdbId","posterArt").forEach {
                         if(row.has(it))require(row.opt(it) is String) { "Invalid playback title field" }
                     }
                     listOf("pos","dur","releaseYear").forEach {
