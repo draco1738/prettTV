@@ -2,17 +2,17 @@
 
 [← prettTV](../README.md) · [User guide](usage.md) · [Validation](validation.md)
 
-Version 0.6.0 implements the owner's selected C concept as native Android Views and Canvas. This is not a WebView, a static mockup, or a new catalog. Cinema and Quiet remain available through **Settings → Home & apps → Layout**.
+Version 0.6.0 introduced the owner's selected C concept as native Android Views and Canvas. Version 0.6.1 corrects the artwork mismatch: genuine portrait metadata for eligible discovery titles, proportional full-frame drawing, and a clean feature backdrop when a verified match supplies one. This is not a WebView, a static mockup, or a new catalog. Cinema and Quiet remain available through **Settings → Home & apps → Layout**.
 
-![C Balanced 0.6.0 installed on the TCL, using real provider content and existing preferences.](screenshots/C-balanced-0.6.0.png)
+![C Balanced 0.6.1 installed on the TCL, with three verified portrait images and existing preferences.](screenshots/C-balanced-0.6.1.png)
 
-*Actual, unedited TV capture. The composition follows the approved C concept; the titles and artwork come from the TV, not from the concept's sample content.*
+*Actual, unedited TV capture. Nocturne, Frieren: Beyond Journey's End and Slow Horses use verified 2:3 portraits. The Game of Thrones feature has a matching clean background. Titles, episode information, progress and launch destinations come from the TV, not from the concept's sample content.*
 
 ## What changed
 
 A larger feature occupies the left of the first screen. Its two-line title, actual metadata, progress when supplied, dark Resume/Open action and service label remain distinct. The existing chronology and hidden-title policy choose the feature; a refresh timestamp does not become evidence of recent viewing.
 
-Three portrait picks replace the stacked discovery panel on the right. They use poster artwork supplied by the existing providers and catalogs. Landscape art remains available to other shelves; when no poster is provided, the portrait card contains the existing artwork rather than inventing or stretching it. The combined candidates retain the existing service and feedback priorities before the three-card limit; duplicate titles and the feature are excluded. A short feed remains short, and an empty feed offers an honest route to apps. When a refresh removes the focused poster or fills an empty panel, focus moves to an available replacement inside discovery.
+Three portrait picks sit to the right of the large feature. C now considers a bounded six-title pool, preferring series and verified portraits within the existing service-priority tiers. Sports stay in their ordinary shelves rather than occupying these show-poster slots; duplicate titles and the feature are excluded. Optional exact-match TVmaze metadata supplies real portrait URLs instead of assuming that a provider's `poster_art_uri` is actually portrait-oriented. A short feed remains short, and an empty feed offers an honest route to apps. Artwork updates preserve the selected title where it remains available; removal and empty-state transitions recover usable focus.
 
 **Browse shows** goes to an existing visible discovery shelf, without launching a provider or promising streaming availability. If those shelves are hidden, it returns to available content or apps.
 
@@ -24,9 +24,9 @@ The single Your apps row keeps its **208 × 94** reference-pixel cards, **36-pix
 
 **The resume feature.** The largest area belongs to the next viewing action, with a two-line title, episode metadata when available, supplied remaining time and a restrained progress line. A dark overlay keeps the text readable over artwork. The compact outlined action says **Resume** only when supported progress exists; otherwise it opens the relevant app/title. The source label sits beside it. A stale or unavailable feed is not replaced with invented progress.
 
-**Discovery.** Up to three tall frames sit alongside the feature. They can contain shows, movies or other programs published by the available providers. The combined selection keeps preferred-service, recency and feedback priorities, removes duplicates, and avoids repeating the feature. These are recommendations, not proof of a subscription or playback entitlement.
+**Discovery.** Up to three tall frames sit alongside the feature, each with a 2:3 picture area and its title below. Series and verified portraits are preferred only within service tiers, so a fallback service cannot jump ahead of preferred-service content merely because it has a poster. Other provider titles can remain as fallbacks. These are recommendations, not proof of a subscription or playback entitlement.
 
-**Artwork limits.** A portrait frame is not a promise that its provider supplies a portrait. The installed capture above has wide images for all three recommendations, so they are contained with black space above and below. Portrait images fill the tall artwork slot when available. The launcher does not stretch a wide image, manufacture a poster URL, or replace it with unrelated artwork. Missing art keeps a usable title/action rather than a loading spinner indefinitely.
+**Artwork limits.** A provider field named “poster” can contain a wide banner; this caused the empty bands in 0.6.0. Version 0.6.1 prefers dimension-checked portrait artwork for an exact series match. Every poster frame now uses one scale for both axes and a centered crop, never independent stretching. If no verified portrait exists, the original provider image is cropped rather than flattened; this can omit the sides of a wide banner and is not equivalent to a genuine poster. Ambiguous titles, movies, untyped items and sports are not guessed into a TV series. Missing art keeps a usable title/action. No episode still or URL is fabricated.
 
 **Apps and continuation.** Recognizable colored streaming marks remain on black rounded tiles. The first screen gives the hero and discovery breathing room while keeping Your apps and the start of Continue watching visible at normal text size. Continuation cards place a small landscape image beside the title, service/episode information and valid progress. Enlarged text can push lower shelves farther down the page; the screen scrolls rather than squeezing text into the same height.
 
@@ -44,7 +44,7 @@ When a provider refresh removes the selected discovery item, focus stays within 
 <details>
 <summary><strong>See Browse shows on the installed TV</strong></summary>
 
-![Browse shows moves to native discovery shelves while the top navigation remains visible.](screenshots/C-browse-shows.png)
+![Browse shows in 0.6.1 moves to native discovery shelves while the top navigation remains visible.](screenshots/C-browse-shows-0.6.1.png)
 
 The existing row order is retained. This TV has sports above Suggestions and Discover; Browse shows moves to an available discovery shelf rather than rearranging those preferences.
 
@@ -63,7 +63,7 @@ The existing row order is retained. This TV has sports above Suggestions and Dis
 
 At 1920 × 1080 reference size, C has 64-pixel side insets, a 1112 × 510 feature, a 40-pixel gutter and a 640-pixel discovery column. The stage grows for enlarged system text rather than allowing poster labels to collide with Browse shows. Text is native sans, surfaces stay black, and focus uses white outlines. New feature/poster/continuation artwork stays still; there is no autoplay, blur, added background polling or new runtime UI dependency.
 
-Portrait metadata is optional and backward compatible with existing saved titles and offline snapshots. It comes from responses already fetched by the application, not an additional network request. Artwork loading retains the bounded caches, shared requests and lifecycle cancellation introduced in 0.5.2.
+Original provider portrait metadata remains backward compatible with saved titles and offline snapshots. C's new presentation-only map does not overwrite those fields, viewing history, progress or destinations. With discovery enabled and a verified network, an optional TVmaze pass can send the visible title names or supplied IDs for at most six candidates and the feature. It permits eight metadata requests with a twelve-second network-work budget and independent connection-disconnect timer, delivers all normal feeds first, rejects stale-generation callbacks and retains a separate bounded cache. Cache I/O and platform transport cleanup mean this is not a strict end-to-end elapsed-time guarantee. A/B do not opt in. [Network disclosures and cache limits](privacy.md#c-balanced-presentation-artwork). Image bytes still use the bounded, prioritized loader introduced in 0.5.2.
 
 The new native feature, poster and continuation modes use static focus outlines: no card scaling, spotlight, artwork drift or autoplay. Existing card modes retain their existing behavior, including the Classic/Quiet focus-motion choice. There is no added UI framework or production runtime dependency.
 
@@ -71,9 +71,11 @@ Portrait fields survive saved/followed titles, playback records, local settings 
 
 ## Verification and credits
 
-The complete candidate passed **433 JVM tests across 36 suites** and **154 isolated native Android checks** on the TCL, with **zero Android lint errors and 28 existing warnings**. Coverage includes A/B/C, normal and enlarged text, focus replacement, artwork fallback, existing service markers, long-row navigation, lifecycle handling and old-data compatibility. The earlier 70-check focused visual run overlaps the full suite; it is not an additional independent total.
+The corrected 0.6.1 candidate passed **458 JVM tests across 37 suites** and **156 isolated native Android checks** on the TCL, with **zero Android lint errors and 28 existing warnings**. Coverage includes proportional full-frame rendering, C geometry, artwork-only rebinding, selected-title focus retention, A/B/C, normal and enlarged text, service-tier preservation, matching/cache/budget limits and old-data compatibility. Repeated native runs and the scoped artwork harness overlap these totals rather than adding independent tests.
 
-The signed **0.6.0 / code 29** APK was installed in place, pulled back and matched to the tested artifact. Home, app and personalization settings matched the pre-install export except navigation focus; automatic playback observations were outside that comparison. These are bounded device checks, not a new hour-long soak, a physical remote latency measurement or a streaming-playback benchmark. See [Validation history](validation.md) for the detailed evidence and limitations.
+The signed **0.6.1 / code 30** APK was installed in place, pulled back and matched to the tested artifact. All three live Discover cards reported verified metadata bindings and decoded **250 × 375** portrait bitmaps. The feature reported a matching **960 × 540** background. Home, app and personalization settings matched the pre-install export except navigation focus; automatic playback observations were outside that comparison. Poster traversal, reversal, Browse shows and app-row boundaries passed without restarting Home. These are bounded device checks, not a new hour-long soak, a physical remote latency measurement or a streaming-playback benchmark. See [Validation history](validation.md) for the detailed evidence and limitations.
+
+![The third Discover poster focused on the installed 0.6.1 TV.](screenshots/C-discovery-focused-0.6.1.png)
 
 prettTV remains derived from **Rivi by Jommi**, with the original MIT notice retained. PLUI and Google TV remain design references, not copied proprietary implementations. Native app-logo assets, catalog data and provider artwork retain their respective credits and terms in [Third-party notices](../THIRD_PARTY_NOTICES.md).
 

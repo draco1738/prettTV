@@ -13,7 +13,7 @@ Start with installation, then make the home screen your own. These guides descri
 | [Screensaver and PC streaming](aerial-and-moonlight.md) | Set up optional Aerial Views and Moonlight with a Sunshine PC host. |
 | [EarthCam idle handoff](earthcam-idle.md) | Configure the optional screensaver handoff and read the recorded TCL camera-playback and Home-exit checks. |
 | [Using prettTV](usage.md) | Remote controls, Watchlist, row customization, undo, episode follows and settings. |
-| [C Balanced](balanced-home.md) | The split resume feature, portrait discovery picks, app row, continuation cards and remote paths. |
+| [C Balanced](balanced-home.md) | The split resume feature, corrected 0.6.1 portrait artwork, real TV captures, app row and remote paths. |
 | [Blind Pick and Rabbit Hole](original-apps.md) | Original Library experiences for mystery picks and connections between movies and shows. |
 | [Content and live sports](content-and-sports.md) | Viewing order, recommendations, release alerts, favorite teams, offline data and RBTV handoff. |
 | [Privacy and permissions](privacy.md) | What stays on the TV, what uses the network and which access is optional. |

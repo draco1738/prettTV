@@ -15,8 +15,8 @@ android {
         applicationId = "dev.zane.pretttv"
         minSdk = 26
         targetSdk = 34
-        versionCode = 29
-        versionName = "0.6.0"
+        versionCode = 30
+        versionName = "0.6.1"
         testInstrumentationRunner = "fi.jommi.rivi.StabilityInstrumentation"
     }
 
@@ -69,4 +69,5 @@ kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
 
 dependencies {
     testImplementation("junit:junit:4.13.2")   // JVM unit tests only; nothing ships in the APK
+    testImplementation("org.json:json:20240303") // Real metadata parser for JVM regression checks only.
 }

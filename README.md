@@ -6,11 +6,13 @@
 
 [![Release](https://img.shields.io/github/v/release/draco1738/prettTV?style=flat&color=adc1b6)](https://github.com/draco1738/prettTV/releases/latest) [![Build](https://github.com/draco1738/prettTV/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/draco1738/prettTV/actions/workflows/build.yml) [![License: MIT](https://img.shields.io/badge/code-MIT-adc1b6)](LICENSE)
 
-![prettTV 0.6.0 in C Balanced: a large resume feature, three portrait discovery frames, one app row and compact Continue watching cards.](docs/screenshots/C-balanced-0.6.0.png)
+![prettTV 0.6.1 in C Balanced: a clean resume backdrop, three full-height portrait posters, one app row and compact Continue watching cards.](docs/screenshots/C-balanced-0.6.1.png)
 
-*C · Balanced 0.6.0 on the TCL TV, using real viewing data. These discovery picks supply wide artwork, so their portrait frames show the contained fallback. A/B and Audio devices below retain their 0.5.1 captures; other images retain their stated historical versions. All are unedited device screenshots.*
+*C · Balanced 0.6.1 on the TCL TV, using real viewing data. Nocturne, Frieren and Slow Horses use verified 2:3 portrait images; the feature uses a matching clean background. A/B and Audio devices below retain their 0.5.1 captures; other images retain their stated historical versions. All are unedited device screenshots.*
 
 ## Make Home yours
+
+**New in 0.6.1:** the three Discover cards beside the large feature now fill their frames proportionally. C can fetch genuine portrait artwork for exact series matches, instead of displaying landscape banners with empty bands. Artwork stays separate from progress and launch destinations, preferred-service tiers remain intact, and A/B are unchanged. [Appearance, controls, verified screenshots and limits →](docs/balanced-home.md)
 
 **New in 0.6.0:** C Balanced adopts the approved split composition: a larger resume feature, three portrait discovery picks and **Browse shows**, followed by the familiar single app row and compact Continue watching cards. It uses real provider artwork and progress, preserves row preferences, and leaves Cinema and Quiet available. [Native design and controls →](docs/balanced-home.md)
 

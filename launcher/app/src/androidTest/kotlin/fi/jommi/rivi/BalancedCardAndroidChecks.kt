@@ -128,7 +128,7 @@ internal object BalancedCardAndroidChecks {
                 } finally { portrait.recycle() }
             }
         }
-        test("Balanced poster contains landscape sources without chopping either edge") {
+        test("Balanced poster fills its frame without flattening wide fallback artwork") {
             main(instrumentation) {
                 val landscape=Bitmap.createBitmap(160,90,Bitmap.Config.ARGB_8888).apply {
                     eraseColor(Color.BLUE)
@@ -141,13 +141,35 @@ internal object BalancedCardAndroidChecks {
                 val image=raster(card)
                 try {
                     val destination=bounds(card,"imageDestination")
-                    check(near(destination.width(),202f) && near(destination.height(),202f*90f/160f))
-                    check(image.getPixel(10,151)==Color.RED && image.getPixel(191,151)==Color.RED) { "Landscape poster cropped an edge marker" }
-                    check(image.getPixel(101,30)==Color.BLACK && image.getPixel(101,270)==Color.BLACK) { "Contained artwork did not leave black gutters" }
+                    check(near(destination.height(),303f) && abs(destination.width()/destination.height()-160f/90f)<.0001f)
+                    check(destination.left<0f && destination.right>202f) { "Wide fallback did not use proportional center cropping" }
+                    check(image.getPixel(10,151)==Color.BLUE && image.getPixel(191,151)==Color.BLUE) { "Wide fallback squeezed its outside edge markers into view" }
+                    check(image.getPixel(101,30)==Color.BLUE && image.getPixel(101,270)==Color.BLUE) { "Poster still has black letterbox strips" }
                     card.art=null
                     val missing=raster(card)
                     try { check(missing.getPixel(101,151)==Color.BLACK && titleLayout(card).lineCount==2) } finally { missing.recycle() }
                 } finally { card.art=null; image.recycle(); landscape.recycle() }
+            }
+        }
+        test("Balanced nonstandard portraits fill all edges and keep circles round") {
+            main(instrumentation) {
+                for((w,h) in listOf(210 to 295,200 to 400)) {
+                    val poster=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888).apply {
+                        eraseColor(Color.GREEN)
+                        Canvas(this).drawCircle(w/2f,h/2f,35f,Paint().apply { color=Color.WHITE })
+                    }
+                    val card=fixture(context,PrettTvCard.Mode.POSTER).apply { art=poster }
+                    val image=raster(card)
+                    try {
+                        val destination=bounds(card,"imageDestination")
+                        check(abs(destination.width()/destination.height()-w.toFloat()/h)<.0001f) { "Poster changed source proportions" }
+                        for((x,y) in listOf(15 to 15,187 to 15,15 to 288,187 to 288))
+                            check(image.getPixel(x,y)==Color.GREEN) { "Non-2:3 portrait left a black gutter" }
+                        val circleWidth=(0 until 202).count { image.getPixel(it,151)==Color.WHITE }
+                        val circleHeight=(0 until 303).count { image.getPixel(101,it)==Color.WHITE }
+                        check(circleWidth>50 && abs(circleWidth-circleHeight)<=2) { "Round poster marker became an oval" }
+                    } finally { card.art=null;image.recycle();poster.recycle() }
+                }
             }
         }
         test("Balanced continuation keeps text on black beside its 190px image and real progress") {

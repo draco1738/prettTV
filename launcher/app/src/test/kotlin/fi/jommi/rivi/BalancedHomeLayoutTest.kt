@@ -55,4 +55,20 @@ class BalancedHomeLayoutTest {
         val rows=(0..5).map { program("p$it") }
         assertEquals(rows.drop(1).take(3),BalancedHomeLayout.discovery(HomeContent(suggestions=rows)))
     }
+
+    @Test fun discoveryArtFillsItsPortraitFrameWithOneProportionalScale() {
+        for((width,height) in listOf(200 to 300,210 to 295,200 to 400,160 to 90)) {
+            val scale=BalancedHomeLayout.artworkScale(width,height,202f,303f,true)
+            val drawnWidth=width*scale; val drawnHeight=height*scale
+            assertTrue("$width x $height left a horizontal gutter",drawnWidth>=201.99f)
+            assertTrue("$width x $height left a vertical gutter",drawnHeight>=302.99f)
+            assertEquals(width.toFloat()/height,drawnWidth/drawnHeight,.0001f)
+            assertTrue(kotlin.math.abs(drawnWidth-202f)<.01f || kotlin.math.abs(drawnHeight-303f)<.01f)
+        }
+    }
+
+    @Test fun portraitPicturesInHeroAndContinuationKeepTheirExistingContainment() {
+        assertEquals(510f/300f,BalancedHomeLayout.artworkScale(200,300,1112f,510f,false),.0001f)
+        assertEquals(1112f/160f,BalancedHomeLayout.artworkScale(160,90,1112f,510f,false),.0001f)
+    }
 }

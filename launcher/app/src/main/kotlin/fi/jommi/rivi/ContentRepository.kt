@@ -32,6 +32,10 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private var installed = emptySet<String>()
     private var hidden = emptySet<String>()
     private var discovery = true
+    private var balancedArtworkEnabled = false
+    // Only start() arms an artwork pass. Existing refresh timers/observers never poll artwork.
+    @Volatile private var artworkPassPending = false
+    private val artworkResolver=PresentationArtworkResolver(File(context.cacheDir,"presentation/artwork-v1.bin"))
     private var preferred = emptyList<String>()
     private var serviceOverride:Set<String>?=null
     private var observing = false
@@ -76,8 +80,10 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private val observer = object : ContentObserver(ui) { override fun onChange(selfChange: Boolean) { refresh() } }
     private val refreshTask = Runnable { load() }
 
-    fun start(packages: Set<String>, hiddenPackages: Set<String>, catalogEnabled: Boolean,preferredPackages:List<String> = emptyList(),services:Set<String>?=null) {
+    fun start(packages: Set<String>, hiddenPackages: Set<String>, catalogEnabled: Boolean,preferredPackages:List<String> = emptyList(),services:Set<String>?=null,balancedArtwork:Boolean=false) {
         installed = packages.toSet(); hidden = hiddenPackages.toSet(); discovery = catalogEnabled; active = true
+        balancedArtworkEnabled=balancedArtwork
+        artworkPassPending=balancedArtwork && catalogEnabled
         preferred=preferredPackages
         serviceOverride=services?.toSet()
         if (!observing) {
@@ -91,6 +97,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
 
     fun stop() {
         active = false; generation++; pendingTeamsCallback=null; ui.removeCallbacks(refreshTask)
+        artworkPassPending=false; artworkResolver.cancel()
         statusTask?.let(ui::removeCallbacks); statusTask=null
         refreshState.cancel()
         if(delivered.refreshing)deliverStatus()
@@ -99,6 +106,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     fun close() { stop(); thread.quitSafely() }
     fun refresh() { if (active) {
         generation++; statusTask?.let(ui::removeCallbacks); statusTask=null
+        artworkResolver.cancel()
         refreshState.cancel()
         if(delivered.refreshing)deliverStatus()
         ui.removeCallbacks(refreshTask); ui.postDelayed(refreshTask, 220)
@@ -114,6 +122,10 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private fun load() {
         val g = ++generation; val available = installed; val excluded = hidden; val useCatalog = discovery
         val priority=preferred; val selectedServices=serviceOverride
+        val useArtwork=balancedArtworkEnabled && useCatalog
+        // Match the actual visible hero, not a locally hidden viewing title. These values stay local.
+        val heroHidden=if(useArtwork)context.getSharedPreferences("pretttv",Context.MODE_PRIVATE)
+            .getStringSet("hiddenHeroTitles",emptySet()).orEmpty().toSet() else emptySet()
         worker.post {
             fun current() = active && g == generation
             if(!current())return@post
@@ -171,6 +183,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                     " genres="+rows.map { it.genres }.filter { it.isNotBlank() }.distinct().take(8).joinToString(";")
             }
             var snapshot=lastCatalog.eligible(useCatalog,available,excluded)
+            var artworkSelection=HomeContent()
             fun publish() {
                 if (!current()) return
                 val catalogRows=if(previews.size<4)snapshot.seeds else emptyList()
@@ -183,13 +196,16 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 val cleanReleases=ContentPolicy.clean(releases,excluded).filterNot { feedback.isDismissed(it) }
                 val rows=RecommendationPolicy.build(previews,catalogRows+catalogBrowse,catalogBrowse,cleanWatching,cleanReleases,services,priority,excluded,feedback=feedback)
                 val liveGames=if(useCatalog)SportsPolicy.upcoming(games,System.currentTimeMillis(),favoriteTeams) else emptyList()
-                val result = HomeContent(watching=playback.merge(cleanWatching),suggestions=rows.suggestions,
+                val base = HomeContent(watching=playback.merge(cleanWatching),suggestions=rows.suggestions,
                     trending=rows.trending,newReleases=cleanReleases,discover=rows.discover,
                     liveSports=ContentPolicy.clean(published.filter { it.liveSports },excluded),
                     games=liveGames,snapshotAt=maxOf(sharedAt,catalogAt),offline=online==false,
                     newEpisodes=episodeSnapshot.eligible(available,excluded).alerts,episodeStatus=episodeSnapshot.status,availableTeams=availableTeams,
                     kickoffReminders=if(personal.kickoffRemindersEnabled())SportsPolicy.reminders(liveGames,System.currentTimeMillis(),favoriteTeams,
                         reminderPrefs.getStringSet("shown",emptySet()).orEmpty()) else emptyList())
+                artworkSelection=base.copy(hiddenHeroTitles=heroHidden)
+                val targets=if(useArtwork)BalancedArtworkPolicy.discoveryCandidates(artworkSelection,services,priority,feedback)+listOfNotNull(artworkSelection.feature) else emptyList()
+                val result=if(useArtwork)base.copy(presentationArtwork=artworkResolver.cached(targets,System.currentTimeMillis())) else base
                 feedSummary="SERVICES ${if(selectedServices==null)"viewing-activity" else "manual"}: "+services.joinToString()+"\n"+sources+"\n"+
                     listOf("Suggestions" to rows.suggestions,"Discover" to rows.discover,"Trending" to rows.trending).joinToString("\n") { (name,items) ->
                         "ROW $name count=${items.size} providers="+items.groupingBy { it.packageName }.eachCount()+
@@ -246,6 +262,15 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             if(current()) {
                 snapshotStatus=if(offlineStore.save(OfflineSnapshot(lastShared,lastCatalog,games,sharedAt,catalogAt)))"saved" else "write unavailable"
                 completedRefreshes++; refreshError=if(attempt.failed)"Some sources unavailable" else "none"
+            }
+            // Finish normal feeds first: cold-cache catalog titles must join the one-shot pool,
+            // and optional artwork must never delay sports, episodes or team-directory delivery.
+            if(useArtwork && artworkPassPending && online==true && current()) {
+                val candidates=BalancedArtworkPolicy.discoveryCandidates(artworkSelection,services,priority,feedback)
+                if(candidates.isNotEmpty() || artworkSelection.feature!=null) {
+                    artworkResolver.enrich(candidates,artworkSelection.feature,System.currentTimeMillis(),true,::current) { if(current())publish() }
+                    if(current())artworkPassPending=false
+                }
             }
             } catch(e:Exception) {
                 attempt.failed=true

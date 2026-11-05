@@ -238,7 +238,7 @@ class MainActivity : Activity() {
         searchPanel?.dismiss();searchPanel=null
         val configureLayout=i?.hasExtra("layout")==true
         applyIntent(i)
-        if(configureLayout)render(reset=true) else resetHomePosition()
+        if(configureLayout) { render(reset=true); if(visible)startContent() } else resetHomePosition()
     }
     override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray) {
         super.onRequestPermissionsResult(requestCode,permissions,grantResults)
@@ -561,6 +561,7 @@ class MainActivity : Activity() {
         val empty=focusables["discovery-empty"] ?: return
         val posters=(0 until BalancedHomeLayout.POSTER_COUNT).mapNotNull { focusables["next-$it"] }
         val focused=currentFocus
+        val focusedProgram=if(focused in posters)boundPrograms[focused?.tag as? String]?.id else null
         posters.forEachIndexed { i,card ->
             updateBoundProgram("next-$i",next.getOrNull(i),BalancedHomeLayout.POSTER_WIDTH,BalancedHomeLayout.posterHeight(balancedFont))
             card.visibility=if(i<next.size)View.VISIBLE else View.INVISIBLE
@@ -582,7 +583,9 @@ class MainActivity : Activity() {
         focusables.filterKeys { it.startsWith("favorite-") || it=="empty-app-row" }.values.forEachIndexed { i,view ->
             view.nextFocusUpId=if(i<5)hero.id else browse.id
         }
-        if((focused in posters || focused===empty) && focused?.visibility!=View.VISIBLE)entry.requestFocusFromTouch()
+        val retained=focusedProgram?.let { id->next.indexOfFirst { it.id==id }.takeIf { it>=0 }?.let(available::getOrNull) }
+        if(retained!=null && retained!==focused)retained.requestFocusFromTouch()
+        else if((focused in posters || focused===empty) && focused?.visibility!=View.VISIBLE)entry.requestFocusFromTouch()
     }
     private fun buildCinema() {
         val hero=programCard(content.feature,PrettTvCard.Mode.HERO,"feature",inner,470)
@@ -863,17 +866,26 @@ class MainActivity : Activity() {
         return card
     }
     private fun updateBoundProgram(key:String,p:Program?,w:Int,h:Int) {
-        if(boundPrograms[key]==p)return
-        (focusables[key] as? PrettTvCard)?.let { bindProgram(it,p,w,h) }
+        val card=focusables[key] as? PrettTvCard ?: return
+        if(boundPrograms[key]==p && cardArt.firstOrNull { it.card===card }?.url.orEmpty()==programArtwork(key,p))return
+        bindProgram(card,p,w,h)
+    }
+    private fun programArtwork(key:String?,program:Program?):String {
+        if(program==null)return ""
+        val display=if(wide)content.presentationArtwork[program.id] else null
+        return when {
+            wide && key?.startsWith("next-")==true -> display?.poster?.ifBlank { null } ?: program.posterArt.ifBlank { program.art }
+            wide && key=="feature" -> display?.backdrop?.ifBlank { null } ?: program.art
+            else -> program.art
+        }
     }
     private fun bindProgram(card:PrettTvCard,p:Program?,w:Int,h:Int) {
         val old=boundPrograms[card.tag as? String]
         val sameTitle=old!=null && p!=null && ContentIdentity.key(old)==ContentIdentity.key(p) && old.packageName==p.packageName
-        val portrait=wide && (card.tag as? String)?.startsWith("next-")==true
-        fun artworkFor(program:Program?)=if(portrait)program?.posterArt?.ifBlank { program.art }.orEmpty() else program?.art.orEmpty()
+        fun artworkFor(program:Program?)=programArtwork(card.tag as? String,program)
         val artUrl=artworkFor(p).ifBlank { if(sameTitle)artworkFor(old) else "" }
         val existingArt=cardArt.firstOrNull { it.card===card }
-        if(!sameTitle)card.art=null
+        if(!sameTitle || (artUrl.isBlank() && existingArt!=null))card.art=null
         if(existingArt==null || existingArt.url!=artUrl || existingArt.w!=px(w) || existingArt.h!=px(h))
             cardArt.removeAll { if(it.card===card) { it.request.cancel();it.ticket?.cancel(); true } else false }
         boundPrograms[card.tag as String]=p
@@ -1144,7 +1156,7 @@ class MainActivity : Activity() {
         if(fixtureRefreshSuspended)return
         val recent=recentServices()
         val services=if(settings.contains("preferredServices"))settings.getStringSet("preferredServices",emptySet()).orEmpty().toSet() else null
-        contentRepo.start(apps.map { it.packageName }.toSet(),emptySet(),discovery,recent,services)
+        contentRepo.start(apps.map { it.packageName }.toSet(),emptySet(),discovery,recent,services,balancedArtwork=wide)
     }
     private fun launch(e:AppEntry) { appReturnViewport=viewport(); prefs.touchRecent(e.key); prefs.lastFocus=e.key; if(!safeStart(repo.launchIntent(e),e.label))appReturnViewport=null }
     private fun safeStart(i:Intent,label:String):Boolean = try { startActivity(i); true } catch(_:Exception) { Toast.makeText(this,"Could not open $label",Toast.LENGTH_SHORT).show(); false }
@@ -1260,7 +1272,7 @@ class MainActivity : Activity() {
         items+="Live sports apps" to { chooseSportsApps() }
         items+="Recommendation services" to { chooseRecommendationServices() }
         items+="Layout: ${layout.label}" to {
-            dialog("Choose your home",HomeLayout.entries.map { choice -> choice.label to { layout=choice; settings.edit().putString("layout",choice.name).apply(); settings.edit().remove("focus").apply(); render(); root.smoothScrollTo(0,0); firstCard?.requestFocus() } })
+            dialog("Choose your home",HomeLayout.entries.map { choice -> choice.label to { layout=choice; settings.edit().putString("layout",choice.name).apply(); settings.edit().remove("focus").apply(); render(); root.smoothScrollTo(0,0); firstCard?.requestFocus(); if(visible)startContent() } })
         }
         items+="Focus motion: ${if(settings.getBoolean("quietMotion",false))"Quiet" else "Classic"}" to {
             dialog("Focus motion",listOf("Quiet · smaller lift, still artwork" to {
@@ -1635,6 +1647,20 @@ class MainActivity : Activity() {
             out.println("VIEWPORT_CONTENT signature=${listOf(rowValues,apps.map { it.key },content.feature).hashCode()}")
         }
         if(args?.contains("--feed-diagnostics")==true)out.println(contentRepo.diagnostics())
+        if(args?.contains("--artwork-diagnostics")==true && wide) {
+            for(key in listOf("feature","next-0","next-1","next-2")) {
+                val program=boundPrograms[key] ?: continue
+                val card=focusables[key] as? PrettTvCard ?: continue
+                val display=content.presentationArtwork[program.id]
+                val expected=if(key=="feature")display?.backdrop.orEmpty() else display?.poster.orEmpty()
+                val bitmap=card.art
+                out.println("BALANCED_ART "+org.json.JSONObject().put("key",key).put("title",program.title)
+                    .put("package",program.packageName).put("mediaType",program.mediaType)
+                    .put("verifiedSource",display?.sourceUrl.orEmpty())
+                    .put("presentationBound",expected.isNotBlank() && cardArt.any { it.card===card && it.url==expected })
+                    .put("width",bitmap?.width ?: 0).put("height",bitmap?.height ?: 0))
+            }
+        }
         if(args?.contains("--weather-diagnostics")==true) {
             val weather=weatherRepo.state
             out.println("WEATHER configured=${weather.location!=null} enabled=${weatherRepo.prefs.enabled} units=${weatherRepo.prefs.units} reading=${weather.reading!=null} loading=${weather.loading} stale=${weather.stale} unavailable=${weather.error!=null}")

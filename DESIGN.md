@@ -162,13 +162,13 @@ components:
 
 # Design System: prettTV
 
-The **0.6.0 C Balanced override** below supersedes earlier C geometry and compact-panel descriptions. Other sections retain their stated historical source scope. Actual native visual and release outcomes belong to the [versioned validation record](docs/validation.md); earlier captures and passed checks remain historical evidence, not certification of a newer build.
+The **0.6.1 C Balanced override** below supersedes earlier C geometry, compact-panel descriptions and landscape containment. Other sections retain their stated historical source scope. Actual native visual and release outcomes belong to the [versioned validation record](docs/validation.md); earlier captures and passed checks remain historical evidence, not certification of a newer build.
 
-## C Balanced composition · 0.6.0
+## C Balanced composition · 0.6.1
 
 The owner selected the reviewed split-stage C concept and requested native implementation. C uses 64-reference-pixel side insets and a 1792-pixel content width. At normal text scale, its 1112 × 510 resume feature begins at y142; a 40-pixel gap separates it from the 640-pixel discovery region. Three 202-pixel portrait cards use 16-pixel gaps and sit above Browse shows. The shared top navigation remains opaque and persistent, with no sidebar. A/B retain their earlier compositions.
 
-The feature uses a left/bottom black legibility scrim, a native medium title up to two lines, supplied metadata/remaining time, a 336-pixel progress track only for known progress, and a compact outlined black action with the source beside it. Portraits retain their real artwork and separate white title; missing portrait art is contained, not stretched. White focus outlines and still artwork distinguish the new modes without a spotlight or idle motion. Enlarged text increases stage and card heights to avoid overlap.
+The feature uses a left/bottom black legibility scrim, a native medium title up to two lines, supplied metadata/remaining time, a 336-pixel progress track only for known progress, and a compact outlined black action with the source beside it. Three right-side posters fill 2:3 picture areas using one proportional centered-crop scale, with separate white titles below. C prefers genuine, dimension-checked portraits from exact series matches within existing service tiers; unmatched titles retain provider artwork as a proportional crop, never independent stretching. Optional matched backgrounds remove baked-in promotional text from the feature when available. White focus outlines and still artwork distinguish the new modes without a spotlight or idle motion. Enlarged text increases stage and card heights to avoid overlap.
 
 One finite 208 × 94 app row retains 36-pixel corners and 12-pixel gaps. Standard-size C continuation rows become three compact horizontal cards across the content width, 128 pixels tall at normal text size. Each has a left thumbnail and separate title/supporting information. Small/Large row preferences remain supported, as do separate Shows/Movies rows and all lower shelves. This composition does not replace real content with the concept's sample titles or progress. [Detailed behavior](docs/balanced-home.md).
 

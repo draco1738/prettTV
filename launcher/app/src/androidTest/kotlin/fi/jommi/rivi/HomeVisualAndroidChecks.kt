@@ -98,6 +98,14 @@ internal object HomeVisualAndroidChecks {
 
             test("Balanced composition has three portrait destinations and a finite remote path") {
                 reset(); focus("feature")
+                main(instrumentation) {
+                    fun position(key:String)=Rect().also { check(views().getValue(key).getGlobalVisibleRect(it)) }
+                    val hero=position("feature")
+                    val posters=(0..2).map { position("next-$it") }
+                    check(posters.all { it.left>hero.right && it.top>=hero.top && it.height()>it.width() }) { "Discover cards must remain to the right of the large feature" }
+                    check(posters.map { it.top }.distinct().size==1 && posters.zipWithNext().all { (a,b)->a.right<b.left }) { "Discover cards are not in one separated horizontal row" }
+                    check(hero.width()>posters.sumOf { it.width() }) { "Feature lost its primary size" }
+                }
                 for(key in listOf("next-0","next-1","next-2","next-2")) {
                     instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_RIGHT)
                     waitFor(instrumentation) { activity.currentFocus?.tag==key && visible(activity.currentFocus!!) }
@@ -147,6 +155,27 @@ internal object HomeVisualAndroidChecks {
                     check(artwork("next-0")==updated.posterArt)
                     check(artwork(tag(updated))==updated.art)
                     check(bound()["feature"]==base.feature)
+                }
+                reset()
+            }
+            test("Balanced display-only art rebinds unchanged programs and retains selected title") {
+                reset(); focus("next-1")
+                val hero=main(instrumentation) { views().getValue("feature") }
+                val selected=programs[2]
+                val hints=mapOf(selected.id to PresentationArtwork(poster="content://visual.fixture/verified-poster"),
+                    programs[0].id to PresentationArtwork(backdrop="content://visual.fixture/clean-backdrop"))
+                publish(base.copy(presentationArtwork=hints))
+                waitFor(instrumentation) { settled() && bound()["next-0"]==selected && activity.currentFocus?.tag=="next-0" }
+                main(instrumentation) {
+                    val requests=field("cardArt") as List<*>
+                    fun artwork(key:String)=requests.firstOrNull { request ->
+                        request!!::class.java.getDeclaredField("card").apply { isAccessible=true }.get(request)===views().getValue(key)
+                    }?.let { request -> request::class.java.getDeclaredField("url").apply { isAccessible=true }.get(request) }
+                    check(artwork("next-0")==hints.getValue(selected.id).poster)
+                    check(artwork("feature")==hints.getValue(programs[0].id).backdrop)
+                    check(artwork(tag(selected))==null) { "Presentation metadata leaked into the lower provider shelf" }
+                    check(views()["feature"]===hero && bound()["feature"]==base.feature)
+                    check(selected.art.isBlank() && selected.posterArt.isBlank())
                 }
                 reset()
             }

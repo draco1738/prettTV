@@ -330,10 +330,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
             c.clipPath(balancedArtShape)
         } else c.clipRect(balancedArtBounds)
         art?.takeUnless { it.isRecycled }?.let { image ->
-            // In particular, landscape recommendations remain whole inside a 2:3 poster slot.
-            val contain=mode==Mode.POSTER || image.width.toFloat()/image.height<1.3f
-            val ratio=if(contain)minOf(balancedArtBounds.width()/image.width,balancedArtBounds.height()/image.height)
-                else maxOf(balancedArtBounds.width()/image.width,balancedArtBounds.height()/image.height)
+            val ratio=BalancedHomeLayout.artworkScale(image.width,image.height,balancedArtBounds.width(),balancedArtBounds.height(),mode==Mode.POSTER)
             val dw=image.width*ratio; val dh=image.height*ratio
             val x=balancedArtBounds.left+(balancedArtBounds.width()-dw)*(if(mode==Mode.SPLIT_HERO).64f else .5f)
             val y=balancedArtBounds.top+(balancedArtBounds.height()-dh)*(if(mode==Mode.SPLIT_HERO).46f else .5f)

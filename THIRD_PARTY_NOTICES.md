@@ -28,6 +28,8 @@ Optional general show discovery uses [TVmaze's public API](https://www.tvmaze.co
 
 Blind Pick and Rabbit Hole also use optional TVmaze show genres, cast/director credits, runtimes and original years. prettTV reduces those records to bounded local facts and compares them with other title records; adapted TVmaze data keeps the same CC BY-SA 4.0 terms. Rabbit Hole's **Catalog sources** control links to TVmaze and the matched starting show's source when available.
 
+C Balanced's optional presentation artwork resolver uses TVmaze's show search/lookup and show-image endpoints to select dimension-checked portraits and backgrounds for a bounded visible candidate pool. Matching records retain the returned show source URL separately from provider programs; the existing About/credits link attributes TVmaze. Those selected/adapted metadata records remain CC BY-SA 4.0. Images retain their respective rights holders' rights; no screenshot-specific show IDs or artwork are bundled as presets.
+
 ## Cinemeta / Stremio and Metahub
 
 Optional Trending and New releases use Stremio's public [Cinemeta catalog](https://v3-cinemeta.strem.io/manifest.json), with artwork URLs supplied by the catalog (including Metahub). prettTV reformats those records and links titles to the installed Stremio app. Cinemeta's Popular order supplies Trending; it is not an independently measured trend score. New releases uses supplied release dates within the past 120 days. These requests disclose the device's IP and requested catalog/artwork identifiers to those services. No account tokens or viewing history are sent by prettTV. No Stremio code is bundled; third-party catalog content and artwork retain their respective rights. This project does not use WatchHub's restricted availability API. The purple S badge identifies Stremio destinations.
@@ -43,6 +45,8 @@ The A/B/C PNGs in `docs/screenshots` are unedited screenshots captured directly 
 ## Test and build dependencies
 
 The inherited JVM tests use JUnit 4.13.2 (Eclipse Public License 1.0). The Gradle wrapper is distributed under Apache 2.0. These are development dependencies. The production UI uses Android Views and adds no third-party UI framework.
+
+The JVM regression tests use JSON-java 20240303 (public domain, https://github.com/stleary/JSON-java) through Gradle's `testImplementation` to exercise real JSON parsing where Android's SDK jar contains stubs. The isolated `tests/artwork/run_checks.py` harness also uses a SHA-256-pinned copy outside the repository. This is a test-only dependency and is not shipped in the APK; Android supplies `org.json` in production.
 
 
 ## ESPN sports schedules

@@ -28,7 +28,9 @@ data class HomeContent(val watching: List<Program> = emptyList(), val suggestion
     val snapshotAt:Long=0,val offline:Boolean=false,val newEpisodes:List<EpisodeAlert> = emptyList(),
     val episodeStatus:String="",val availableTeams:List<SportsTeam> = emptyList(),
     val kickoffReminders:List<SportsEvent> = emptyList(),
-    val refreshing:Boolean=false,val refreshFailed:Boolean=false) {
+    val refreshing:Boolean=false,val refreshFailed:Boolean=false,
+    // C-only display hints, never written into Program, playback, launch destinations or saved titles.
+    val presentationArtwork:Map<String,PresentationArtwork> = emptyMap()) {
     val visibleWatching: List<Program> get() = watching.filter { it.titleKey !in hiddenWatchingTitles }
     val feature: Program? get() = watching.filter { it.titleKey !in hiddenHeroTitles }.maxByOrNull { it.engagedAt }
         ?: suggestions.firstOrNull { it.titleKey !in hiddenHeroTitles }

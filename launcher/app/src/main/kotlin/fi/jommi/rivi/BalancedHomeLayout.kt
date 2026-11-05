@@ -21,13 +21,17 @@ internal object BalancedHomeLayout {
     fun stageHeight(fontScale:Float)=maxOf(510,headingHeight(fontScale)+posterHeight(fontScale)+4+browseHeight(fontScale))
     fun continuationHeight(fontScale:Float)=128+ceil(100*(font(fontScale)-1f)).toInt()
 
+    /** One scale for both axes: artwork must never inherit the card's aspect ratio. */
+    fun artworkScale(sourceWidth:Int,sourceHeight:Int,frameWidth:Float,frameHeight:Float,poster:Boolean):Float {
+        // A poster fills its 2:3 frame by cropping, never by independently scaling its axes.
+        val contain=!poster && sourceWidth.toFloat()/sourceHeight<1.3f
+        return if(contain)minOf(frameWidth/sourceWidth,frameHeight/sourceHeight)
+            else maxOf(frameWidth/sourceWidth,frameHeight/sourceHeight)
+    }
+
     /** Re-rank combined shelves before limiting; each source row was independently capped. */
     fun discovery(content:HomeContent,services:Set<String> = RecommendationPolicy.inferredServices(content.watching),
                   recent:List<String> = emptyList(),feedback:RecommendationFeedback = RecommendationFeedback()):List<Program> {
-        val featured=content.feature
-        val eligible=(content.suggestions.asSequence()+content.discover.asSequence()+content.trending.asSequence())
-            .filter { it.title.isNotBlank() && it.id!=featured?.id && it.titleKey!=featured?.titleKey }
-            .toList()
-        return RecommendationPolicy.balanced(eligible,services,recent,lowerPriority=setOf("tv.pluto.android"),feedback=feedback).take(POSTER_COUNT)
+        return BalancedArtworkPolicy.discovery(content,services,recent,feedback)
     }
 }

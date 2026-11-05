@@ -18,7 +18,7 @@ object RecommendationPolicy {
         !it.catalog && it.position>0 && it.duration>0 && it.packageName !in freeServices && it.packageName!=STREMIO
     }.map { it.packageName }.toSet()
 
-    private fun tier(p:Program,services:Set<String>,lowerPriority:Set<String>):Int = when {
+    internal fun tier(p:Program,services:Set<String>,lowerPriority:Set<String>):Int = when {
         p.packageName==STREMIO -> 5
         p.packageName in lowerPriority -> 4
         p.catalog -> 3
