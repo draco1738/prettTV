@@ -26,6 +26,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
     /** Previewable alternative: one compositor scale, without repainting moving artwork. */
     var quietMotion=context.getSharedPreferences("pretttv",Context.MODE_PRIVATE).getBoolean("quietMotion",false)
     val isLibraryCard get()=mode==Mode.LIBRARY
+    val isContinuationCard get()=mode==Mode.CONTINUATION
     var title=""
     var detail=""
     var sourceLabel=""

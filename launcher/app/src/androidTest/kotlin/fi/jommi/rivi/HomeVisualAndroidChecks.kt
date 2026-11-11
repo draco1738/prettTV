@@ -231,7 +231,11 @@ internal object HomeVisualAndroidChecks {
                         check(root()===previousRoot) { "Playback update rebuilt the whole Home" }
                         check(rowTags(key).first()==selectedKey)
                         val card=views().getValue(selectedKey) as PrettTvCard
-                        check(card.detail==updated.detail && card.progress==updated.progress)
+                        val presentation=ProgramPresentation.from(updated)
+                        if(card.isContinuationCard) {
+                            check(card.detail==presentation.source && card.secondaryDetail==presentation.compactSelectedDetail) { "Compact playback metadata did not refresh" }
+                        } else check(card.detail==updated.detail) { "Legacy playback metadata did not refresh" }
+                        check(card.progress==updated.progress)
                         @Suppress("UNCHECKED_CAST") val deferred=field("deferredRows") as Set<String>
                         check(key !in deferred) { "Continue watching chronology was deferred until focus left" }
                     }
@@ -450,7 +454,45 @@ internal object HomeVisualAndroidChecks {
                     check(views().getValue("nav-bluetooth").contentDescription.contains("unavailable")) { "Header did not receive the refreshed unavailable state" }
                 }
             }
-            test("Native A B C visual captures retain usable navigation and actions at normal and enlarged text") {
+            test("Continue watching binding shows episode and remaining fields once without changing provider data") {
+                main(instrumentation) {
+                    val supplied=programs.first().copy(detail="Fixture provider · S1 E2 · S1 E2 · 9 min left",summary="Original full synopsis")
+                    val compact=PrettTvCard(activity,field("scale") as Float,PrettTvCard.Mode.CONTINUATION).apply { tag="metadata-compact-check" }
+                    val legacy=PrettTvCard(activity,field("scale") as Float,PrettTvCard.Mode.SHOW).apply { tag="metadata-legacy-check" }
+                    call("bindProgram",compact,supplied,586,128)
+                    call("bindProgram",legacy,supplied,420,218)
+                    check(compact.detail=="Fixture provider" && compact.secondaryDetail=="S1 E2 · 9 min left")
+                    check(compact.summary==supplied.summary && legacy.detail==supplied.detail)
+                    check(compact.contentDescription.toString().split("S1 E2").size==2)
+                    check(bound()["metadata-compact-check"]==supplied)
+                }
+            }
+            test("Home interface size is reversible and preserves the selected title and saved preferences") {
+                reset()
+                main(instrumentation) { call("onNewIntent",Intent().putExtra("layout",HomeLayout.BALANCED.name)) }
+                waitFor(instrumentation) { settled() }
+                focus("next-1")
+                val baseline=main(instrumentation) { views().getValue("feature").width }
+                val before=stores.getValue("home").all.toMap()
+                val selected=main(instrumentation) { bound()["next-1"]?.id }
+                val systemFont=activity.resources.configuration.fontScale
+                main(instrumentation) { call("applyInterfaceSize",HomeInterfaceSize.LARGER) }
+                waitFor(instrumentation) { settled() && activity.currentFocus?.tag=="next-1" }
+                main(instrumentation) {
+                    check(abs(views().getValue("feature").width-baseline*1.04f)<=1f)
+                    check(bound()["next-1"]?.id==selected)
+                    check(activity.resources.configuration.fontScale==systemFont)
+                    check(stores.getValue("home").all.filterKeys { it!="interfaceSize" }==before.filterKeys { it!="interfaceSize" })
+                }
+                val exported=LocalSettingsTransfer.export(stores)
+                check(stores.getValue("home").edit().putString("interfaceSize",HomeInterfaceSize.STANDARD.name).commit())
+                LocalSettingsTransfer.restore(exported,stores)
+                check(stores.getValue("home").getString("interfaceSize",null)==HomeInterfaceSize.LARGER.name)
+                main(instrumentation) { call("applyInterfaceSize",HomeInterfaceSize.STANDARD) }
+                waitFor(instrumentation) { settled() && activity.currentFocus?.tag=="next-1" }
+                main(instrumentation) { check(views().getValue("feature").width==baseline) }
+            }
+            test("Native A B C visual captures retain usable navigation at both interface and text sizes") {
                 val originalConfiguration=main(instrumentation) { Configuration(activity.resources.configuration) }
                 val originalMetrics=main(instrumentation) { DisplayMetrics().apply { setTo(activity.resources.displayMetrics) } }
                 val output=File(checkNotNull(context.getExternalFilesDir(null)),"visual-review").apply { check(isDirectory || mkdirs()) }
@@ -468,8 +510,9 @@ internal object HomeVisualAndroidChecks {
                 val navKeys=listOf("nav-home","nav-shows","nav-apps","nav-inputs","nav-search","nav-settings","nav-bluetooth")
                 var normalTextSize=0f
                 try {
-                    for(fontScale in listOf(1f,1.3f))for(layout in HomeLayout.entries) {
+                    for(size in HomeInterfaceSize.entries)for(fontScale in listOf(1f,1.3f))for(layout in HomeLayout.entries) {
                         main(instrumentation) {
+                            check(stores.getValue("home").edit().putString("interfaceSize",size.name).commit())
                             val configuration=Configuration(originalConfiguration).apply { this.fontScale=fontScale }
                             // Only this isolated test process's Resources change; no system setting is written.
                             @Suppress("DEPRECATION")
@@ -484,6 +527,9 @@ internal object HomeVisualAndroidChecks {
                             val background=bar.background as? ColorDrawable ?: error("Header has no solid background")
                             check(Color.alpha(background.color)==255 && bar.alpha==1f) { "Header must remain opaque over scrolling content" }
                             val label=views().getValue("nav-home") as TextView
+                            val bluetooth=views().getValue("nav-bluetooth") as TextView
+                            val expectedIcon=(36*(field("scale") as Float)+.5f).toInt()
+                            check(bluetooth.compoundDrawables[0]?.intrinsicWidth==expectedIcon) { "Bluetooth icon ignored Home interface size" }
                             if(fontScale==1f)normalTextSize=label.textSize
                             else check(abs(label.textSize-normalTextSize*fontScale)<.5f) { "Navigation ignored enlarged system text" }
                             (field("firstCard") as View).also { root().scrollTo(0,0); check(it.requestFocusFromTouch()) }
@@ -511,6 +557,8 @@ internal object HomeVisualAndroidChecks {
                                 check(abs(hero.height/unit-BalancedHomeLayout.stageHeight(fontScale))<2)
                                 check(abs(poster.width/unit-BalancedHomeLayout.POSTER_WIDTH)<2)
                                 check(bounds(hero).right<bounds(poster).left && bounds(last).right<=root().width)
+                                check(bounds(hero).left>=0 && bounds(last).right<=activity.resources.displayMetrics.widthPixels)
+                                check(abs(unit-activity.resources.displayMetrics.widthPixels/1920f*size.factor)<.001f)
                                 check(bounds(poster).bottom<=bounds(browse).top) { "Enlarged poster title overlaps Browse shows" }
                                 check(visible(hero) && visible(last) && visible(browse)) { "Approved C first-stage content is clipped" }
                                 check((0..2).all { bound()["next-$it"]?.id!=bound()["feature"]?.id })
@@ -526,7 +574,7 @@ internal object HomeVisualAndroidChecks {
                         focus("nav-home")
                         instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
                         waitFor(instrumentation) { settled() && activity.currentFocus===first && visible(first) }
-                        val suffix=if(fontScale==1f)"100" else "130"
+                        val suffix=(if(fontScale==1f)"100" else "130")+"-size-${size.name.lowercase()}"
                         capture("home-${layout.name.lowercase()}-font-$suffix")
                         if(layout==HomeLayout.BALANCED) {
                             val key="favorite-${syntheticApps.last().key}"
@@ -547,6 +595,7 @@ internal object HomeVisualAndroidChecks {
                         (field("appActionPanel") as? Dialog)?.dismiss()
                         @Suppress("DEPRECATION")
                         activity.resources.updateConfiguration(originalConfiguration,originalMetrics)
+                        stores.getValue("home").edit().putString("interfaceSize",HomeInterfaceSize.STANDARD.name).apply()
                     }
                 }
             }
