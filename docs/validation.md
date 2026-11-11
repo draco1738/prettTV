@@ -2,6 +2,16 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
+## prettTV 0.6.2 refinement candidate — 2026-11-11
+
+**Source/build candidate, not installed or released.** Adds reversible Standard (100%) / Larger (104%) Home sizing while preserving the approved C composition, and fixes repeated compact Continue watching metadata without overwriting original provider descriptions. Older surface guidance is archived and the current brief points to v0.6.1 as the approved baseline.
+
+The clean, non-incremental local build passed **474 JVM tests across 39 suites**, with **zero Android lint errors and 28 existing warnings**. Release, isolated stability, instrumentation and disposable fixture APKs compiled successfully. The signed release candidate identifies as `dev.zane.pretttv`, version **0.6.2 / code 31**, with the established signing certificate. Compilation of instrumentation is not a native test pass.
+
+Two new host-JVM tests use a real loopback HTTP server that drips headers or body data. Both returned while the server was still sending. The final local run recorded 503 ms / 10 writes for headers and 459 ms / 10 writes for body. Temporarily disabling the deadline disconnect made the header regression fail after the full drip; the production watchdog was restored unchanged before the clean passing build. This establishes host-JVM transport coverage, not Android transport behavior or a strict elapsed-time SLA. An initial arbitrary 1,600 ms end-to-end assertion failed under full-build load; it was replaced with the causal server-not-finished assertion and the watchdog mutation check, not a larger timing claim. The existing fake-connection check also failed its end-to-end 1,000 ms assertion on a subsequent clean build; it now records and bounds the blocked header wait itself and independently asserts that the watchdog interrupted it, excluding later cache writes and cleanup from that transport assertion.
+
+The native suite now includes metadata binding, reversible size selection/preferences, and A/B/C captures at both interface sizes and normal/enlarged text. **These added native checks have not run:** the recorded TCL ADB endpoint did not accept a connection. No TV setting, production APK, default Home, volume, accessibility helper, app inventory or account was changed. No new screenshot, installed-APK match or release-download verification is claimed. Android slow-server testing and a fully simulated repository cold-cache startup remain outstanding; existing source ordering/fake-connection checks do not substitute for them. Release promotion remains gated on device availability and native/installation verification.
+
 ## prettTV 0.6.1 portrait correction — 2026-11-05
 
 The owner's phone photo exposed the mismatch: landscape banners were contained inside tall Discover frames. The correction keeps the three cards to the right of the large feature, uses one proportional full-frame scale, and adds C-only exact-match portrait metadata. [Actual installed Home](screenshots/C-balanced-0.6.1.png) · [Third poster focused](screenshots/C-discovery-focused-0.6.1.png) · [Browse shows](screenshots/C-browse-shows-0.6.1.png) · [Full appearance and controls](balanced-home.md).

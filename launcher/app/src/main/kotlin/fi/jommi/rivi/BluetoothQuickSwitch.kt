@@ -4,9 +4,10 @@ import android.widget.TextView
 import android.os.Build
 
 /** A foreground action, independent of accessibility and remote-key filtering. */
-internal class BluetoothQuickSwitch(private val button:TextView,private val toggle:()->Boolean,manage:()->Unit) {
+internal class BluetoothQuickSwitch(private val button:TextView,private val toggle:()->Boolean,manage:()->Unit,
+                                   unit:Float=button.resources.displayMetrics.widthPixels/1920f) {
     private var state=BluetoothControlSession.State()
-    private val icon=BluetoothStatusDrawable((36*button.resources.displayMetrics.widthPixels/1920f+.5f).toInt().coerceAtLeast(1))
+    private val icon=BluetoothStatusDrawable((36*unit+.5f).toInt().coerceAtLeast(1))
     init {
         button.text=""
         icon.setBounds(0,0,icon.intrinsicWidth,icon.intrinsicHeight)

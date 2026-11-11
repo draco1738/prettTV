@@ -118,6 +118,7 @@ class MainActivity : Activity() {
     private val wide get() = layout==HomeLayout.BALANCED
     private val inner get() = if(wide)BalancedHomeLayout.WIDTH else 1808
     private val balancedFont get() = resources.configuration.fontScale
+    private val interfaceSize get() = HomeInterfaceSize.parse(settings.getString("interfaceSize",null))
     private val discovery get() = settings.getBoolean("discovery",true)
     private val sportsPackages get() = settings.getStringSet("sportsPackages",setOf("com.rblive.app")).orEmpty().toSet()
 
@@ -232,7 +233,7 @@ class MainActivity : Activity() {
         }
     }
     override fun onDestroy() { searchPanel?.dismiss();searchPanel=null; generation++; ui.removeCallbacksAndMessages(null); unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); weatherRepo.close(); artwork.close(); super.onDestroy() }
-    override fun onConfigurationChanged(newConfig:Configuration) { super.onConfigurationChanged(newConfig); scale=resources.displayMetrics.widthPixels/1920f; render() }
+    override fun onConfigurationChanged(newConfig:Configuration) { super.onConfigurationChanged(newConfig); render() }
     override fun onNewIntent(i:Intent?) {
         super.onNewIntent(i)
         searchPanel?.dismiss();searchPanel=null
@@ -397,12 +398,20 @@ class MainActivity : Activity() {
         stopRowMotion()
         deferredRows.clear()
         if(reset) { homeRequested=true; navigationSelection="nav-home" }
-        val saved=if(homeRequested)Viewport() else restore ?: pendingViewport ?: viewport()
+        val oldScale=scale
+        val current=if(homeRequested)Viewport() else restore ?: pendingViewport ?: viewport()
+        scale=resources.displayMetrics.widthPixels/1920f*interfaceSize.factor
+        val ratio=if(oldScale>0f)scale/oldScale else 1f
+        val saved=if(ratio==1f)current else current.copy(y=(current.y*ratio).toInt(),rows=current.rows.mapValues { (_,x)->(x*ratio).toInt() })
         pendingViewport=saved
         val revision=++viewportRevision
         artwork.cancel(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); cardArt.clear(); focusables.clear(); horizontalRows.clear(); windowedRows.clear(); windowedPrograms.clear(); focusRows.clear(); appCards.clear(); rowSections.clear(); rowValues.clear(); boundPrograms.clear(); firstCard=null; appAnchor=null; libraryAnchor=null; showAnchor=null
         root=ScrollView(this).apply { isFillViewport=true; isVerticalScrollBarEnabled=false; overScrollMode=View.OVER_SCROLL_NEVER; clipChildren=false; clipToPadding=false }
-        page=column().apply { val inset=if(wide)BalancedHomeLayout.INSET else 56; setPadding(px(inset),0,px(inset),px(40)) }
+        page=column().apply {
+            val width=resources.displayMetrics.widthPixels
+            val inset=HomeInterfaceSize.inset(width,px(inner))
+            setPadding(inset,0,width-px(inner)-inset,px(40))
+        }
         val stage=FrameLayout(this).apply { setBackgroundColor(bgColor); clipChildren=false; clipToPadding=false }
         root.addView(page,ViewGroup.LayoutParams(-1,-2)); stage.addView(root,FrameLayout.LayoutParams(-1,-1).apply { topMargin=px(104) })
         buildHeader(stage)
@@ -449,7 +458,12 @@ class MainActivity : Activity() {
         })
     }
     private fun buildHeader(stage:FrameLayout) {
-        val header=row().apply { gravity=Gravity.CENTER_VERTICAL; isBaselineAligned=false; setPadding(px(56),px(16),px(56),px(16)); setBackgroundColor(PrettTvColors.BACKGROUND) }
+        val header=row().apply {
+            gravity=Gravity.CENTER_VERTICAL; isBaselineAligned=false
+            val width=resources.displayMetrics.widthPixels
+            val inset=HomeInterfaceSize.inset(width,px(1808))
+            setPadding(inset,px(16),width-px(1808)-inset,px(16)); setBackgroundColor(PrettTvColors.BACKGROUND)
+        }
         val navigation=row()
         val entries=listOf(Triple("Home","nav-home",{ resetHomePosition() }),
             Triple("Shows","nav-shows",{ focusTarget(showAnchor?.tag as? String)?.requestFocusFromTouch(); Unit }),
@@ -474,7 +488,7 @@ class MainActivity : Activity() {
                     minWidth=px(72)
                     bluetoothQuickSwitch=BluetoothQuickSwitch(this,{
                         BluetoothControlSession.toggle(this@MainActivity)
-                    },{ safeStart(Intent(this@MainActivity,BluetoothControlActivity::class.java),"Audio devices") })
+                    },{ safeStart(Intent(this@MainActivity,BluetoothControlActivity::class.java),"Audio devices") },scale)
                         .also { it.bind(BluetoothControlSession.state) }
                 }
             }
@@ -891,14 +905,23 @@ class MainActivity : Activity() {
         boundPrograms[card.tag as String]=p
         val presentation=p?.let(ProgramPresentation::from)
         card.title=p?.title ?: if(discovery)"Find your next favorite" else "Make yourself at home"
-        card.detail=if(card.tag=="feature" && presentation!=null)presentation.metadata else p?.detail ?: if(discovery)"Browse your streaming apps" else "Your apps, one quiet place"
+        card.detail=when {
+            card.isContinuationCard && presentation!=null -> presentation.source
+            card.tag=="feature" && presentation!=null -> presentation.metadata
+            else -> p?.detail ?: if(discovery)"Browse your streaming apps" else "Your apps, one quiet place"
+        }
         card.sourceLabel=presentation?.source.orEmpty()
-        card.secondaryDetail=if(card.tag=="feature")presentation?.remaining.orEmpty() else presentation?.selectedDetail.orEmpty()
+        card.secondaryDetail=when {
+            card.isContinuationCard -> presentation?.compactSelectedDetail.orEmpty()
+            card.tag=="feature" -> presentation?.remaining.orEmpty()
+            else -> presentation?.selectedDetail.orEmpty()
+        }
         card.summary=p?.summary.orEmpty()
         card.action=if(p==null)"Browse apps" else if(presentation?.canResume==true)"Resume" else "Open ${p.app}"
         card.progress=if(p!=null && !p.catalog && p.position>0 && p.duration>p.position)p.progress else 0f
         card.stremio=p?.packageName=="com.stremio.one"
-        card.contentDescription=listOf(card.title,p?.detail ?: card.detail,card.action,card.sourceLabel).filter(String::isNotBlank).distinct().joinToString(". ")
+        card.contentDescription=(if(card.isContinuationCard)listOf(card.title,card.sourceLabel,card.secondaryDetail,card.action)
+            else listOf(card.title,p?.detail ?: card.detail,card.action,card.sourceLabel)).filter(String::isNotBlank).distinct().joinToString(". ")
         card.setOnClickListener { if(p==null)appAnchor?.requestFocus() else openProgram(p) }
         card.setOnLongClickListener { if(p!=null)programInfo(p) else menu(); true }
         if(artUrl.isNotBlank() && cardArt.none { it.card===card })cardArt.add(CardArt(card,artUrl,px(w),px(h)))
@@ -1200,6 +1223,14 @@ class MainActivity : Activity() {
         val panel=AlertDialog.Builder(this).setTitle(title).setItems(items.map { it.first }.toTypedArray()) { _,i -> action=items[i].second }.setNegativeButton("Close",null).create()
         panel.setOnDismissListener { if(!isFinishing && !isDestroyed)action?.invoke() }; panel.show()
     }
+    private fun chooseInterfaceSize() {
+        dialog("Home interface size",HomeInterfaceSize.entries.map { choice -> choice.label to { applyInterfaceSize(choice) } })
+    }
+    private fun applyInterfaceSize(choice:HomeInterfaceSize) {
+        if(choice==interfaceSize)return
+        settings.edit().putString("interfaceSize",choice.name).apply()
+        render()
+    }
     private fun appMenu(e:AppEntry,origin:String) {
         if(appActionPanel?.isShowing==true)return
         val anchor=focusables[origin] ?: return
@@ -1274,6 +1305,7 @@ class MainActivity : Activity() {
         items+="Layout: ${layout.label}" to {
             dialog("Choose your home",HomeLayout.entries.map { choice -> choice.label to { layout=choice; settings.edit().putString("layout",choice.name).apply(); settings.edit().remove("focus").apply(); render(); root.smoothScrollTo(0,0); firstCard?.requestFocus(); if(visible)startContent() } })
         }
+        items+="Home interface size: ${interfaceSize.label}" to { chooseInterfaceSize() }
         items+="Focus motion: ${if(settings.getBoolean("quietMotion",false))"Quiet" else "Classic"}" to {
             dialog("Focus motion",listOf("Quiet · smaller lift, still artwork" to {
                 settings.edit().putBoolean("quietMotion",true).apply();render()
@@ -1643,6 +1675,7 @@ class MainActivity : Activity() {
         out.println("prettTV appRefreshError=$appLoadError pending=$dirty")
         out.println("prettTV watchlist=${personal.watchlist().size} episodes=${content.newEpisodes.size} followed=${personal.followedShows().size} offline=${content.offline} rows=${rowSections.keys.joinToString(",")}")
         if(args?.contains("--viewport-diagnostics")==true) {
+            out.println("INTERFACE size=${interfaceSize.name} factor=${interfaceSize.factor} unit=$scale")
             out.println("VIEWPORT y=${root.scrollY} rows="+horizontalRows.mapValues { it.value.scrollX })
             out.println("VIEWPORT_CONTENT signature=${listOf(rowValues,apps.map { it.key },content.feature).hashCode()}")
         }

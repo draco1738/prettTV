@@ -209,6 +209,8 @@ class PresentationArtworkChecks {
     @Test fun totalDeadlineDisconnectsAResponseBlockedBeforeHeadersComplete() {
         val disconnected=java.util.concurrent.CountDownLatch(1)
         val entered=java.util.concurrent.atomic.AtomicBoolean(false)
+        val interrupted=java.util.concurrent.atomic.AtomicBoolean(false)
+        val headerNanos=java.util.concurrent.atomic.AtomicLong(Long.MAX_VALUE)
         val r=PresentationArtworkResolver(file(),paceMillis=0,batchMillis=100,openConnection={ url->
             object:java.net.HttpURLConnection(url) {
                 override fun connect()=Unit
@@ -216,15 +218,18 @@ class PresentationArtworkChecks {
                 override fun disconnect() { disconnected.countDown() }
                 override fun getResponseCode():Int {
                     entered.set(true)
-                    check(disconnected.await(2,java.util.concurrent.TimeUnit.SECONDS)) { "No deadline interrupted the blocked header read" }
+                    val started=System.nanoTime()
+                    interrupted.set(disconnected.await(2,java.util.concurrent.TimeUnit.SECONDS))
+                    headerNanos.set(System.nanoTime()-started)
                     throw IOException("Disconnected by total deadline")
                 }
             }
         })
-        val started=System.nanoTime()
         assertTrue(r.enrich(listOf(p()),null,now,true,{true}).isEmpty())
         assertTrue(entered.get())
-        assertTrue("Blocked response exceeded the test deadline allowance",System.nanoTime()-started<1_000_000_000L)
+        assertTrue("No deadline interrupted the blocked header read",interrupted.get())
+        // Measure the transport wait, not the later cache fsync/platform cleanup.
+        assertTrue("Blocked header exceeded the test deadline allowance",headerNanos.get()<1_000_000_000L)
     }
     @Test fun cacheEvictsOldestAndRejectsFutureOrOversizedFiles() {
         val f=file()
