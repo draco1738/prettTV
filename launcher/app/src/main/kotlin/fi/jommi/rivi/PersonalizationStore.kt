@@ -5,7 +5,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Private, versioned state. Instances share one lock and always re-read current preferences. */
-class PersonalizationStore(context: Context) {
+class PersonalizationStore internal constructor(private val prefs:android.content.SharedPreferences,
+    private val playback:android.content.SharedPreferences) {
+    constructor(context:Context):this(context.getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE),
+        context.getSharedPreferences("prett-playback",Context.MODE_PRIVATE))
     companion object {
         const val PREFS_NAME = "prett-personalization"
         private const val STATE_KEY = "state"
@@ -62,9 +65,10 @@ class PersonalizationStore(context: Context) {
             objectValue(state,"consumed")?.let { consumed -> consumed.keys().forEach { number(consumed,it) } }
         }
     }
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val playback = context.getSharedPreferences("prett-playback", Context.MODE_PRIVATE)
-    private val history = UndoHistory()
+
+    var onUndoChanged:(()->Unit)?=null
+    private val history = UndoHistory(onChanged={ onUndoChanged?.invoke() })
+    private var historyGeneration=SettingsBackupGuard.generation
     private var cachedRaw: String? = null
     private var cachedState: State? = null
     var lastError: String? = null
@@ -86,17 +90,25 @@ class PersonalizationStore(context: Context) {
     fun rowPreferences() = read().rows
     fun recommendationFeedback() = PersonalizationPolicy.feedback(read().dismissed)
     /** Migration only: supply raw feed rows before recommendation exclusions are applied. */
-    fun rememberDismissedTitles(programs: List<Program>) {
+    fun rememberDismissedTitles(programs: List<Program>,settingsGeneration:Long=SettingsBackupGuard.generation) {
         if (programs.isEmpty() || read().dismissed.all { it.titleKey.isNotBlank() }) return
-        update { state -> state.copy(dismissed = PersonalizationPolicy.rememberDismissedTitles(state.dismissed, programs)) }
+        update(settingsGeneration) { state -> state.copy(dismissed = PersonalizationPolicy.rememberDismissedTitles(state.dismissed, programs)) }
     }
     fun favoriteTeams() = read().teams
     fun kickoffRemindersEnabled() = read().reminders
-    fun canUndo() = history.canUndo()
-    fun undoLabel() = history.label()
-    fun undo(): String? = try { history.undo() } catch (_: IllegalStateException) { null }
-    fun clearUndoHistory() = history.clear()
-    fun recordUndo(label: String, action: () -> Unit) = history.add(label, action)
+    private fun refreshUndoGeneration() {
+        if(historyGeneration!=SettingsBackupGuard.generation)clearUndoHistory()
+    }
+    fun canUndo():Boolean { refreshUndoGeneration();return history.canUndo() }
+    fun undoLabel():String? { refreshUndoGeneration();return history.label() }
+    fun undo():String? = SettingsBackupGuard.writeResult<String?>(null) {
+        refreshUndoGeneration()
+        try { history.undo() } catch (_: IllegalStateException) { null }
+    }
+    fun clearUndoHistory() { historyGeneration=SettingsBackupGuard.generation;history.clear() }
+    fun recordUndo(label:String,settingsGeneration:Long=SettingsBackupGuard.generation,action:()->Unit) {
+        SettingsBackupGuard.tryWrite(settingsGeneration) { refreshUndoGeneration();history.add(label,action) }
+    }
 
     fun save(program: Program, now: Long = System.currentTimeMillis()): Boolean {
         lastError = null
@@ -106,11 +118,11 @@ class PersonalizationStore(context: Context) {
             return false
         }
         val key = ContentIdentity.key(program)
-        update { state ->
+        val change=update { state ->
             if (state.saved.any { it.key == key }) state
             else state.copy(saved = state.saved + SavedTitle(key, program, now.coerceAtLeast(0)))
         } ?: return false
-        history.add("Add to Watchlist") { update { it.copy(saved = it.saved.filterNot { item -> item.key == key }) } }
+        recordUndo("Add to Watchlist",change.generation) { update { it.copy(saved = it.saved.filterNot { item -> item.key == key }) } }
         return true
     }
 
@@ -118,12 +130,13 @@ class PersonalizationStore(context: Context) {
         val key = ContentIdentity.key(program)
         val change = update { it.copy(saved = it.saved.filterNot { item -> item.key == key }) } ?: return false
         val removed = change.first.saved.filter { it.key == key }
-        history.add("Remove from Watchlist") { restoreSaved(removed) }
+        recordUndo("Remove from Watchlist",change.generation) { restoreSaved(removed) }
         return true
     }
 
     /** Only our confirmed played: records count; provider timestamps are never evidence. */
-    fun consumePlaybackHistory(rows: List<Program>): Int {
+    fun consumePlaybackHistory(rows: List<Program>,settingsGeneration:Long=SettingsBackupGuard.generation):Int =
+        SettingsBackupGuard.writeResult(0,settingsGeneration) {
         val saved = read().saved
         val candidates = (rows + saved.map { it.program }).distinctBy { it.packageName + "|" + it.titleKey }
         val evidence = candidates.mapNotNull { program ->
@@ -134,7 +147,7 @@ class PersonalizationStore(context: Context) {
                 catch (_: ClassCastException) { 0 }
             if (stamp > 0) program to stamp else null
         }
-        return consume(evidence)
+        consume(evidence)
     }
 
     fun consumeConfirmedPlayback(program: Program, eventAt: Long): Int = consume(listOf(program to eventAt))
@@ -152,7 +165,7 @@ class PersonalizationStore(context: Context) {
         } ?: return 0
         val remaining = change.second.saved.map { it.key }.toSet()
         val removed = change.first.saved.filter { it.key !in remaining }
-        history.add("Watched title removed from Watchlist") { restoreSaved(removed) }
+        recordUndo("Watched title removed from Watchlist",change.generation) { restoreSaved(removed) }
         return removed.size
     }
 
@@ -166,7 +179,7 @@ class PersonalizationStore(context: Context) {
         lastError = null
         if (!valid(program) || program.mediaType != "series") { lastError = "Only identified shows can be followed."; return false }
         val key = ContentIdentity.key(program)
-        update { state ->
+        val change=update { state ->
             if (state.followed.any { it.key == key }) state
             else if (state.followed.size >= MAX_FOLLOWED_SHOWS) {
                 lastError = "You can follow up to 100 shows. Unfollow a show before adding another."
@@ -174,7 +187,7 @@ class PersonalizationStore(context: Context) {
             }
             else state.copy(followed = state.followed + FollowedShow(key, program, now.coerceAtLeast(0)))
         } ?: return false
-        history.add("Follow show") { update { it.copy(followed = it.followed.filterNot { item -> item.key == key }) } }
+        recordUndo("Follow show",change.generation) { update { it.copy(followed = it.followed.filterNot { item -> item.key == key }) } }
         return true
     }
 
@@ -182,43 +195,43 @@ class PersonalizationStore(context: Context) {
     fun unfollow(key: String): Boolean {
         val change = update { it.copy(followed = it.followed.filterNot { item -> item.key == key }) } ?: return false
         val removed = change.first.followed.filter { it.key == key }
-        history.add("Unfollow show") { update { it.copy(followed = (it.followed + removed).distinctBy { item -> item.key }) } }
+        recordUndo("Unfollow show",change.generation) { update { it.copy(followed = (it.followed + removed).distinctBy { item -> item.key }) } }
         return true
     }
 
     fun dismissRecommendation(program: Program) {
         val key = ContentIdentity.key(program)
-        update { state ->
+        val change=update { state ->
             if (state.dismissed.any { it.key == key }) state
             else state.copy(dismissed = state.dismissed + DismissedRecommendation(key, PersonalizationPolicy.genres(program), program.titleKey))
         } ?: return
-        history.add("Not interested") { update { it.copy(dismissed = it.dismissed.filterNot { item -> item.key == key }) } }
+        recordUndo("Not interested",change.generation) { update { it.copy(dismissed = it.dismissed.filterNot { item -> item.key == key }) } }
     }
 
     fun resetRecommendationFeedback() {
         val change = update { it.copy(dismissed = emptyList()) } ?: return
-        history.add("Reset recommendation feedback") { update { it.copy(dismissed = change.first.dismissed) } }
+        recordUndo("Reset recommendation feedback",change.generation) { update { it.copy(dismissed = change.first.dismissed) } }
     }
 
     fun setRowPreferences(value: RowPreferences) {
         val change = update { it.copy(rows = value.normalized()) } ?: return
-        history.add("Change rows") { update { it.copy(rows = change.first.rows) } }
+        recordUndo("Change rows",change.generation) { update { it.copy(rows = change.first.rows) } }
     }
 
     fun setFavoriteTeams(value: Set<String>) {
         val clean = value.filter { it.isNotBlank() && it.length <= 160 }.toSet()
         val change = update { it.copy(teams = clean) } ?: return
-        history.add("Change favorite teams") { update { it.copy(teams = change.first.teams) } }
+        recordUndo("Change favorite teams",change.generation) { update { it.copy(teams = change.first.teams) } }
     }
 
     fun setKickoffRemindersEnabled(value: Boolean) {
         val change = update { it.copy(reminders = value) } ?: return
-        history.add("Change kickoff reminders") { update { it.copy(reminders = change.first.reminders) } }
+        recordUndo("Change kickoff reminders",change.generation) { update { it.copy(reminders = change.first.reminders) } }
     }
 
     /** Export contains preferences, never recovery keys or streaming authentication. */
     fun exportJson(): String = synchronized(stateLock) { encode(readLocked()).toString() }
-    fun importJson(raw: String): Boolean = synchronized(stateLock) {
+    fun importJson(raw: String): Boolean = SettingsBackupGuard.writeResult(false) { synchronized(stateLock) {
         lastError = null
         if (!withinLimit(raw)) { lastError = "Settings file exceeds the 8 MB limit."; return@synchronized false }
         val parsed = try { validateStateImport(raw); decode(JSONObject(raw)) } catch (_: Exception) { null } ?: return@synchronized false
@@ -227,7 +240,7 @@ class PersonalizationStore(context: Context) {
         write(encoded, parsed)
         history.clear()
         true
-    }
+    } }
 
     private fun valid(program: Program) = program.title.isNotBlank() && program.packageName.isNotBlank()
     private fun programTextLength(p: Program) = listOf(p.id,p.title,p.detail,p.art,p.packageName,p.app,p.intentUri,
@@ -238,7 +251,9 @@ class PersonalizationStore(context: Context) {
         if (raw == cachedRaw && cachedState != null) cachedState!!
         else (decode(JSONObject(raw)) ?: State()).also { cachedRaw = raw; cachedState = it }
     } catch (_: Exception) { State() }
-    private fun update(change: (State) -> State): Pair<State, State>? = synchronized(stateLock) {
+    private data class Change(val first:State,val second:State,val generation:Long)
+    private fun update(settingsGeneration:Long=SettingsBackupGuard.generation,change:(State)->State):Change? =
+        SettingsBackupGuard.writeResult<Change?>(null,settingsGeneration) { synchronized(stateLock) {
         // A future version must not be silently overwritten by an older installed build.
         val raw = try { JSONObject(prefs.getString(STATE_KEY, "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
         lastError = null
@@ -255,8 +270,8 @@ class PersonalizationStore(context: Context) {
             return@synchronized null
         }
         write(encoded, next)
-        previous to next
-    }
+        Change(previous,next,settingsGeneration)
+    } }
     private fun withinLimit(raw: String) = raw.length <= MAX_IMPORT_BYTES && raw.toByteArray(Charsets.UTF_8).size <= MAX_IMPORT_BYTES
     private fun write(raw: String, state: State) {
         prefs.edit().putString(STATE_KEY, raw).apply()

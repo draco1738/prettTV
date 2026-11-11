@@ -6,11 +6,13 @@
 
 [![Release](https://img.shields.io/github/v/release/draco1738/prettTV?style=flat&color=adc1b6)](https://github.com/draco1738/prettTV/releases/latest) [![Build](https://github.com/draco1738/prettTV/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/draco1738/prettTV/actions/workflows/build.yml) [![License: MIT](https://img.shields.io/badge/code-MIT-adc1b6)](LICENSE)
 
-![prettTV 0.6.1 in C Balanced: a clean resume backdrop, three full-height portrait posters, one app row and compact Continue watching cards.](docs/screenshots/C-balanced-0.6.1.png)
+![prettTV 0.6.3 in C Balanced: enlarged Discover portraits beside the resume feature, one app row and compact Continue watching cards.](docs/screenshots/C-balanced-0.6.3.png)
 
-*C · Balanced 0.6.1 on the TCL TV, using real viewing data. Nocturne, Frieren and Slow Horses use verified 2:3 portrait images; the feature uses a matching clean background. A/B and Audio devices below retain their 0.5.1 captures; other images retain their stated historical versions. All are unedited device screenshots.*
+*C · Balanced 0.6.3 installed on the TCL TV, using actual available feeds. Three larger portraits sit beside the resume feature without changing the black theme or app row. A/B and Audio devices below retain their 0.5.1 captures; other images retain their stated historical versions. All are unedited device screenshots.*
 
 ## Make Home yours
+
+**New in 0.6.3:** larger Discover picture areas (240×360), consistent Standard/Larger sizing across prettTV, direct session Undo, truthful recommendation explanations and Not interested controls, and explicit on-TV settings backup/restore. Startup reliability now has full-repository and real Android slow-transport coverage. **529 JVM tests and 184 isolated Android checks passed**; detailed evidence and limits are in [Validation](docs/validation.md). [Controls and backup →](docs/usage.md#interface-size-undo-and-recommendations)
 
 **New in 0.6.1:** the three Discover cards beside the large feature now fill their frames proportionally. C can fetch genuine portrait artwork for exact series matches, instead of displaying landscape banners with empty bands. Artwork stays separate from progress and launch destinations, preferred-service tiers remain intact, and A/B are unchanged. [Appearance, controls, verified screenshots and limits →](docs/balanced-home.md)
 

@@ -23,6 +23,7 @@ class PlaybackTracker:NotificationListenerService() {
     private val firstPlaying=HashMap<String,Long>()
     private data class EventKey(val session:MediaSession.Token,val title:String,val mediaId:String)
     private val confirmedEvents=ConfirmedPlaybackEvents<EventKey>()
+    private var settingsGeneration=SettingsBackupGuard.generation
     private lateinit var history:PlaybackHistory
     private lateinit var manager:MediaSessionManager
     private val changed=MediaSessionManager.OnActiveSessionsChangedListener { attach(it.orEmpty()) }
@@ -48,6 +49,12 @@ class PlaybackTracker:NotificationListenerService() {
     }
     private fun scan() {
         if(StockRecoveryStore.paused(this)) { close(); return }
+        val epoch=SettingsBackupGuard.generation
+        if(SettingsBackupGuard.busy || SettingsBackupGuard.recoveryRequired || settingsGeneration!=epoch) {
+            settingsGeneration=epoch;firstPlaying.clear();confirmedEvents.clear()
+            ui.removeCallbacks(sample);ui.postDelayed(sample,5_000)
+            return
+        }
         ui.removeCallbacks(sample); var playing=false; val active=HashSet<String>(); val present=HashSet<EventKey>()
         for(c in callbacks.keys) {
             val state=c.playbackState ?: continue
@@ -63,7 +70,7 @@ class PlaybackTracker:NotificationListenerService() {
             val position=state.position+(if(state.lastPositionUpdateTime>0)(now-state.lastPositionUpdateTime).coerceAtLeast(0)*state.playbackSpeed else 0f).toLong()
             val duration=m?.getLong(MediaMetadata.METADATA_KEY_DURATION)?.takeIf { it>0 } ?: p.duration
             if(now-began>=15_000 && position>=15_000 && duration>=180_000)
-                history.confirm(p,position.coerceAtMost(duration),duration,confirmedEvents.confirm(eventKey,System.currentTimeMillis()))
+                history.confirm(p,position.coerceAtMost(duration),duration,confirmedEvents.confirm(eventKey,System.currentTimeMillis()),epoch)
         }
         firstPlaying.keys.retainAll(active)
         confirmedEvents.retain(present)

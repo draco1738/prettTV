@@ -32,35 +32,38 @@ class AppEntry(
 }
 
 /** Persisted user configuration. Tiny; plain SharedPreferences. */
-class Prefs(context: Context) {
-    private val sp: SharedPreferences = context.getSharedPreferences("rivi", Context.MODE_PRIVATE)
+class Prefs internal constructor(private val sp:SharedPreferences) {
+    constructor(context:Context):this(context.getSharedPreferences("rivi",Context.MODE_PRIVATE))
 
     var favourites: List<String>
         get() = sp.getString("fav", null)?.split('\n')?.filter { it.isNotEmpty() } ?: emptyList()
-        set(v) = sp.edit().putString("fav", v.joinToString("\n")).apply()
+        set(v) { SettingsBackupGuard.tryWrite { sp.edit().putString("fav", v.joinToString("\n")).apply() } }
     var favouritesInitialised: Boolean
         get() = sp.getBoolean("fav_init", false)
-        set(v) = sp.edit().putBoolean("fav_init", v).apply()
+        set(v) { SettingsBackupGuard.tryWrite { sp.edit().putBoolean("fav_init", v).apply() } }
     var hidden: Set<String>
         get() = sp.getStringSet("hidden", emptySet()) ?: emptySet()
-        set(v) = sp.edit().putStringSet("hidden", v).apply()
+        set(v) { SettingsBackupGuard.tryWrite { sp.edit().putStringSet("hidden", v).apply() } }
     var lastFocus: String?
         get() = sp.getString("focus", null)
-        set(v) = sp.edit().putString("focus", v).apply()
+        set(v) { SettingsBackupGuard.tryWrite { sp.edit().putString("focus", v).apply() } }
     /** Theme chosen with `--es theme …`; null means the default. See [Theme]. */
     var theme: String?
         get() = sp.getString("theme", null)
-        set(v) = sp.edit().putString("theme", v).apply()
+        set(v) { SettingsBackupGuard.tryWrite { sp.edit().putString("theme", v).apply() } }
     /** Refinements chosen with `--es motion …`; null means the built-in default. See [Motion]. */
     var motion: String?
         get() = sp.getString("motion", null)
-        set(v) = sp.edit().putString("motion", v).apply()
+        set(v) { SettingsBackupGuard.tryWrite { sp.edit().putString("motion", v).apply() } }
 
     /** Launch timestamps for "recent" ordering; no background tracking, only our own launches. */
     fun recentOrder(): Map<String, Long> = HomeModel.parseRecent(sp.getString("recent", null))
 
-    fun touchRecent(key: String) =
-        sp.edit().putString("recent", HomeModel.touchRecent(recentOrder(), key, System.currentTimeMillis())).apply()
+    fun touchRecent(key: String) {
+        SettingsBackupGuard.tryWrite {
+            sp.edit().putString("recent", HomeModel.touchRecent(recentOrder(), key, System.currentTimeMillis())).apply()
+        }
+    }
 }
 
 /**

@@ -28,7 +28,7 @@ object AppActionPanel {
     fun show(activity:Activity,anchor:View,label:String,items:List<Pair<String,()->Unit>>,onDismiss:()->Unit):Dialog {
         require(items.isNotEmpty())
         val metrics=activity.resources.displayMetrics
-        val scale=metrics.widthPixels/1920f
+        val scale=AppReadability.referenceScale(activity)
         fun px(value:Int)=(value*scale+.5f).toInt().coerceAtLeast(1)
         val dialog=Dialog(activity,R.style.Theme_PrettTvActionDialog)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)

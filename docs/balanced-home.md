@@ -2,21 +2,29 @@
 
 [← prettTV](../README.md) · [User guide](usage.md) · [Validation](validation.md)
 
-Version 0.6.0 introduced the owner's selected C concept as native Android Views and Canvas. Version 0.6.1 corrects the artwork mismatch: genuine portrait metadata for eligible discovery titles, proportional full-frame drawing, and a clean feature backdrop when a verified match supplies one. This is not a WebView, a static mockup, or a new catalog. Cinema and Quiet remain available through **Settings → Home & apps → Layout**.
+Version 0.6.3 enlarges the three Discover portraits beside the resume feature while retaining the owner's approved C identity. It builds on 0.6.1's genuine portrait metadata and 0.6.2's reversible sizing and compact metadata cleanup. This is native Android Views and Canvas, not a WebView, static mockup or new catalog. Cinema and Quiet remain available through **Settings → Home & apps → Layout**.
 
-![C Balanced 0.6.1 installed on the TCL, with three verified portrait images and existing preferences.](screenshots/C-balanced-0.6.1.png)
+![C Balanced 0.6.3 installed on the TCL, with enlarged Discover portraits and existing preferences.](screenshots/C-balanced-0.6.3.png)
 
-*Actual, unedited TV capture. Nocturne, Frieren: Beyond Journey's End and Slow Horses use verified 2:3 portraits. The Game of Thrones feature has a matching clean background. Titles, episode information, progress and launch destinations come from the TV, not from the concept's sample content.*
+*Actual, unedited installed-TV capture. Nocturne, Frieren: Beyond Journey's End and Awkwafina: The Unlikely Cook have full-height portraits beside the Game of Thrones feature. Titles, supplied metadata and launch destinations come from the TV's available feeds, not concept sample content. Later gallery images retain their explicit historical versions.*
+
+## Larger Discover
+
+Each picture area grows from 202×303 to 240×360 reference pixels. Three cards and Browse shows remain; the feature is 1000 pixels wide, the gutter stays 40 pixels and Discover occupies 752 pixels. Overall content width is unchanged. The stage grows to 567 pixels at normal text scale to preserve title clearance; lower rows retain their sizes and scroll normally. Both Standard and Larger sizes retain all three portraits without changing Android display or font settings. The full native suite and twelve A/B/C size/text captures verified the new geometry before installation.
 
 ## What changed
 
-### Home interface size · 0.6.2
+### Consistent interface size
 
-The 0.6.2 update adds **Settings → Home & apps → Home interface size**. **Standard · 100%** keeps the v0.6.1 geometry. **Larger · 104%** scales Home's cards, text, icons, gaps and controls together, using some of the outer margins so the hero and all three portraits still fit side by side. Lower shelves scroll; no screenshot or root-view bitmap is enlarged/cropped. Selection is retained when changing sizes, and the setting is included in local settings export/restore.
+**Settings → Home & apps → Interface size** offers **Standard · 100%** (default) and **Larger · 104%**. Cards, text, icons, gaps and controls scale together, using some outer margin so the hero and three portraits still fit side by side. Version 0.6.3 extends the same setting to Discovery, Search, native dialogs and prettTV utility screens. Lower shelves scroll; no screenshot or root-view bitmap is enlarged/cropped. Selection is retained when changing sizes, and the setting is included in local backup/restore.
 
-This controls Home, including its header and Library grid, not Android display density, other apps, system screens or every separate prettTV Activity/dialog. System text scaling remains independent. The modest limit is intentional: a larger uniform increase cannot keep this full-width composition on screen without cropping or restructuring it. Standard remains the default. The 0.6.2 build passed 474 JVM and 158 native checks and was installed with settings and the pulled-back APK verified. [Actual 0.6.2 Home](screenshots/C-balanced-0.6.2.png) · [Validation](validation.md). Images explicitly labeled 0.6.1 remain historical evidence.
+This changes prettTV-owned rendering, not Android display density, other apps or system screens. System text scaling remains independent. The modest limit keeps the full-width composition usable without cropping or restructuring it. See [Validation](validation.md) for versioned evidence and limits.
 
-The 0.6.2 update also corrects compact Continue watching binding: it combines the service with a deduplicated metadata/time line instead of appending that line to the original provider detail again. Only exact repeated fields are removed; unique descriptions and ambiguous episode labels are not guessed away. Original provider detail and synopsis remain available in title details, and other card modes keep their existing formatting.
+The 0.6.2 compact Continue watching cleanup remains: service plus a deduplicated metadata/time line, rather than repeating it after the original provider detail. Only exact repeated fields are removed; unique descriptions and ambiguous episode labels are not guessed away. Original provider detail and synopsis remain available in title details, and other card modes retain their formatting.
+
+### Direct local controls
+
+Undo appears in Home's top bar immediately after a supported change without taking focus or expiring on a short timer. Discovery's session-local Undo sits beside Back. Applicable recommendation menus offer Why this recommendation? and Not interested, based only on observable source and preference evidence. The explicit TV-local settings workflow is under **Settings → Support → Local settings backup**. [Controls, recovery boundaries and exclusions](usage.md#local-settings-backup).
 
 ### Approved v0.6.1 composition
 
@@ -71,7 +79,7 @@ The existing row order is retained. This TV has sports above Suggestions and Dis
 
 ## Rendering and data
 
-At 1920 × 1080 reference size, C has 64-pixel side insets, a 1112 × 510 feature, a 40-pixel gutter and a 640-pixel discovery column. The stage grows for enlarged system text rather than allowing poster labels to collide with Browse shows. Text is native sans, surfaces stay black, and focus uses white outlines. New feature/poster/continuation artwork stays still; there is no autoplay, blur, added background polling or new runtime UI dependency.
+At 1920 × 1080 reference size, C has 64-pixel side insets, a 1000 × 567 feature/stage, a 40-pixel gutter and a 752-pixel discovery column containing three 240×360 picture areas. The stage grows for enlarged system text rather than letting poster labels collide with Browse shows. Text is native sans, surfaces stay black, and focus uses white outlines. Feature/poster/continuation artwork stays still; there is no autoplay, blur, added background polling or new runtime UI dependency.
 
 Original provider portrait metadata remains backward compatible with saved titles and offline snapshots. C's new presentation-only map does not overwrite those fields, viewing history, progress or destinations. With discovery enabled and a verified network, an optional TVmaze pass can send the visible title names or supplied IDs for at most six candidates and the feature. It permits eight metadata requests with a twelve-second network-work budget and independent connection-disconnect timer, delivers all normal feeds first, rejects stale-generation callbacks and retains a separate bounded cache. Cache I/O and platform transport cleanup mean this is not a strict end-to-end elapsed-time guarantee. A/B do not opt in. [Network disclosures and cache limits](privacy.md#c-balanced-presentation-artwork). Image bytes still use the bounded, prioritized loader introduced in 0.5.2.
 
@@ -81,9 +89,9 @@ Portrait fields survive saved/followed titles, playback records, local settings 
 
 ## Verification and credits
 
-The corrected 0.6.1 candidate passed **458 JVM tests across 37 suites** and **156 isolated native Android checks** on the TCL, with **zero Android lint errors and 28 existing warnings**. Coverage includes proportional full-frame rendering, C geometry, artwork-only rebinding, selected-title focus retention, A/B/C, normal and enlarged text, service-tier preservation, matching/cache/budget limits and old-data compatibility. Repeated native runs and the scoped artwork harness overlap these totals rather than adding independent tests.
+Version 0.6.3 passed **529 JVM tests across 44 suites** and **184 isolated native Android checks** on the TCL, with **zero Android lint errors and 29 warnings**. Coverage includes enlarged C geometry, twelve A/B/C size/text captures, immediate Undo, truthful contextual actions, a real Home/backup save-change-restore-return flow, writer protection and Android loopback deadline/cancellation controls. Repeated focused runs overlap the full totals and are not added together.
 
-The signed **0.6.1 / code 30** APK was installed in place, pulled back and matched to the tested artifact. All three live Discover cards reported verified metadata bindings and decoded **250 × 375** portrait bitmaps. The feature reported a matching **960 × 540** background. Home, app and personalization settings matched the pre-install export except navigation focus; automatic playback observations were outside that comparison. Poster traversal, reversal, Browse shows and app-row boundaries passed without restarting Home. These are bounded device checks, not a new hour-long soak, a physical remote latency measurement or a streaming-playback benchmark. See [Validation history](validation.md) for the detailed evidence and limitations.
+The signed **0.6.3 / code 32** APK was installed in place and pulled back with the tested hash. Home, app and personalization settings matched the pre-install export except navigation focus; automatic playback observations were outside that comparison. The [validation history](validation.md) records production navigation and lifecycle results separately. These are bounded checks, not a new hour-long soak, physical remote-latency certification or streaming-playback benchmark. The image below is retained as the earlier 0.6.1 focus reference.
 
 ![The third Discover poster focused on the installed 0.6.1 TV.](screenshots/C-discovery-focused-0.6.1.png)
 

@@ -37,6 +37,9 @@ class StabilityInstrumentation:Instrumentation() {
     private var darkThemeOnly=false
     private var lightweightOnly=false
     private var motionPreviewOnly=false
+    private var readabilityOnly=false
+    private var settingsBackupOnly=false
+    private var startupReliabilityOnly=false
     override fun onCreate(arguments:Bundle?) {
         settingsKeysOnly=arguments?.getString("settingsKeysOnly")=="true"
         forceStopOnly=arguments?.getString("forceStopOnly")=="true"
@@ -49,6 +52,9 @@ class StabilityInstrumentation:Instrumentation() {
         darkThemeOnly=arguments?.getString("darkThemeOnly")=="true"
         lightweightOnly=arguments?.getString("lightweightOnly")=="true"
         motionPreviewOnly=arguments?.getString("motionPreviewOnly")=="true"
+        readabilityOnly=arguments?.getString("readabilityOnly")=="true"
+        settingsBackupOnly=arguments?.getString("settingsBackupOnly")=="true"
+        startupReliabilityOnly=arguments?.getString("startupReliabilityOnly")=="true"
         super.onCreate(arguments);start()
     }
     override fun onStart() {
@@ -56,6 +62,17 @@ class StabilityInstrumentation:Instrumentation() {
         try {
             check(targetContext.packageName=="dev.zane.pretttv.stability") { "Refusing to run against the production Home" }
             fun test(name:String,body:()->Unit) { body();passed++;sendStatus(0,Bundle().apply { putString("stream","PASS $name\n") }) }
+            if(readabilityOnly || settingsBackupOnly || startupReliabilityOnly) {
+                if(readabilityOnly)AppReadabilitySizingAndroidChecks.run(this,::test)
+                if(settingsBackupOnly) {
+                    SettingsBackupAndroidChecks.run(this,::test)
+                    HomeBackupIntegrationAndroidChecks.run(this,::test)
+                }
+                if(startupReliabilityOnly) {
+                    StartupReliabilityAndroidChecks.run(this,::test)
+                }
+                finish(Activity.RESULT_OK,Bundle().apply { putString("stream","FOLLOW-UP PASS: $passed Android tests\n");putInt("passed",passed) });return
+            }
             if(motionPreviewOnly) {
                 LightweightAndroidChecks.preview(this)
                 finish(Activity.RESULT_OK,Bundle().apply { putString("stream","MOTION PREVIEW PASS\n") });return
@@ -136,6 +153,10 @@ class StabilityInstrumentation:Instrumentation() {
                 return
             }
             LightweightAndroidChecks.run(this, ::test)
+            AppReadabilitySizingAndroidChecks.run(this, ::test)
+            SettingsBackupAndroidChecks.run(this, ::test)
+            HomeBackupIntegrationAndroidChecks.run(this, ::test)
+            StartupReliabilityAndroidChecks.run(this, ::test)
             PersonalizationAndroidChecks.run(targetContext, ::test)
             HomeCompatibilityAndroidChecks.run(this, ::test)
             AudioDeviceSettingsAndroidChecks.run(this, ::test)

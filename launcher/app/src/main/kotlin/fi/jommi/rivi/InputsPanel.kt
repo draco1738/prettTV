@@ -17,7 +17,7 @@ import android.widget.TextView
 /** Two existing-style cards; the platform keeps ownership of inputs and Bluetooth devices. */
 internal object InputsPanel {
     fun show(activity:Activity,onInputs:()->Unit,onAudio:()->Unit,onDismiss:()->Unit):Dialog {
-        val scale=activity.resources.displayMetrics.widthPixels/1920f
+        val scale=AppReadability.referenceScale(activity)
         fun px(value:Int)=(value*scale+.5f).toInt().coerceAtLeast(1)
         val panel=Dialog(activity,R.style.Theme_PrettTvActionDialog)
         panel.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -39,7 +39,7 @@ internal object InputsPanel {
                 contentDescription=if(index==0)"TV inputs. Choose an HDMI or television source."
                     else "Audio devices. Turn Bluetooth on or off and manage headphones and speakers."
                 setOnClickListener { chosen=action; panel.dismiss() }
-                row.addView(this,LinearLayout.LayoutParams(px(320),px(154)).apply { if(index==0)rightMargin=px(18) })
+                row.addView(this,LinearLayout.LayoutParams(0,px(154),1f).apply { if(index==0)rightMargin=px(18) })
             }
         }
         cards.forEachIndexed { index,card ->
@@ -47,7 +47,7 @@ internal object InputsPanel {
             card.nextFocusRightId=cards[(index+1).coerceAtMost(cards.lastIndex)].id
             card.nextFocusUpId=card.id; card.nextFocusDownId=card.id
         }
-        column.addView(row)
+        column.addView(row,LinearLayout.LayoutParams(-1,-2))
         column.addView(label("Choose a source or control Bluetooth.  •  Back to close",20,AppActionStyle.MUTED),
             LinearLayout.LayoutParams(-1,-2).apply { topMargin=px(20) })
         panel.setContentView(column)

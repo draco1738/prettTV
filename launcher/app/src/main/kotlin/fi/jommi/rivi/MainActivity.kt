@@ -42,6 +42,7 @@ class MainActivity : Activity() {
     private var renderedRowPreferences:RowPreferences?=null
     private var homeStatus:TextView?=null
     private var appActionPanel:Dialog?=null
+    private val settingsDialogs=mutableSetOf<AlertDialog>()
     private var searchPanel:HomeSearchPanel?=null
     private val searchState=HomeSearchState()
     private var deferActiveRefresh=false
@@ -65,6 +66,11 @@ class MainActivity : Activity() {
     private var dirty = true
     // Private, default-off seam used only by isolated instrumentation injecting fixed rows.
     private var fixtureRefreshSuspended=false
+    private var backupDeparted=false
+    private var settingsGeneration=SettingsBackupGuard.generation
+    private val resumeSettings=Runnable { resumeHomeData() }
+    private val settingsSuspended get()=backupDeparted || SettingsBackupGuard.busy ||
+        SettingsBackupGuard.recoveryRequired || settingsGeneration!=SettingsBackupGuard.generation
     @Volatile private var generation = 0
     private var appLoadError=false
     private var appDiscoveryComplete=false
@@ -118,32 +124,25 @@ class MainActivity : Activity() {
     private val wide get() = layout==HomeLayout.BALANCED
     private val inner get() = if(wide)BalancedHomeLayout.WIDTH else 1808
     private val balancedFont get() = resources.configuration.fontScale
-    private val interfaceSize get() = HomeInterfaceSize.parse(settings.getString("interfaceSize",null))
+    private val interfaceSize get() = AppReadability.dimensions(this).size
     private val discovery get() = settings.getBoolean("discovery",true)
     private val sportsPackages get() = settings.getStringSet("sportsPackages",setOf("com.rblive.app")).orEmpty().toSet()
 
     override fun onCreate(state:Bundle?) {
         super.onCreate(state)
+        SettingsBackupGuard.enableAfterWriterIntegration()
         prefs=Prefs(this); repo=AppRepository(this); artwork=ArtworkLoader(this)
+        personal.onUndoChanged={ ui.post { if(!isFinishing && !isDestroyed)updateUndoAction() } }
         layout=HomeLayout.parse(settings.getString("layout",null))
         applyIntent(intent)
         scale=resources.displayMetrics.widthPixels/1920f
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bgColor))
         window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        contentRepo=ContentRepository(this) { value ->
-            val removed=personal.consumePlaybackHistory(value.watching)
-            val filtered=withTitlePreferences(value)
-            if(filtered!=content || removed>0) {
-                val statusOnly=removed==0 && filtered.copy(refreshing=content.refreshing,refreshFailed=content.refreshFailed,offline=content.offline)==content
-                content=filtered
-                if(statusOnly)updateHomeStatus() else refreshProviderRows()
-            }
-            if(removed>0)Toast.makeText(this,"Started watching · removed from Watchlist. Undo in Settings.",Toast.LENGTH_LONG).show()
-        }
+        contentRepo=newContentRepository()
         weatherRepo=WeatherRepository(this) { updateWeatherHeader() }
         render(reset=true)
         if(checkSelfPermission("android.permission.READ_TV_LISTINGS")!=android.content.pm.PackageManager.PERMISSION_GRANTED && !settings.getBoolean("tvPermissionAsked",false)) {
-            settings.edit().putBoolean("tvPermissionAsked",true).apply()
+            editSettings { it.putBoolean("tvPermissionAsked",true) }
             requestPermissions(arrayOf("android.permission.READ_TV_LISTINGS"),41)
         }
         val filter=IntentFilter().apply {
@@ -154,14 +153,11 @@ class MainActivity : Activity() {
     override fun onStart() {
         super.onStart(); visible=true
         ui.removeCallbacks(releaseBackgroundArt)
-        val savedLayout=HomeLayout.parse(settings.getString("layout",null))
-        if(layout!=savedLayout) { layout=savedLayout; render(reset=true) }
         AppUpdater.checkWhenHomeVisible(this)
         RbtvHandoffService.cancel()
         registerReceiver(tickReceiver,IntentFilter(Intent.ACTION_TIME_TICK).apply { addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED) })
         updateClock()
-        weatherRepo.start()
-        if(dirty || apps.isEmpty())reload() else { if(iconsReleased)loadAppArtwork(); startContent() }
+        resumeHomeData()
         ui.post(retryArtwork)
         // onStop removes timers; preserve recovery for cards still in their failure backoff.
         ui.postDelayed(retryArtwork,30_000)
@@ -177,7 +173,8 @@ class MainActivity : Activity() {
         weatherLoadingDialog?.dismiss(); weatherLoadingDialog=null
         teamLoadingDialog?.dismiss(); teamLoadingDialog=null
         stopRowMotion(); cancelArtworkScan(); ui.removeCallbacks(retryArtwork); ui.removeCallbacks(retryApps); cardArt.forEach { it.request.cancel() }
-        (currentFocus?.tag as? String)?.let { settings.edit().putString("focus",it).apply() }
+        ui.removeCallbacks(resumeSettings)
+        if(!settingsSuspended)(currentFocus?.tag as? String)?.let { focus -> editSettings { it.putString("focus",focus) } }
         super.onStop()
     }
     override fun onTrimMemory(level:Int) {
@@ -220,6 +217,7 @@ class MainActivity : Activity() {
         // Reclaim the listener here so its switch cannot retain a stale/busy panel state.
         BluetoothControlSession.listen(this) { bluetoothQuickSwitch?.bind(it) }
         if(!BluetoothControlSession.busy)BluetoothControlSession.start(this)
+        if(settingsSuspended)return
         if(providerRefreshPending)refreshProviderRows()
         val saved=appReturnViewport ?: return
         appReturnViewport=null
@@ -232,7 +230,7 @@ class MainActivity : Activity() {
             }
         }
     }
-    override fun onDestroy() { searchPanel?.dismiss();searchPanel=null; generation++; ui.removeCallbacksAndMessages(null); unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); weatherRepo.close(); artwork.close(); super.onDestroy() }
+    override fun onDestroy() { personal.onUndoChanged=null; searchPanel?.dismiss();searchPanel=null; generation++; ui.removeCallbacksAndMessages(null); unregisterReceiver(packageReceiver); background.removeCallbacksAndMessages(null); loader.quitSafely(); contentRepo.close(); weatherRepo.close(); artwork.close(); super.onDestroy() }
     override fun onConfigurationChanged(newConfig:Configuration) { super.onConfigurationChanged(newConfig); render() }
     override fun onNewIntent(i:Intent?) {
         super.onNewIntent(i)
@@ -246,7 +244,69 @@ class MainActivity : Activity() {
         if(requestCode==41 && visible)startContent()
     }
     private fun applyIntent(i:Intent?) {
-        i?.getStringExtra("layout")?.let { value -> layout=HomeLayout.parse(value.uppercase(java.util.Locale.ROOT)); settings.edit().putString("layout",layout.name).apply(); i.removeExtra("layout") }
+        i?.getStringExtra("layout")?.let { value ->
+            val choice=HomeLayout.parse(value.uppercase(java.util.Locale.ROOT))
+            if(editSettings { it.putString("layout",choice.name) })layout=choice
+            i.removeExtra("layout")
+        }
+    }
+
+    private fun editSettings(change:(SharedPreferences.Editor)->Unit):Boolean =
+        SettingsBackupGuard.tryWrite(settingsGeneration) { settings.edit().also(change).apply() }
+
+    private fun newContentRepository()=ContentRepository(this) { value ->
+        if(!settingsSuspended)SettingsBackupGuard.tryWrite(settingsGeneration) {
+            val removed=personal.consumePlaybackHistory(value.watching,settingsGeneration)
+            val filtered=withTitlePreferences(value)
+            if(filtered!=content || removed>0) {
+                val statusOnly=removed==0 && filtered.copy(refreshing=content.refreshing,refreshFailed=content.refreshFailed,offline=content.offline)==content
+                content=filtered
+                if(statusOnly)updateHomeStatus() else refreshProviderRows()
+            }
+            if(removed>0)Toast.makeText(this,"Started watching · removed from Watchlist. Undo is in the top bar.",Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun suspendSettingsSources() {
+        backupDeparted=true;generation++;iconEpoch++;iconsLoading=false;dirty=true
+        ui.removeCallbacks(retryApps);background.removeCallbacksAndMessages(null)
+        contentRepo.stop();weatherRepo.stop()
+        searchPanel?.dismiss();searchPanel=null
+        appActionPanel?.dismiss();appActionPanel=null
+        settingsDialogs.toList().forEach { it.dismiss() };settingsDialogs.clear()
+    }
+
+    private fun openSettingsBackup() {
+        suspendSettingsSources()
+        if(!safeStart(Intent(this,SettingsBackupActivity::class.java),"Local settings backup"))resumeHomeData()
+    }
+
+    /** Never block the UI on a cancelled restore's disk rollback. */
+    private fun resumeHomeData() {
+        ui.removeCallbacks(resumeSettings)
+        if(!visible || isFinishing || isDestroyed)return
+        if(SettingsBackupGuard.busy) { ui.postDelayed(resumeSettings,100);return }
+        backupDeparted=false
+        val changed=settingsGeneration!=SettingsBackupGuard.generation
+        if(changed) {
+            settingsGeneration=SettingsBackupGuard.generation
+            generation++;iconEpoch++;personal.clearUndoHistory()
+            appReturnViewport=null;pendingViewport=null;providerRefreshPending=false;deferredRows.clear()
+            lastContentFocus=null;nextRowFocus=null;watchlistOffset=0;viewportRevision++
+            contentRepo.close();contentRepo=newContentRepository()
+            content=HomeContent();dirty=true
+        }
+        val savedLayout=HomeLayout.parse(settings.getString("layout",null))
+        if(changed || layout!=savedLayout) { layout=savedLayout;render(reset=true) }
+        if(SettingsBackupGuard.recoveryRequired) {
+            AlertDialog.Builder(this).setTitle("Local settings need recovery")
+                .setMessage("A restore could not verify disk rollback. Automatic settings writers are paused. Check Local settings backup for a valid pre-restore copy. If none is available, recovery requires an explicit diagnostic import of a known-good settings export retained before the failure.")
+                .setPositiveButton("Check local recovery") { _,_->openSettingsBackup() }
+                .setNegativeButton("Close",null).showReadable()
+            return
+        }
+        weatherRepo.start()
+        if(dirty || apps.isEmpty())reload() else { if(iconsReleased)loadAppArtwork();startContent() }
     }
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() { firstCard?.requestFocusFromTouch(); root.smoothScrollTo(0,0); selectNavigation("nav-home") }
@@ -323,6 +383,27 @@ class MainActivity : Activity() {
         val running=rowMotion.values.toList(); rowMotion.clear(); running.forEach { it.end() }
     }
     private fun selectNavigation(key:String) { navigationSelection=key; updateNavigation() }
+    private fun updateUndoAction() {
+        val action=focusables["nav-undo"] as? TextView ?: return
+        val label=personal.undoLabel()
+        if(label==null && action.hasFocus())focusables["nav-home"]?.requestFocusFromTouch()
+        action.visibility=if(label==null)View.GONE else View.VISIBLE
+        action.contentDescription=label?.let { "Undo: $it" } ?: "Undo"
+        if(label==null && navigationSelection=="nav-undo")navigationSelection="nav-home"
+        val navigation=focusables.filterKeys { it.startsWith("nav-") }.values.filter { it.visibility==View.VISIBLE }
+        navigation.forEachIndexed { index,view ->
+            view.nextFocusLeftId=navigation[(index-1).coerceAtLeast(0)].id
+            view.nextFocusRightId=navigation[(index+1).coerceAtMost(navigation.lastIndex)].id
+        }
+        updateNavigation()
+    }
+    private fun undoRecentChange() {
+        val label=personal.undoLabel() ?: return
+        val undone=personal.undo()
+        if(undone!=null) { content=withTitlePreferences(content); refreshHomeRows(); contentRepo.refresh() }
+        updateUndoAction()
+        Toast.makeText(this,if(undone==null)"Couldn't undo $label. Try again." else "Undone · $undone",Toast.LENGTH_SHORT).show()
+    }
     private fun updateNavigation() {
         focusables.filterKeys { it.startsWith("nav-") }.forEach { (key,view)->
             (view as? TextView)?.apply {
@@ -466,6 +547,7 @@ class MainActivity : Activity() {
         }
         val navigation=row()
         val entries=listOf(Triple("Home","nav-home",{ resetHomePosition() }),
+            Triple("Undo","nav-undo",{ undoRecentChange() }),
             Triple("Shows","nav-shows",{ focusTarget(showAnchor?.tag as? String)?.requestFocusFromTouch(); Unit }),
             Triple("Library","nav-apps",{ libraryAnchor?.requestFocusFromTouch(); Unit }),
             Triple("Inputs","nav-inputs",{ openInputs() }),
@@ -524,6 +606,7 @@ class MainActivity : Activity() {
             updateHomeStatus()
         }.apply { visibility=View.GONE; gravity=Gravity.CENTER_VERTICAL; maxLines=2 }
         page.addView(reminderBanner,LinearLayout.LayoutParams(-1,px(70)))
+        updateUndoAction()
     }
     private fun buildBalanced() {
         gap(BalancedHomeLayout.TOP_GAP)
@@ -860,7 +943,7 @@ class MainActivity : Activity() {
                 AlertDialog.Builder(this).setTitle("Open the matching game")
                     .setMessage("prettTV can find this game's two teams and kickoff time in RBTV, then leave the server choice to you. Enable prettTV game handoff in Accessibility. The helper operates only inside RBTV after you choose a game, for up to 30 seconds.")
                     .setPositiveButton("Enable helper") { _,_ -> safeStart(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),"Accessibility settings") }
-                    .setNeutralButton("Open RBTV") { _,_ -> launch(target) }.setNegativeButton("Cancel",null).show()
+                    .setNeutralButton("Open RBTV") { _,_ -> launch(target) }.setNegativeButton("Cancel",null).showReadable()
                 return
             }
         }
@@ -870,7 +953,7 @@ class MainActivity : Activity() {
     private fun sportsInfo(event:SportsEvent) {
         AlertDialog.Builder(this).setTitle(event.title)
             .setMessage("${event.heading(System.currentTimeMillis())}\n${event.detail(System.currentTimeMillis())}\n\nSchedule: ESPN. Broadcast labels do not guarantee availability. With game handoff enabled, prettTV looks for matching teams and kickoff in RBTV 3.0.320 for NFL, college football, NBA and Premier League. Unmatched events and other versions/leagues open RBTV for manual selection. You choose the server.")
-            .setPositiveButton("Open ${sportsDestination()?.label ?: "sports apps"}") { _,_ -> openSports(event) }.setNegativeButton("Close",null).show()
+            .setPositiveButton("Open ${sportsDestination()?.label ?: "sports apps"}") { _,_ -> openSports(event) }.setNegativeButton("Close",null).showReadable()
     }
     private fun programCard(p:Program?,mode:PrettTvCard.Mode,key:String,w:Int,h:Int):PrettTvCard {
         val card=PrettTvCard(this,scale,mode)
@@ -1033,7 +1116,9 @@ class MainActivity : Activity() {
     }
     private fun orderedApps():List<AppEntry> {
         val items=apps.map { HomeModel.Item(it.key,it.packageName,it.label) }
-        if(!prefs.favouritesInitialised && apps.isNotEmpty()) { prefs.favourites=HomeModel.initialFavourites(repo.defaultFavouritePackages,items); prefs.favouritesInitialised=true }
+        if(!settingsSuspended)SettingsBackupGuard.tryWrite(settingsGeneration) {
+            if(!prefs.favouritesInitialised && apps.isNotEmpty()) { prefs.favourites=HomeModel.initialFavourites(repo.defaultFavouritePackages,items); prefs.favouritesInitialised=true }
+        }
         val arranged=HomeModel.arrange(items,prefs.favourites,emptySet(),prefs.recentOrder(),emptyList())
         val byKey=apps.associateBy { it.key }
         return (arranged.favourites+arranged.rest).mapNotNull { byKey[it] }.distinctBy { it.key }
@@ -1112,7 +1197,8 @@ class MainActivity : Activity() {
         }
     }
     private fun reload() {
-        if(fixtureRefreshSuspended)return
+        if(fixtureRefreshSuspended || settingsSuspended)return
+        val settingsEpoch=settingsGeneration
         dirty=false; val g=++generation
         iconEpoch++;iconsLoading=false;failedIcons.clear()
         ui.removeCallbacks(retryApps); background.removeCallbacksAndMessages(null)
@@ -1131,7 +1217,7 @@ class MainActivity : Activity() {
             found.forEach { entry->previous[entry.key]?.takeIf { it.versionCode==entry.versionCode }?.let {
                 entry.bitmap=it.bitmap;entry.logoBounds=it.logoBounds;entry.libraryBitmap=it.libraryBitmap
             } }
-            ui.post { if(g==generation) {
+            ui.post { if(g==generation && settingsEpoch==SettingsBackupGuard.generation && !settingsSuspended) {
                 appLoadError=false; appDiscoveryComplete=true; apps=found; inputs=input; render()
                 if(visible) { loadAppArtwork();startContent() } else iconsReleased=true
             } }
@@ -1176,12 +1262,16 @@ class MainActivity : Activity() {
         .mapNotNull { entry -> apps.firstOrNull { it.key==entry.key }?.packageName }.distinct()
     private fun balancedDiscovery()=BalancedHomeLayout.discovery(content,contentRepo.recommendationServices,recentServices(),personal.recommendationFeedback())
     private fun startContent() {
-        if(fixtureRefreshSuspended)return
+        if(fixtureRefreshSuspended || settingsSuspended)return
         val recent=recentServices()
         val services=if(settings.contains("preferredServices"))settings.getStringSet("preferredServices",emptySet()).orEmpty().toSet() else null
         contentRepo.start(apps.map { it.packageName }.toSet(),emptySet(),discovery,recent,services,balancedArtwork=wide)
     }
-    private fun launch(e:AppEntry) { appReturnViewport=viewport(); prefs.touchRecent(e.key); prefs.lastFocus=e.key; if(!safeStart(repo.launchIntent(e),e.label))appReturnViewport=null }
+    private fun launch(e:AppEntry) {
+        appReturnViewport=viewport()
+        SettingsBackupGuard.tryWrite(settingsGeneration) { prefs.touchRecent(e.key);prefs.lastFocus=e.key }
+        if(!safeStart(repo.launchIntent(e),e.label))appReturnViewport=null
+    }
     private fun safeStart(i:Intent,label:String):Boolean = try { startActivity(i); true } catch(_:Exception) { Toast.makeText(this,"Could not open $label",Toast.LENGTH_SHORT).show(); false }
     private fun openInputs() {
         if(appActionPanel?.isShowing==true)return
@@ -1219,19 +1309,28 @@ class MainActivity : Activity() {
         else Toast.makeText(this,"${p.app} is unavailable. Your saved title is kept.",Toast.LENGTH_LONG).show()
     }
     private fun dialog(title:String,items:List<Pair<String,()->Unit>>) {
+        val epoch=SettingsBackupGuard.generation
         var action:(()->Unit)?=null
         val panel=AlertDialog.Builder(this).setTitle(title).setItems(items.map { it.first }.toTypedArray()) { _,i -> action=items[i].second }.setNegativeButton("Close",null).create()
-        panel.setOnDismissListener { if(!isFinishing && !isDestroyed)action?.invoke() }; panel.show()
+        panel.setOnDismissListener { if(!isFinishing && !isDestroyed && !backupDeparted && !SettingsBackupGuard.busy && epoch==SettingsBackupGuard.generation)action?.invoke() }
+        panel.show();styleSettingsDialog(panel)
     }
+    private fun styleSettingsDialog(dialog:AlertDialog) {
+        settingsDialogs.removeAll { !it.isShowing };settingsDialogs.add(dialog)
+        AppReadability.styleDialog(dialog)
+    }
+    private fun AlertDialog.Builder.showReadable():AlertDialog=show().also(::styleSettingsDialog)
     private fun chooseInterfaceSize() {
-        dialog("Home interface size",HomeInterfaceSize.entries.map { choice -> choice.label to { applyInterfaceSize(choice) } })
+        dialog("Interface size",HomeInterfaceSize.entries.map { choice -> choice.label to { applyInterfaceSize(choice) } })
     }
     private fun applyInterfaceSize(choice:HomeInterfaceSize) {
         if(choice==interfaceSize)return
-        settings.edit().putString("interfaceSize",choice.name).apply()
+        if(!editSettings { it.putString("interfaceSize",choice.name) })return
         render()
     }
     private fun appMenu(e:AppEntry,origin:String) {
+        if(settingsSuspended)return
+        val epoch=SettingsBackupGuard.generation
         if(appActionPanel?.isShowing==true)return
         val anchor=focusables[origin] ?: return
         val place=viewport(origin)
@@ -1270,7 +1369,7 @@ class MainActivity : Activity() {
             if(!safeStart(target,"Force stop"))appReturnViewport=null
         }
         items+="App info" to { safeStart(repo.appInfoIntent(e.packageName),e.label) }
-        appActionPanel=AppActionPanel.show(this,anchor,e.label,items) {
+        appActionPanel=AppActionPanel.show(this,anchor,e.label,items.map { (label,action)->label to { SettingsBackupGuard.tryWrite(epoch,action);Unit } }) {
             appActionPanel=null
             if(visible && !isFinishing && !isDestroyed) {
                 focusables[origin]?.requestFocusFromTouch()
@@ -1281,11 +1380,13 @@ class MainActivity : Activity() {
         }
     }
     private fun menu() {
+        if(settingsSuspended) {
+            if(SettingsBackupGuard.recoveryRequired)openSettingsBackup()
+            else Toast.makeText(this,"Finishing local settings safely. Please wait.",Toast.LENGTH_SHORT).show()
+            return
+        }
         val items=ArrayList<Pair<String,()->Unit>>()
-        personal.undoLabel()?.let { label->items+="Undo · $label" to {
-            val undone=personal.undo(); content=withTitlePreferences(content); refreshHomeRows(); contentRepo.refresh()
-            Toast.makeText(this,if(undone==null)"Nothing to undo" else "Undone · $undone",Toast.LENGTH_SHORT).show()
-        } }
+        personal.undoLabel()?.let { label->items+="Undo · $label" to { undoRecentChange() } }
         items+="Customize rows" to { customizeRows() }
         items+="Followed shows" to { followedShows() }
         items+="Favorite teams" to { chooseFavoriteTeams() }
@@ -1294,6 +1395,7 @@ class MainActivity : Activity() {
         }
         items+="Recommendation feedback" to { feedbackSettings() }
         items+="Updates" to { safeStart(Intent(this,UpdateActivity::class.java),"Updates") }
+        items+="Local settings backup" to { openSettingsBackup() }
         items+="App first aid" to { dialog("Choose an app",orderedApps().map { e -> e.label to {
             safeStart(Intent(this,AppFirstAidActivity::class.java).putExtra(AppForceStopActivity.EXTRA_PACKAGE,e.packageName),"App first aid");Unit
         } }) }
@@ -1303,18 +1405,22 @@ class MainActivity : Activity() {
         items+="Live sports apps" to { chooseSportsApps() }
         items+="Recommendation services" to { chooseRecommendationServices() }
         items+="Layout: ${layout.label}" to {
-            dialog("Choose your home",HomeLayout.entries.map { choice -> choice.label to { layout=choice; settings.edit().putString("layout",choice.name).apply(); settings.edit().remove("focus").apply(); render(); root.smoothScrollTo(0,0); firstCard?.requestFocus(); if(visible)startContent() } })
+            dialog("Choose your home",HomeLayout.entries.map { choice -> choice.label to {
+                if(editSettings { it.putString("layout",choice.name).remove("focus") }) {
+                    layout=choice;render();root.smoothScrollTo(0,0);firstCard?.requestFocus();if(visible)startContent()
+                }
+            } })
         }
-        items+="Home interface size: ${interfaceSize.label}" to { chooseInterfaceSize() }
+        items+="Interface size: ${interfaceSize.label}" to { chooseInterfaceSize() }
         items+="Focus motion: ${if(settings.getBoolean("quietMotion",false))"Quiet" else "Classic"}" to {
             dialog("Focus motion",listOf("Quiet · smaller lift, still artwork" to {
-                settings.edit().putBoolean("quietMotion",true).apply();render()
+                editSettings { it.putBoolean("quietMotion",true) };render()
             },"Classic · lift and artwork slide" to {
-                settings.edit().putBoolean("quietMotion",false).apply();render()
+                editSettings { it.putBoolean("quietMotion",false) };render()
             }))
         }
         items+="Show discovery: ${if(discovery)"On" else "Off"}" to {
-            settings.edit().putBoolean("discovery",!discovery).apply(); content=HomeContent(); render(); startContent()
+            editSettings { it.putBoolean("discovery",!discovery) }; content=HomeContent(); render(); startContent()
         }
         repo.settingsIntent()?.let { i -> items+="TV settings" to { safeStart(i,"TV settings") } }
         items+="Inputs" to { openInputs() }
@@ -1341,7 +1447,9 @@ class MainActivity : Activity() {
             val panel=AlertDialog.Builder(this).setTitle(group).setItems(entries.map { it.first }.toTypedArray()) { _,i -> action=entries[i].second }
                 .setNegativeButton("Back") { _,_->action={ menu() } }.create()
             panel.setOnCancelListener { action={ menu() } }
-            panel.setOnDismissListener { if(!isFinishing && !isDestroyed)action?.invoke() };panel.show()
+            val epoch=SettingsBackupGuard.generation
+            panel.setOnDismissListener { if(!isFinishing && !isDestroyed && !backupDeparted && !SettingsBackupGuard.busy && epoch==SettingsBackupGuard.generation)action?.invoke() }
+            panel.show();styleSettingsDialog(panel)
         } }
         top+=items.last()
         dialog("Settings",top)
@@ -1371,7 +1479,7 @@ class MainActivity : Activity() {
             inputType=android.text.InputType.TYPE_CLASS_NUMBER
             filters=arrayOf(android.text.InputFilter.LengthFilter(5))
             hint="5-digit US ZIP code";setSingleLine(true);setText(weatherRepo.prefs.location?.zip.orEmpty());selectAll()
-            setTextSize(TypedValue.COMPLEX_UNIT_SP,22f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP,AppReadability.dimensions(this@MainActivity).sp(22f))
         }
         val form=column().apply {
             setPadding(px(30),px(16),px(30),px(16))
@@ -1385,14 +1493,14 @@ class MainActivity : Activity() {
             if(!zip.matches(Regex("[0-9]{5}"))) { entry.error="Enter a 5-digit US ZIP code";return@setOnClickListener }
             prompt.dismiss();lookupWeatherZip(zip)
         } }
-        prompt.show();entry.requestFocus()
+        prompt.show();styleSettingsDialog(prompt);entry.requestFocus()
     }
     private fun lookupWeatherZip(zip:String) {
         fun cancel() { weatherRepo.stop();if(visible)weatherRepo.start();weatherLoadingDialog=null }
         weatherLoadingDialog=AlertDialog.Builder(this).setTitle("Finding your weather location")
             .setMessage("Checking this ZIP code…")
             .setNegativeButton("Cancel") { _,_->cancel() }
-            .setOnCancelListener { cancel() }.create().also { it.setCanceledOnTouchOutside(false);it.show() }
+            .setOnCancelListener { cancel() }.create().also { it.setCanceledOnTouchOutside(false);it.show();styleSettingsDialog(it) }
         weatherRepo.configureZip(zip) { result ->
             weatherLoadingDialog?.dismiss();weatherLoadingDialog=null
             if(!visible || isFinishing || isDestroyed)return@configureZip
@@ -1402,7 +1510,7 @@ class MainActivity : Activity() {
                 weatherSettings()
             } else AlertDialog.Builder(this).setTitle("Couldn't set weather location")
                 .setMessage("Check the ZIP code and internet connection, then try again. Your previous location has been kept.")
-                .setPositiveButton("Try again") { _,_->chooseWeatherZip() }.setNegativeButton("Close",null).show()
+                .setPositiveButton("Try again") { _,_->chooseWeatherZip() }.setNegativeButton("Close",null).showReadable()
         }
     }
     private fun weatherDetails() {
@@ -1426,7 +1534,7 @@ class MainActivity : Activity() {
                 "Zippopotam.us ZIP lookup" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://api.zippopotam.us/")),"ZIP lookup source") },
                 "GeoNames postal data" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.geonames.org/export/zip/readme.txt")),"Postal data source") },
                 "Credits and licences" to { readLicense("Credits and notices","third-party-notices.txt") }
-            )) }.show()
+            )) }.showReadable()
     }
     private fun customizeRows() {
         val config=personal.rowPreferences()
@@ -1455,24 +1563,24 @@ class MainActivity : Activity() {
     private fun followedShows() {
         val shows=personal.followedShows()
         if(shows.isEmpty()) {
-            AlertDialog.Builder(this).setTitle("Follow new episodes").setMessage("Hold OK on a show and choose Follow new episodes. prettTV checks verified release metadata while Home is open. An episode release does not guarantee availability in your streaming app.").setPositiveButton("Close",null).show(); return
+            AlertDialog.Builder(this).setTitle("Follow new episodes").setMessage("Hold OK on a show and choose Follow new episodes. prettTV checks verified release metadata while Home is open. An episode release does not guarantee availability in your streaming app.").setPositiveButton("Close",null).showReadable(); return
         }
         val choices=shows.map { followed->followed.program.title to {
             dialog(followed.program.title,listOf("Show details" to { programDetails(followed.program) },"Unfollow" to { personal.unfollow(followed.key); contentRepo.refresh() }))
         } }.toMutableList()
-        choices+="Episode check status" to { AlertDialog.Builder(this).setTitle("New episodes").setMessage(content.episodeStatus.ifBlank { "Release metadata has not been checked yet." }).setPositiveButton("Close",null).show() }
+        choices+="Episode check status" to { AlertDialog.Builder(this).setTitle("New episodes").setMessage(content.episodeStatus.ifBlank { "Release metadata has not been checked yet." }).setPositiveButton("Close",null).showReadable() }
         dialog("Followed shows",choices)
     }
     private fun chooseFavoriteTeams() {
         teamLoadingDialog?.dismiss()
-        val loading=AlertDialog.Builder(this).setTitle("Favorite teams").setMessage("Loading available teams…").setNegativeButton("Cancel",null).show()
+        val loading=AlertDialog.Builder(this).setTitle("Favorite teams").setMessage("Loading available teams…").setNegativeButton("Cancel",null).showReadable()
         teamLoadingDialog=loading
         loading.setOnDismissListener { if(teamLoadingDialog===loading)teamLoadingDialog=null }
         contentRepo.requestTeams { teams->
             if(!visible || isFinishing || isDestroyed || !loading.isShowing)return@requestTeams
             loading.dismiss()
             if(teams.isEmpty()) {
-                AlertDialog.Builder(this).setTitle("Teams unavailable").setMessage("Check your connection and try again. Existing favorites are kept.").setPositiveButton("Close",null).show(); return@requestTeams
+                AlertDialog.Builder(this).setTitle("Teams unavailable").setMessage("Check your connection and try again. Existing favorites are kept.").setPositiveButton("Close",null).showReadable(); return@requestTeams
             }
             val groups=teams.groupBy { it.league }.toSortedMap()
             dialog("Choose a league",groups.map { (league,entries)->league to { chooseLeagueTeams(league,entries) } })
@@ -1484,38 +1592,38 @@ class MainActivity : Activity() {
             .setMultiChoiceItems(ordered.map { it.name }.toTypedArray(),ordered.map { it.id in selected }.toBooleanArray()) { _,index,on->
                 if(on)selected.add(ordered[index].id) else selected.remove(ordered[index].id)
             }.setPositiveButton("Save") { _,_->personal.setFavoriteTeams(selected); contentRepo.refresh() }
-            .setNegativeButton("Cancel",null).show()
+            .setNegativeButton("Cancel",null).showReadable()
     }
     private fun feedbackSettings() {
         AlertDialog.Builder(this).setTitle("Recommendation feedback")
-            .setMessage("Not interested hides that title from recommendations and gently lowers similar genres within your service priorities. Your Watchlist and viewing history stay intact. Undo the latest change in Settings, or reset all recommendation feedback here.")
+            .setMessage("Not interested hides that title from recommendations and gently lowers similar genres within your service priorities. Your Watchlist and viewing history stay intact. Use Undo in the top bar for the latest change, or reset all recommendation feedback here.")
             .setPositiveButton("Reset feedback") { _,_->personal.resetRecommendationFeedback();contentRepo.refresh() }
-            .setNegativeButton("Close",null).show()
+            .setNegativeButton("Close",null).showReadable()
     }
     private fun reviewApps(index:Int=0) {
         val choices=apps.sortedBy { it.label.lowercase(java.util.Locale.ROOT) }
         if(index>=choices.size) { Toast.makeText(this,"App choices saved",Toast.LENGTH_SHORT).show(); return }
         val e=choices[index]
         fun choose(include:Boolean) {
-            prefs.hidden=if(include)prefs.hidden-e.key else prefs.hidden+e.key
+            if(!SettingsBackupGuard.tryWrite(settingsGeneration) { prefs.hidden=if(include)prefs.hidden-e.key else prefs.hidden+e.key })return
             render(); startContent(); reviewApps(index+1)
         }
         AlertDialog.Builder(this).setTitle("${index+1} of ${choices.size} · ${e.label}")
             .setMessage("Show this app in Your apps? Currently ${if(e.key in prefs.hidden)"hidden from the row" else "included"}. It stays available in Library, search and viewing history.")
             .setPositiveButton("Include") { _,_ -> choose(true) }
             .setNegativeButton("Hide") { _,_ -> choose(false) }
-            .setNeutralButton("Done for now",null).show()
+            .setNeutralButton("Done for now",null).showReadable()
     }
     private fun chooseRecommendationServices() {
         val choices=apps.filter { it.packageName in contentRepo.availableServices || it.packageName in RecommendationPolicy.knownServices }
             .distinctBy { it.packageName }.sortedBy { it.label.lowercase(java.util.Locale.ROOT) }
         val selected=(if(settings.contains("preferredServices"))settings.getStringSet("preferredServices",emptySet()).orEmpty() else contentRepo.recommendationServices).toMutableSet()
-        AlertDialog.Builder(this).setTitle("Prioritize your signed-in services")
+        AlertDialog.Builder(this).setTitle("Preferred recommendation services")
             .setMultiChoiceItems(choices.map { it.label }.toTypedArray(),choices.map { it.packageName in selected }.toBooleanArray()) { _,i,on ->
                 if(on)selected.add(choices[i].packageName) else selected.remove(choices[i].packageName)
-            }.setPositiveButton("Save") { _,_ -> settings.edit().putStringSet("preferredServices",selected).apply(); startContent() }
-            .setNeutralButton("Use viewing activity") { _,_ -> settings.edit().remove("preferredServices").apply(); startContent() }
-            .setNegativeButton("Cancel",null).show()
+            }.setPositiveButton("Save") { _,_ -> editSettings { it.putStringSet("preferredServices",selected) }; startContent() }
+            .setNeutralButton("Use viewing activity") { _,_ -> editSettings { it.remove("preferredServices") }; startContent() }
+            .setNegativeButton("Cancel",null).showReadable()
     }
     private fun chooseSportsApps() {
         val choices=apps.sortedBy { it.label.lowercase(java.util.Locale.ROOT) }
@@ -1523,8 +1631,8 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("Live sports apps")
             .setMultiChoiceItems(choices.map { it.label }.toTypedArray(),choices.map { it.packageName in selected }.toBooleanArray()) { _,i,on ->
                 if(on)selected.add(choices[i].packageName) else selected.remove(choices[i].packageName)
-            }.setPositiveButton("Save") { _,_ -> settings.edit().putStringSet("sportsPackages",selected).apply(); render() }
-            .setNegativeButton("Cancel",null).show()
+            }.setPositiveButton("Save") { _,_ -> editSettings { it.putStringSet("sportsPackages",selected) }; render() }
+            .setNegativeButton("Cancel",null).showReadable()
     }
     private fun otherHomes() {
         val q=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
@@ -1546,12 +1654,13 @@ class MainActivity : Activity() {
         }.also { panel -> panel.setOnDismissListener { searchPanel=null };panel.show() }
     }
     private fun programInfo(selected:Program) {
+        if(settingsSuspended)return
         val p=actionProgram(selected)
         val items=arrayListOf<Pair<String,()->Unit>>(
             "Open ${p.app}" to { openProgram(p) },
             (if(personal.isSaved(p))"Remove from Watchlist" else "Add to Watchlist") to {
                 val changed=if(personal.isSaved(p))personal.removeSaved(p) else personal.save(p)
-                refreshHomeRows(); Toast.makeText(this,if(changed)"Watchlist updated · Undo in Settings" else personal.lastError ?: "Already saved",Toast.LENGTH_SHORT).show()
+                refreshHomeRows(); Toast.makeText(this,if(changed)"Watchlist updated · Undo is in the top bar" else personal.lastError ?: "Already saved",Toast.LENGTH_SHORT).show()
             },
             "I watched this most recently" to { playback.confirm(p); startContent(); Toast.makeText(this,"Recent viewing corrected on this TV",Toast.LENGTH_SHORT).show() },
             "Hide from large hero" to { hideTitle(p,hero=true,watching=false) },
@@ -1563,13 +1672,25 @@ class MainActivity : Activity() {
             val changed=if(personal.isFollowed(p))personal.unfollow(p) else personal.follow(p)
             contentRepo.refresh(); Toast.makeText(this,if(changed)"Following updated. Alerts require a verified show match." else personal.lastError ?: "Already followed",Toast.LENGTH_LONG).show()
         })
-        if((content.suggestions+content.discover+content.trending+content.newReleases).any { ContentIdentity.key(it)==ContentIdentity.key(p) })items+="Not interested" to {
-            personal.dismissRecommendation(p); contentRepo.refresh()
-            content=content.copy(suggestions=content.suggestions.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) },discover=content.discover.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) },trending=content.trending.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) },newReleases=content.newReleases.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) })
-            refreshHomeRows(); Toast.makeText(this,"Recommendation dismissed · Undo in Settings",Toast.LENGTH_SHORT).show()
+        if((content.suggestions+content.discover+content.trending+content.newReleases).any { ContentIdentity.key(it)==ContentIdentity.key(p) }) {
+            items.add(1,"Why this recommendation?" to { recommendationDetails(p) })
+            items.add(2,"Not interested" to { dismissRecommendation(p) })
         }
         content.newEpisodes.firstOrNull { it.asProgram().id==selected.id }?.let { episode->items+="Dismiss episode alert" to { contentRepo.dismissEpisode(episode.id) } }
         dialog(p.title,items)
+    }
+    private fun dismissRecommendation(p:Program) {
+        personal.dismissRecommendation(p); contentRepo.refresh()
+        content=content.copy(suggestions=content.suggestions.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) },discover=content.discover.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) },trending=content.trending.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) },newReleases=content.newReleases.filterNot { ContentIdentity.key(it)==ContentIdentity.key(p) })
+        refreshHomeRows(); Toast.makeText(this,"Recommendation dismissed · Undo is in the top bar",Toast.LENGTH_SHORT).show()
+    }
+    private fun recommendationDetails(p:Program) {
+        val explicit=if(settings.contains("preferredServices"))settings.getStringSet("preferredServices",emptySet()).orEmpty().toSet() else null
+        val explanation=RecommendationExplanation.describe(p,explicit,contentRepo.recommendationServices)
+        AlertDialog.Builder(this).setTitle("Why this recommendation?").setMessage(explanation)
+            .setPositiveButton("Not interested") { _,_->dismissRecommendation(p) }
+            .setNeutralButton("Choose services") { _,_->chooseRecommendationServices() }
+            .setNegativeButton("Back") { _,_->programInfo(p) }.showReadable()
     }
     private fun withTitlePreferences(value:HomeContent)=value.copy(
         hiddenHeroTitles=settings.getStringSet("hiddenHeroTitles",emptySet()).orEmpty().toSet(),
@@ -1578,30 +1699,32 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("Playback tracking")
             .setMessage("Use active media sessions to recognize supported titles you play. Android requires Notification access for this. prettTV does not read or store notification text. Viewing records stay on this TV. Apps that omit title metadata cannot be identified reliably.\n\nYou can always hold OK on a title and choose ‘I watched this most recently’ to correct stale shared history.")
             .setPositiveButton("Open access settings") { _,_ -> safeStart(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),"Notification access") }
-            .setNegativeButton("Close",null).show()
+            .setNegativeButton("Close",null).showReadable()
     }
     private fun hideTitle(p:Program,hero:Boolean,watching:Boolean) {
+        SettingsBackupGuard.tryWrite(settingsGeneration) {
         val oldHero=content.hiddenHeroTitles.toSet(); val oldWatching=content.hiddenWatchingTitles.toSet()
         val oldLabel=settings.getString("hiddenTitleLabel:${p.titleKey}",null)
         personal.recordUndo("Hide ${p.title}") {
-            settings.edit().putStringSet("hiddenHeroTitles",oldHero).putStringSet("hiddenWatchingTitles",oldWatching).putString("hiddenTitleLabel:${p.titleKey}",oldLabel).apply()
+            editSettings { it.putStringSet("hiddenHeroTitles",oldHero).putStringSet("hiddenWatchingTitles",oldWatching).putString("hiddenTitleLabel:${p.titleKey}",oldLabel) }
         }
         val edit=settings.edit().putString("hiddenTitleLabel:${p.titleKey}",p.title)
         if(hero)edit.putStringSet("hiddenHeroTitles",content.hiddenHeroTitles+p.titleKey)
         if(watching)edit.putStringSet("hiddenWatchingTitles",content.hiddenWatchingTitles+p.titleKey)
         edit.apply(); content=withTitlePreferences(content); refreshHomeRows()
-        Toast.makeText(this,"Hidden in prettTV. Restore from Settings → Hidden titles.",Toast.LENGTH_LONG).show()
+        Toast.makeText(this,"Hidden in prettTV · Undo is in the top bar. Streaming accounts are unchanged.",Toast.LENGTH_LONG).show()
+        }
     }
     private fun hiddenTitles() {
         val keys=(content.hiddenHeroTitles+content.hiddenWatchingTitles).sorted()
         if(keys.isEmpty()) {
-            AlertDialog.Builder(this).setTitle("Hidden titles").setMessage("Hold OK on a title to hide it from the large hero, Continue watching, or both. This only changes prettTV on this TV; shared streaming accounts stay unchanged.").setPositiveButton("Close",null).show()
+            AlertDialog.Builder(this).setTitle("Hidden titles").setMessage("Hold OK on a title to hide it from the large hero, Continue watching, or both. This only changes prettTV on this TV; shared streaming accounts stay unchanged.").setPositiveButton("Close",null).showReadable()
             return
         }
         dialog("Restore a hidden title",keys.map { key ->
             val places=listOfNotNull(if(key in content.hiddenHeroTitles)"hero" else null,if(key in content.hiddenWatchingTitles)"Continue watching" else null).joinToString(" + ")
             "${settings.getString("hiddenTitleLabel:$key",key)} · $places" to {
-                settings.edit().putStringSet("hiddenHeroTitles",content.hiddenHeroTitles-key).putStringSet("hiddenWatchingTitles",content.hiddenWatchingTitles-key).remove("hiddenTitleLabel:$key").apply()
+                editSettings { it.putStringSet("hiddenHeroTitles",content.hiddenHeroTitles-key).putStringSet("hiddenWatchingTitles",content.hiddenWatchingTitles-key).remove("hiddenTitleLabel:$key") }
                 content=withTitlePreferences(content); render()
             }
         })
@@ -1620,7 +1743,7 @@ class MainActivity : Activity() {
                 if(!changed && personal.lastError!=null)Toast.makeText(this,personal.lastError,Toast.LENGTH_LONG).show()
                 refreshHomeRows()
             }
-            .setNegativeButton("Close",null).show()
+            .setNegativeButton("Close",null).showReadable()
     }
     private fun titleDestinations(selected:Program) {
         val p=actionProgram(selected)
@@ -1639,14 +1762,14 @@ class MainActivity : Activity() {
             "Cinemeta · popular and recent titles" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/Stremio/stremio-official-addons")),"Cinemeta") },
             "ESPN · sports schedules and broadcasts" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.espn.com/")),"ESPN") },
             "Project source · github.com/draco1738/prettTV" to { safeStart(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/draco1738/prettTV")),"Project source") },
-            "Privacy" to { AlertDialog.Builder(this).setTitle("Your home, your choice").setMessage("prettTV has no analytics, ad identifiers or registration. App arrangement, viewing records and launch recency stay on this TV. Optional helpers use active media-session metadata (Notification access) or navigate RBTV during a game request (Accessibility access). No notification text is read or retained. Helpers can be turned off in Android settings.\n\nWith discovery on, prettTV requests public catalogs and artwork from TVmaze, Stremio Cinemeta, ESPN scoreboards and their image services. Those servers receive your IP address and requested catalog/show/league IDs. Published TV rows can also link to provider artwork. Switch discovery off to stop general catalog requests. Shows you explicitly follow can still request episode data from TVmaze; unfollow them to stop those checks. Watchlist, followed shows, favorite teams and cached Home data stay on this TV. Cached recommendations expire after seven days. Update checks contact the official prettTV GitHub repository; APK downloads require your action and installation requires Android confirmation.\n\nOptional weather sends your chosen US ZIP code to Zippopotam.us and its area coordinates to the National Weather Service; these providers also receive your IP address. Location, units and a bounded weather cache stay on this TV. Weather does not use GPS or access streaming accounts. Turn off Show on Home in Weather settings to stop weather requests. Local settings exports include your weather location.\n\nCurrently watching uses progress that apps publish to Android TV. prettTV cannot inspect their login status or credentials. Continue watching and the hero use local viewing confirmations and observed changes in published playback progress, with shared timestamps as an initial baseline. Timestamp refreshes alone do not prove playback. Provider progress may arrive late or from a shared account; it cannot identify who watched or the exact playback time. Provider observations stay separate from confirmed local playback and do not automatically consume Watchlist. Supported media sessions can update local recency; you can also hold OK on a title to correct it. Recommendations use shared viewing activity to prioritize services, without assuming an app launch proves a login. Choose your signed-in apps in Recommendation services to override this inference. Providers are balanced before row limits; general/free feeds follow your services and Stremio stays last with a purple S badge. prettTV does not remove ads inside other apps.").setPositiveButton("Close",null).show() }
+            "Privacy" to { AlertDialog.Builder(this).setTitle("Your home, your choice").setMessage("prettTV has no analytics, ad identifiers or registration. App arrangement, viewing records and launch recency stay on this TV. Optional helpers use active media-session metadata (Notification access) or navigate RBTV during a game request (Accessibility access). No notification text is read or retained. Helpers can be turned off in Android settings.\n\nWith discovery on, prettTV requests public catalogs and artwork from TVmaze, Stremio Cinemeta, ESPN scoreboards and their image services. Those servers receive your IP address and requested catalog/show/league IDs. Published TV rows can also link to provider artwork. Switch discovery off to stop general catalog requests. Shows you explicitly follow can still request episode data from TVmaze; unfollow them to stop those checks. Watchlist, followed shows, favorite teams and cached Home data stay on this TV. Cached recommendations expire after seven days. Update checks contact the official prettTV GitHub repository; APK downloads require your action and installation requires Android confirmation.\n\nOptional weather sends your chosen US ZIP code to Zippopotam.us and its area coordinates to the National Weather Service; these providers also receive your IP address. Location, units and a bounded weather cache stay on this TV. Weather does not use GPS or access streaming accounts. Turn off Show on Home in Weather settings to stop weather requests. Local settings exports include your weather location.\n\nCurrently watching uses progress that apps publish to Android TV. prettTV cannot inspect their login status or credentials. Continue watching and the hero use local viewing confirmations and observed changes in published playback progress, with shared timestamps as an initial baseline. Timestamp refreshes alone do not prove playback. Provider progress may arrive late or from a shared account; it cannot identify who watched or the exact playback time. Provider observations stay separate from confirmed local playback and do not automatically consume Watchlist. Supported media sessions can update local recency; you can also hold OK on a title to correct it. Recommendations use shared viewing activity to prioritize services, without assuming an app launch proves a login. Choose your signed-in apps in Recommendation services to override this inference. Providers are balanced before row limits; general/free feeds follow your services and Stremio stays last with a purple S badge. prettTV does not remove ads inside other apps.").setPositiveButton("Close",null).showReadable() }
         ))
     }
     private fun readLicense(title:String,file:String) {
         val body=assets.open(file).bufferedReader().use { it.readText() }
-        val label=TextView(this).apply { text=body; setTextColor(ink); setTextSize(TypedValue.COMPLEX_UNIT_SP,18f); setPadding(px(30),px(20),px(30),px(20)) }
+        val label=TextView(this).apply { text=body; setTextColor(ink); setTextSize(TypedValue.COMPLEX_UNIT_SP,AppReadability.dimensions(this@MainActivity).sp(18f)); setPadding(px(30),px(20),px(30),px(20)) }
         val scroll=ScrollView(this).apply { isFocusable=true; addView(label) }
-        AlertDialog.Builder(this).setTitle(title).setView(scroll).setPositiveButton("Close",null).show()
+        AlertDialog.Builder(this).setTitle(title).setView(scroll).setPositiveButton("Close",null).showReadable()
     }
     override fun dump(prefix:String,fd:java.io.FileDescriptor?,out:java.io.PrintWriter,args:Array<out String>?) {
         val recovery=args?.indexOf("--configure-stock-recovery") ?: -1
@@ -1661,11 +1784,23 @@ class MainActivity : Activity() {
             out.println(store.status()); return
         }
         val stores=mapOf("home" to settings,"apps" to getSharedPreferences("rivi",MODE_PRIVATE),"playback" to getSharedPreferences("prett-playback",MODE_PRIVATE),PersonalizationStore.PREFS_NAME to getSharedPreferences(PersonalizationStore.PREFS_NAME,MODE_PRIVATE))
-        if(args?.contains("--export-local-settings")==true) { out.println("PRETTTV_SETTINGS="+LocalSettingsTransfer.export(stores)); return }
+        if(args?.contains("--export-local-settings")==true) {
+            val snapshot=SettingsBackupGuard.writeResult<String?>(null) { LocalSettingsTransfer.export(stores) }
+            out.println(snapshot?.let { "PRETTTV_SETTINGS=$it" } ?: "PRETTTV_SETTINGS_EXPORT_BUSY")
+            return
+        }
         val restore=args?.indexOf("--restore-local-settings") ?: -1
         if(restore>=0) {
-            try { LocalSettingsTransfer.restore(args!![restore+1],stores); personal.clearUndoHistory(); weatherRepo.stop();if(visible)weatherRepo.start();layout=HomeLayout.parse(settings.getString("layout",null)); content=HomeContent(); render(reset=true); reload(); out.println("PRETTTV_SETTINGS_RESTORED") }
+            try {
+                val plan=LocalSettingsTransfer.prepare(args!![restore+1],stores.keys)
+                suspendSettingsSources()
+                SettingsBackupGuard.diagnosticRestore(rollbackVerified={ it !is LocalSettingsTransfer.RestoreFailure || it.rollbackSucceeded }) {
+                    LocalSettingsTransfer.restore(plan,stores)
+                }
+                out.println("PRETTTV_SETTINGS_RESTORED")
+            }
             catch(_:Exception) { out.println("PRETTTV_SETTINGS_RESTORE_FAILED") }
+            finally { resumeHomeData() }
             return
         }
         super.dump(prefix,fd,out,args)

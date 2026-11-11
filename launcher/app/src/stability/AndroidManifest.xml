@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-    <application android:label="prettTV stability sandbox" tools:replace="android:label">
+    <application android:label="prettTV stability sandbox" tools:replace="android:label"
+        android:networkSecurityConfig="@xml/startup_reliability_network_security">
         <receiver android:name=".UpdateSessionTestReceiver" android:exported="false" />
         <activity android:name=".CardFocusTestActivity" android:exported="false" />
         <!-- The test copy exercises callbacks directly and must not filter the real remote. -->

@@ -15,8 +15,8 @@ android {
         applicationId = "dev.zane.pretttv"
         minSdk = 26
         targetSdk = 34
-        versionCode = 31
-        versionName = "0.6.2"
+        versionCode = 32
+        versionName = "0.6.3"
         testInstrumentationRunner = "fi.jommi.rivi.StabilityInstrumentation"
     }
 

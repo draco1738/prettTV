@@ -36,10 +36,11 @@ class BluetoothControlActivity:Activity() {
         messagesDenied=savedInstanceState?.getBoolean("shortcut-messages-denied",false) ?: false
         setContentView(FrameLayout(this).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            val width=(620*resources.displayMetrics.widthPixels/1920f+.5f).toInt()
+            val scale=AppReadability.referenceScale(this@BluetoothControlActivity)
+            val width=(620*scale+.5f).toInt()
             val scroll=ScrollView(this@BluetoothControlActivity).apply { isFillViewport=false;addView(controls) }
             addView(scroll,FrameLayout.LayoutParams(width,-2,Gravity.CENTER).apply {
-                val margin=(56*resources.displayMetrics.widthPixels/1920f+.5f).toInt()
+                val margin=(56*scale+.5f).toInt()
                 topMargin=margin;bottomMargin=margin
             })
         })
@@ -60,6 +61,7 @@ class BluetoothControlActivity:Activity() {
         outputDialog=dialog
         dialog.setOnDismissListener { if(outputDialog===dialog)outputDialog=null }
         dialog.show()
+        AppReadability.styleDialog(dialog)
     }
     override fun onSaveInstanceState(outState:Bundle) {
         outState.putBoolean("requesting-shortcut-messages",requestingMessages)
@@ -118,7 +120,7 @@ class BluetoothControlActivity:Activity() {
 @SuppressLint("ViewConstructor")
 internal class BluetoothControlView(context:android.content.Context,private val change:(Boolean?)->Unit,
     manage:()->Unit,close:()->Unit,enableMessages:()->Unit={},changeOutput:()->Unit={}):LinearLayout(context) {
-    private val scale=resources.displayMetrics.widthPixels/1920f
+    private val scale=AppReadability.referenceScale(context)
     private fun px(value:Int)=(value*scale+.5f).toInt().coerceAtLeast(1)
     private var state=BluetoothControlSession.State()
     private var focusedInitial=false

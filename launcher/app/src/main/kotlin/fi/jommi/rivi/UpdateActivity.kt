@@ -31,6 +31,7 @@ class UpdateActivity : Activity() {
     private lateinit var install: Button
     private lateinit var cancel: Button
     private var dialog: AlertDialog? = null
+    private val sizing by lazy { AppReadability.dimensions(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -102,11 +103,11 @@ class UpdateActivity : Activity() {
             .setPositiveButton("Open Android settings") { _, _ ->
                 try { startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))) }
                 catch (_: Exception) { status.setText(R.string.update_permissions_unavailable) }
-            }.create().also { it.show(); it.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus() }
+            }.create().also { it.show(); AppReadability.styleDialog(it); it.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus() }
     }
 
     private fun action(title: String, clicked: () -> Unit): Button = Button(this).apply {
-        text = title; textSize = 17f; isAllCaps = false; setPadding(dp(18), 0, dp(18), 0)
+        text = title; textSize = sizing.sp(17f); isAllCaps = false; setPadding(dp(18), 0, dp(18), 0)
         // A pointer/touch-capable TV can retain touch mode from another Activity. Initial and
         // state-change focus must still reach a real control before the next remote key.
         isFocusable = true; isFocusableInTouchMode = true
@@ -119,9 +120,9 @@ class UpdateActivity : Activity() {
     }
     private fun ground(color: Int, edge: Int = PrettTvColors.EDGE) = GradientDrawable().apply { setColor(color); cornerRadius = dp(8).toFloat(); setStroke(dp(1), edge) }
     private fun label(value: String, size: Float, muted: Boolean = false) = TextView(this).apply {
-        text = value; textSize = size; setTextColor(if (muted) PrettTvColors.MUTED else PrettTvColors.TEXT); setLineSpacing(dp(3).toFloat(), 1f)
+        text = value; textSize = sizing.sp(size); setTextColor(if (muted) PrettTvColors.MUTED else PrettTvColors.TEXT); setLineSpacing(dp(3).toFloat(), 1f)
     }
-    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+    private fun dp(value: Int) = sizing.dp(value, resources.displayMetrics.density)
     // Android 8–10 do not expose WindowInsetsController.
     @Suppress("DEPRECATION")
     private fun legacyFullscreen() { window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY }

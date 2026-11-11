@@ -14,6 +14,14 @@ Automatic cloud backup and device-to-device extraction are disabled explicitly, 
 
 prettTV cannot inspect other apps' credentials or reliably determine whether you are signed in. Recommendation services are selected by you or inferred from the progress apps share with Android TV. Opening an app alone is not treated as proof of a login.
 
+## Explicit TV-local settings snapshots
+
+**Settings → Support → Local settings backup** writes only to prettTV's private no-backup directory. Saving or reviewing a copy does not upload it or use a cloud account. The allowlisted four stores can contain title history, Watchlist, hidden titles, app arrangement, service preferences and weather location. Recovery credentials, Android device settings, streaming-account logins and other apps are excluded. Uninstalling prettTV or clearing app data removes both the saved snapshot and pre-restore copy.
+
+Restoration requires a validated preview and fresh, explicit confirmation. Home pauses participating writers and invalidates queued generations during restore. Snapshots are checksummed and atomically published, but the four-store restore is not a crash-atomic transaction. An admitted disk commit can finish after cancellation; rollback remains protected until it drains. Unverified rollback keeps automatic writers paused until a valid explicit recovery succeeds. Recovery status is process-local, so power-loss recovery can require the preserved pre-restore copy or a separately retained diagnostic export.
+
+Recommendation explanations and Not interested/Undo actions remain local. They do not query account entitlement or upload feedback to the source provider. The Android reliability suite permits HTTP only to exact `127.0.0.1` in its separate stability APK; production network policy is unchanged.
+
 ## Network requests
 
 With discovery enabled, prettTV requests public catalogs, ESPN scoreboards and artwork from TVmaze, Cinemeta, Metahub and the relevant image services. Home, Blind Pick and Rabbit Hole share this content-loading path while their screen is active. App-published rows can also point to provider artwork. Those servers receive the TV's IP address and the requested URLs or catalog, show and league identifiers. Catalog requests do not include streaming credentials or an uploaded viewing-history list.

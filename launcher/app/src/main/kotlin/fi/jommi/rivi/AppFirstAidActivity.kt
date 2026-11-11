@@ -78,7 +78,7 @@ internal object NetworkHealth {
 @android.annotation.SuppressLint("ViewConstructor")
 internal class AppFirstAidView(context:android.content.Context,label:String,refresh:()->Unit,restart:()->Unit,
     audio:()->Unit,network:()->Unit,appInfo:()->Unit,close:()->Unit):LinearLayout(context) {
-    private val scale=resources.displayMetrics.widthPixels/1920f
+    private val scale=AppReadability.referenceScale(context)
     private fun px(n:Int)=(n*scale+.5f).toInt().coerceAtLeast(1)
     private fun text(value:String,size:Int,color:Int=AppActionStyle.IVORY)=TextView(context).apply {
         text=value;setTextColor(color);AppActionStyle.textSize(this,size,scale);setLineSpacing(px(5).toFloat(),1f)

@@ -1,11 +1,14 @@
 package fi.jommi.rivi
 
 import android.content.SharedPreferences
-import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.util.Base64
 
-/** Explicit local ADB backup/restore through Activity.dump, protected by Android's DUMP permission. */
+/** Bounded app-owned settings transfer; callers own explicit consent and writer exclusion. */
 object LocalSettingsTransfer {
     private const val MAX_ENCODED = 16 * 1024 * 1024
     private const val MAX_DECODED = 12 * 1024 * 1024
@@ -23,18 +26,34 @@ object LocalSettingsTransfer {
         }
         val bytes=root.toString().toByteArray(Charsets.UTF_8)
         require(bytes.size<=MAX_DECODED) { "Settings export exceeds 12 MB" }
-        return Base64.encodeToString(bytes,Base64.NO_WRAP).also { require(it.length<=MAX_ENCODED) }
+        return Base64.getEncoder().encodeToString(bytes).also { require(it.length<=MAX_ENCODED) }
     }
-    fun restore(data:String,stores:Map<String,SharedPreferences>) {
-        require(stores.keys.all { it in allowedStores }) { "Unsupported preference store" }
+
+    /** Opaque validated values. Creating this plan never opens a preferences editor. */
+    class Prepared internal constructor(internal val values:Map<String,Map<String,Any>>)
+    class RestoreFailure(val rollbackSucceeded:Boolean,cause:Exception):
+        IllegalStateException(if(rollbackSucceeded) "Restore failed; previous settings recovered" else
+            "Restore failed; disk rollback could not be verified",cause)
+
+    fun restore(data:String,stores:Map<String,SharedPreferences>) = restore(prepare(data,stores.keys),stores)
+
+    /** TV snapshots require all four stores; older diagnostic exports keep legacy defaults. */
+    fun prepare(data:String,storeNames:Set<String>,requireAllStores:Boolean=false):Prepared {
+        require(storeNames.isNotEmpty() && storeNames.all { it in allowedStores }) { "Unsupported preference store" }
         require(data.length<=MAX_ENCODED) { "Settings file exceeds 16 MB" }
-        val decoded=Base64.decode(data,Base64.DEFAULT)
+        val decoded=Base64.getDecoder().decode(data.filterNot { it.code==9 || it.code==10 || it.code==13 || it.code==32 })
         require(decoded.size<=MAX_DECODED) { "Decoded settings exceed 12 MB" }
-        val root=JSONObject(String(decoded,Charsets.UTF_8))
+        val text=Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(decoded)).toString()
+        val tokens=JSONTokener(text)
+        val root=tokens.nextValue() as? JSONObject ?: error("Invalid settings document")
+        require(tokens.nextClean()=='\u0000') { "Trailing settings data" }
         require(root.opt("version")==1) { "Unsupported settings version" }
-        require(root.keys().asSequence().all { it=="version" || it in allowedStores }) { "Unsupported preference store" }
-        // Parse and validate every store/value before making the first editor.
-        val prepared=stores.keys.associateWith { name ->
+        val present=root.keys().asSequence().filter { it!="version" }.toSet()
+        require(present.all { it in allowedStores }) { "Unsupported preference store" }
+        if(requireAllStores)require(storeNames==allowedStores && present==allowedStores) { "Incomplete TV snapshot" }
+        // Validate even non-target stores: a confirmation must not approve partly parsed data.
+        val prepared=(storeNames+present).associateWith { name ->
             // Exports predating personalization deliberately restore its defaults.
             val values=if(!root.has(name) && name==PersonalizationStore.PREFS_NAME)JSONObject()
                 else root.optJSONObject(name) ?: error("Missing or invalid preference store")
@@ -68,14 +87,35 @@ object LocalSettingsTransfer {
             validateKnownKeys(name,parsed)
             parsed
         }
+        return Prepared(prepared.filterKeys { it in storeNames })
+    }
+
+    /** Call off main, excluding all other writers until commits or rollback have finished. */
+    fun restore(prepared:Prepared,stores:Map<String,SharedPreferences>,checkActive:()->Unit={}) {
+        require(stores.keys==prepared.values.keys) { "Preference stores changed after validation" }
+        checkActive()
         val previous=stores.mapValues { (_,prefs)->prefs.all.mapValues { (_,value)->if(value is Set<*>)value.toSet() else value } }
+        val touched=mutableListOf<String>()
         try {
-            prepared.forEach { (name,values)->check(write(stores.getValue(name),values)) { "Unable to save restored preferences" } }
+            prepared.values.forEach { (name,values)->
+                checkActive()
+                touched+=name // commit() can change memory even when it fails or throws.
+                check(write(stores.getValue(name),values)) { "Unable to save restored preferences" }
+                check(stores.getValue(name).all==values) { "Restored preferences did not verify" }
+            }
+            checkActive()
         } catch(failure:Exception) {
-            // SharedPreferences changes memory even when its disk commit fails. Restore the
-            // original memory state and attempt disk rollback across all allowlisted stores.
-            previous.forEach { (name,values)->runCatching { write(stores.getValue(name),values) } }
-            throw failure
+            if(touched.isEmpty())throw failure
+            var recovered=true
+            // Cancellation revokes forward writes, not safety rollback. A commit already in
+            // the filesystem cannot be interrupted. Keep writer exclusion until cleanup ends.
+            touched.asReversed().forEach { name->
+                val ok=runCatching {
+                    write(stores.getValue(name),previous.getValue(name)) && stores.getValue(name).all==previous.getValue(name)
+                }.getOrDefault(false)
+                recovered=ok && recovered
+            }
+            throw RestoreFailure(recovered,failure)
         }
     }
     private fun validateKnownKeys(name:String,values:Map<String,Any>) {

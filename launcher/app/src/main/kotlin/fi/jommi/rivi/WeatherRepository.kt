@@ -28,9 +28,9 @@ class WeatherPreferences internal constructor(private val store:SharedPreference
     }
     val units:String get()=runCatching { store.getString("weatherUnits","F") }.getOrNull().takeIf { it=="F" || it=="C" } ?: "F"
     val enabled:Boolean get()=runCatching { store.getBoolean("weatherEnabled",false) }.getOrDefault(false)
-    internal fun location(value:WeatherLocation) { store.edit().putString("weatherLocation",WeatherJson.location(value).toString()).apply() }
-    internal fun units(value:String) { store.edit().putString("weatherUnits",value).apply() }
-    internal fun enabled(value:Boolean) { store.edit().putBoolean("weatherEnabled",value).apply() }
+    internal fun location(value:WeatherLocation,epoch:Long=SettingsBackupGuard.generation)=SettingsBackupGuard.tryWrite(epoch) { store.edit().putString("weatherLocation",WeatherJson.location(value).toString()).apply() }
+    internal fun units(value:String)=SettingsBackupGuard.tryWrite { store.edit().putString("weatherUnits",value).apply() }
+    internal fun enabled(value:Boolean)=SettingsBackupGuard.tryWrite { store.edit().putBoolean("weatherEnabled",value).apply() }
 }
 
 /** One worker and one bounded visible-Home timer; callbacks and preference commits are on main. */
@@ -46,6 +46,7 @@ class WeatherRepository internal constructor(
     private val cacheStore=WeatherCacheStore(File(context.applicationContext.filesDir,"weather-cache-v1.bin"))
     private val generation=AtomicLong()
     @Volatile private var active=false
+    private var settingsGeneration=SettingsBackupGuard.generation
     @Volatile private var closed=false
     private var work:Future<*>?=null
     private var busy=false
@@ -57,7 +58,8 @@ class WeatherRepository internal constructor(
     private val timer=Runnable { publish();if(!busy)refresh() else schedule() }
 
     fun start():Unit=onMain {
-        if(closed)return@onMain
+        if(closed || SettingsBackupGuard.busy || SettingsBackupGuard.recoveryRequired)return@onMain
+        settingsGeneration=SettingsBackupGuard.generation
         active=true
         // Import may have replaced preferences while this Activity remained alive.
         if(state.location!=prefs.location) {
@@ -85,7 +87,7 @@ class WeatherRepository internal constructor(
         if(enabled)refresh()
     }
     fun refresh(force:Boolean=false):Unit=onMain {
-        if(closed || !active || busy || !prefs.enabled)return@onMain
+        if(closed || !active || busy || !prefs.enabled || SettingsBackupGuard.busy || SettingsBackupGuard.recoveryRequired)return@onMain
         val location=prefs.location ?: return@onMain
         if(state.location!=location) {
             cancelWork();cache=null;cacheLoaded=false;failures=0;retryAt=0;lastError=null;publish()
@@ -143,7 +145,8 @@ class WeatherRepository internal constructor(
         }
     }
     fun configureZip(zip:String,complete:(Result<WeatherLocation>)->Unit):Unit=onMain {
-        if(closed || !active)return@onMain
+        if(closed || !active || SettingsBackupGuard.busy || SettingsBackupGuard.recoveryRequired)return@onMain
+        val settingsEpoch=SettingsBackupGuard.generation
         val normalized=WeatherPolicy.normalizeZip(zip)
         if(normalized==null) { complete(Result.failure(IllegalArgumentException("Enter a five-digit US ZIP code.")));return@onMain }
         cancelWork();busy=true;lastError=null;publish();schedule()
@@ -153,7 +156,7 @@ class WeatherRepository internal constructor(
                 val location=WeatherJson.zip(read("https://api.zippopotam.us/us/$normalized",token),normalized)
                 deliver(token) {
                     // This commit shares the main-thread generation check with its completion callback.
-                    prefs.location(location)
+                    if(!prefs.location(location,settingsEpoch))return@deliver
                     if(cache?.location!=location)cache=null
                     cacheLoaded=true;busy=false;work=null;failures=0;retryAt=0;lastError=null
                     publish();complete(Result.success(location));refresh()
@@ -172,7 +175,8 @@ class WeatherRepository internal constructor(
     private fun cancelWork() {
         generation.incrementAndGet();main.removeCallbacks(timer);transport.cancel();work?.cancel(true);work=null;busy=false
     }
-    private fun isCurrent(token:Long)=!closed && active && generation.get()==token
+    private fun isCurrent(token:Long)=!closed && active && generation.get()==token &&
+        settingsGeneration==SettingsBackupGuard.generation && !SettingsBackupGuard.busy && !SettingsBackupGuard.recoveryRequired
     private fun ensureCurrent(token:Long) { if(!isCurrent(token) || Thread.currentThread().isInterrupted)throw CancellationException() }
     private fun deliver(token:Long,action:()->Unit) { main.post { if(isCurrent(token))action() } }
     private fun read(url:String,token:Long):String { ensureCurrent(token);return transport.read(url) { ensureCurrent(token) }.also { ensureCurrent(token) } }

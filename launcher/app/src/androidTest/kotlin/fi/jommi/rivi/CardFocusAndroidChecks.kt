@@ -296,8 +296,8 @@ internal object CardFocusAndroidChecks {
         PrettTvCard.Mode.COMPACT -> 608 to 184
         PrettTvCard.Mode.APP -> 208 to 94
         PrettTvCard.Mode.SHOW, PrettTvCard.Mode.LIBRARY, PrettTvCard.Mode.SPORT -> 420 to 218
-        PrettTvCard.Mode.SPLIT_HERO -> 1112 to 510
-        PrettTvCard.Mode.POSTER -> 202 to 384
+        PrettTvCard.Mode.SPLIT_HERO -> BalancedHomeLayout.HERO_WIDTH to BalancedHomeLayout.stageHeight(1f)
+        PrettTvCard.Mode.POSTER -> BalancedHomeLayout.POSTER_WIDTH to BalancedHomeLayout.posterHeight(1f)
         PrettTvCard.Mode.CONTINUATION -> 586 to 128
     }
     private fun isBalanced(mode:PrettTvCard.Mode)=mode in listOf(PrettTvCard.Mode.SPLIT_HERO,PrettTvCard.Mode.POSTER,PrettTvCard.Mode.CONTINUATION)

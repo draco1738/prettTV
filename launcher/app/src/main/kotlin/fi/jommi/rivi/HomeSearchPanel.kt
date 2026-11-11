@@ -20,7 +20,7 @@ internal class HomeSearchState(var query:String="",var selectedKey:String?=null)
 /** Query and results share one surface. Opening a result keeps the search behind it. */
 internal class HomeSearchPanel(activity:Activity,private val state:HomeSearchState,
     private val find:(String)->List<HomeSearchResult>):Dialog(activity) {
-    private val scale=activity.resources.displayMetrics.widthPixels/1920f
+    private val scale=AppReadability.referenceScale(activity)
     private fun px(n:Int)=(n*scale+.5f).toInt().coerceAtLeast(1)
     private val input=EditText(context).apply {
         tag="home-search-query";id=View.generateViewId();hint="App, show or movie";isSingleLine=true

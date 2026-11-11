@@ -30,6 +30,19 @@ import java.io.File
 import java.util.concurrent.Executors
 import kotlin.random.Random
 
+/** Keep session Undo discoverable without stealing focus or scheduling disappearance. */
+internal fun updateDiscoveryUndoAction(action: TextView, back: View, label: String?) {
+    if (label == null && action.hasFocus()) back.requestFocusFromTouch()
+    action.visibility = if (label == null) View.GONE else View.VISIBLE
+    action.contentDescription = label?.let { "Undo: $it" } ?: "Undo"
+    action.nextFocusLeftId = action.id
+    action.nextFocusRightId = back.id
+    action.nextFocusUpId = action.id
+    back.nextFocusLeftId = if (label == null) back.id else action.id
+    back.nextFocusRightId = back.id
+    back.nextFocusUpId = back.id
+}
+
 /** Two on-demand, first-party Library apps. No launcher, account or background service changes. */
 class DiscoveryActivity : Activity() {
     private val settings by lazy { getSharedPreferences("pretttv", MODE_PRIVATE) }
@@ -65,6 +78,7 @@ class DiscoveryActivity : Activity() {
     private var metadata = emptyMap<String, TitleMetadata>()
     private var pendingFocus: String? = null
     private var dialog: AlertDialog? = null
+    private var undoAction: TextView? = null
     private val controls = LinkedHashMap<String, View>()
     private var scale = 1f
     private var renderGeneration = 0
@@ -90,7 +104,8 @@ class DiscoveryActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         app = OriginalApp.parse(intent.getStringExtra("originalApp"))
-        scale = resources.displayMetrics.widthPixels / 1920f
+        personal.onUndoChanged = { ui.post { if (!isFinishing && !isDestroyed) updateUndoAction() } }
+        scale = AppReadability.referenceScale(this)
         appRepository = AppRepository(this)
         artwork = ArtworkLoader(this)
         repository = ContentRepository(this, ::receive)
@@ -158,6 +173,8 @@ class DiscoveryActivity : Activity() {
     }
 
     override fun onDestroy() {
+        personal.onUndoChanged = null
+        undoAction = null
         repository.close()
         artwork.close()
         worker.shutdownNow()
@@ -167,7 +184,7 @@ class DiscoveryActivity : Activity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        scale = resources.displayMetrics.widthPixels / 1920f
+        scale = AppReadability.referenceScale(this)
         render()
     }
 
@@ -244,7 +261,10 @@ class DiscoveryActivity : Activity() {
         setContentView(scroll)
         val header = row()
         header.addView(label(app.label, 48, bold = true), LinearLayout.LayoutParams(0, px(66), 1f))
+        undoAction = button("Undo", "discovery-undo") { undoLatest() }.apply { visibility = View.GONE }
+        header.addView(undoAction, LinearLayout.LayoutParams(px(150), px(66)).apply { rightMargin = px(12) })
         header.addView(button("Back", "back") { back() }, LinearLayout.LayoutParams(px(150), px(66)))
+        updateUndoAction()
         page.addView(header)
         page.addView(label(if (app == OriginalApp.BLIND_PICK)
             "Choose the feeling. Reveal something worth watching."
@@ -254,7 +274,9 @@ class DiscoveryActivity : Activity() {
             "Your app listings and public catalog data · availability can vary", 21, muted), lp(42))
         scroll.post {
             if (visualToken != renderGeneration || isDestroyed) return@post
-            (controls[focus] ?: controls.values.firstOrNull { it.tag != "back" } ?: controls["back"])?.requestFocus()
+            (controls[focus]?.takeIf { it.visibility == View.VISIBLE }
+                ?: controls.values.firstOrNull { it.visibility == View.VISIBLE && it.tag != "back" && it.tag != "discovery-undo" }
+                ?: controls["back"])?.requestFocus()
             scroll.scrollTo(0, oldScroll)
         }
     }
@@ -487,6 +509,24 @@ class DiscoveryActivity : Activity() {
         }
     }
 
+    private fun updateUndoAction() {
+        val action = undoAction ?: return
+        val back = controls["back"] ?: return
+        updateDiscoveryUndoAction(action, back, personal.undoLabel())
+    }
+
+    private fun undoLatest() {
+        val previousFeedback = personal.recommendationFeedback()
+        val label = personal.undo()
+        if (previousFeedback != personal.recommendationFeedback()) {
+            receive(home)
+            if (app == OriginalApp.BLIND_PICK) { drawPicks(); render() }
+        }
+        updateUndoAction()
+        Toast.makeText(this, label?.let { "Undid: $it" } ?: personal.lastError ?: "Nothing to undo", Toast.LENGTH_SHORT).show()
+        // Watchlist-only undo does not redraw/reorder browsing; feedback undo reopens eligibility.
+    }
+
     private fun sources() {
         val links = linkedMapOf(
             "TVmaze · show and credit data · CC BY-SA" to "https://www.tvmaze.com/api#licensing",
@@ -498,30 +538,57 @@ class DiscoveryActivity : Activity() {
             .setItems(links.keys.toTypedArray()) { _, index ->
                 try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(links.values.elementAt(index)))) }
                 catch (_: Exception) { Toast.makeText(this, "No browser is available", Toast.LENGTH_SHORT).show() }
-            }.setNegativeButton("Back", null).create().also { it.show() }
+            }.setNegativeButton("Back", null).create().also { it.show(); AppReadability.styleDialog(it) }
     }
 
     private fun details(p: Program) {
-        val actions = listOf("Open ${p.app}", if (personal.isSaved(p)) "Already in Watchlist" else "Add to Watchlist", "Explore in Rabbit Hole")
-        dialog?.dismiss()
-        dialog = AlertDialog.Builder(this).setTitle(p.title).setItems(actions.toTypedArray()) { _, index ->
-            when (index) {
-                0 -> open(p)
-                1 -> {
-                    val saved = personal.isSaved(p) || personal.save(p)
-                    Toast.makeText(this, if (saved) "Saved in Watchlist" else personal.lastError ?: "Could not save title", Toast.LENGTH_LONG).show()
-                }
-                2 -> if (app == OriginalApp.RABBIT_HOLE) selectSeed(p) else startActivity(Intent(this, DiscoveryActivity::class.java)
+        val actions = mutableListOf<Pair<String, () -> Unit>>(
+            "Open ${p.app}" to { open(p) },
+            (if (personal.isSaved(p)) "Already in Watchlist" else "Add to Watchlist") to {
+                val saved = personal.isSaved(p) || personal.save(p)
+                Toast.makeText(this, if (saved) "Saved in Watchlist" else personal.lastError ?: "Could not save title", Toast.LENGTH_LONG).show()
+            },
+            "Explore in Rabbit Hole" to {
+                if (app == OriginalApp.RABBIT_HOLE) selectSeed(p) else startActivity(Intent(this, DiscoveryActivity::class.java)
                     .putExtra("originalApp", OriginalApp.RABBIT_HOLE.route).putExtra("seed", key(p)))
             }
-        }.setNegativeButton("Back", null).create().also { it.show() }
+        )
+        if ((home.suggestions + home.discover + home.trending + home.newReleases).any { key(it) == key(p) }) {
+            actions.add(1, "Why this recommendation?" to { recommendationDetails(p) })
+            actions.add(2, "Not interested" to { dismissRecommendation(p) })
+        }
+        dialog?.dismiss()
+        dialog = AlertDialog.Builder(this).setTitle(p.title).setItems(actions.map { it.first }.toTypedArray()) { _, index ->
+            actions[index].second()
+        }.setNegativeButton("Back", null).create().also { it.show(); AppReadability.styleDialog(it) }
+    }
+
+    private fun recommendationDetails(p: Program) {
+        val explicit = if (settings.contains("preferredServices"))
+            settings.getStringSet("preferredServices", emptySet()).orEmpty().toSet() else null
+        val explanation = RecommendationExplanation.describe(p, explicit, RecommendationPolicy.inferredServices(home.watching))
+        dialog?.dismiss()
+        dialog = AlertDialog.Builder(this).setTitle("Why this recommendation?").setMessage(explanation)
+            .setNegativeButton("Back", null).create().also { it.show(); AppReadability.styleDialog(it) }
+    }
+
+    private fun dismissRecommendation(p: Program) {
+        personal.dismissRecommendation(p)
+        if (!personal.recommendationFeedback().isDismissed(p)) {
+            Toast.makeText(this, personal.lastError ?: "Could not change recommendation feedback", Toast.LENGTH_SHORT).show()
+            return
+        }
+        receive(home)
+        updateUndoAction()
+        Toast.makeText(this, "Recommendation dismissed · Undo is beside Back", Toast.LENGTH_SHORT).show()
     }
 
     private fun search() {
         val input = EditText(this).apply { setSingleLine(); setText(query); hint = "Movie or TV show" }
+        AppReadability.nativeContent(this, input)
         dialog = AlertDialog.Builder(this).setTitle("Choose a starting title").setView(input)
             .setPositiveButton("Search") { _, _ -> query = input.text.toString().trim().take(120); chooserPage = 0; render(false) }
-            .setNegativeButton("Cancel", null).create().also { it.show() }
+            .setNegativeButton("Cancel", null).create().also { it.show(); AppReadability.styleDialog(it) }
     }
 
     private fun open(p: Program) {
