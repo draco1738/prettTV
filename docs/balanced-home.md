@@ -10,13 +10,13 @@ Version 0.6.0 introduced the owner's selected C concept as native Android Views 
 
 ## What changed
 
-### Refinement candidate: Home interface size
+### Home interface size · 0.6.2
 
-The 0.6.2 source candidate adds **Settings → Home & apps → Home interface size**. **Standard · 100%** keeps the v0.6.1 geometry. **Larger · 104%** scales Home's cards, text, icons, gaps and controls together, using some of the outer margins so the hero and all three portraits still fit side by side. Lower shelves scroll; no screenshot or root-view bitmap is enlarged/cropped. Selection is retained when changing sizes, and the setting is included in local settings export/restore.
+The 0.6.2 update adds **Settings → Home & apps → Home interface size**. **Standard · 100%** keeps the v0.6.1 geometry. **Larger · 104%** scales Home's cards, text, icons, gaps and controls together, using some of the outer margins so the hero and all three portraits still fit side by side. Lower shelves scroll; no screenshot or root-view bitmap is enlarged/cropped. Selection is retained when changing sizes, and the setting is included in local settings export/restore.
 
-This controls Home, including its header and Library grid, not Android display density, other apps, system screens or every separate prettTV Activity/dialog. System text scaling remains independent. The modest limit is intentional: a larger uniform increase cannot keep this full-width composition on screen without cropping or restructuring it. Standard remains the default. Candidate validation and device availability are recorded in [Validation](validation.md); the images on this page remain v0.6.1 evidence until replaced by versioned native captures.
+This controls Home, including its header and Library grid, not Android display density, other apps, system screens or every separate prettTV Activity/dialog. System text scaling remains independent. The modest limit is intentional: a larger uniform increase cannot keep this full-width composition on screen without cropping or restructuring it. Standard remains the default. The 0.6.2 build passed 474 JVM and 158 native checks and was installed with settings and the pulled-back APK verified. [Actual 0.6.2 Home](screenshots/C-balanced-0.6.2.png) · [Validation](validation.md). Images explicitly labeled 0.6.1 remain historical evidence.
 
-The 0.6.2 candidate also corrects compact Continue watching binding: it combines the service with a deduplicated metadata/time line instead of appending that line to the original provider detail again. Only exact repeated fields are removed; unique descriptions and ambiguous episode labels are not guessed away. Original provider detail and synopsis remain available in title details, and other card modes keep their existing formatting.
+The 0.6.2 update also corrects compact Continue watching binding: it combines the service with a deduplicated metadata/time line instead of appending that line to the original provider detail again. Only exact repeated fields are removed; unique descriptions and ambiguous episode labels are not guessed away. Original provider detail and synopsis remain available in title details, and other card modes keep their existing formatting.
 
 ### Approved v0.6.1 composition
 

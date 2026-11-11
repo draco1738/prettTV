@@ -231,7 +231,11 @@ internal object HomeVisualAndroidChecks {
                         check(root()===previousRoot) { "Playback update rebuilt the whole Home" }
                         check(rowTags(key).first()==selectedKey)
                         val card=views().getValue(selectedKey) as PrettTvCard
-                        check(card.detail==updated.detail && card.progress==updated.progress)
+                        val presentation=ProgramPresentation.from(updated)
+                        if(card.isContinuationCard) {
+                            check(card.detail==presentation.source && card.secondaryDetail==presentation.compactSelectedDetail) { "Compact playback metadata did not refresh" }
+                        } else check(card.detail==updated.detail) { "Legacy playback metadata did not refresh" }
+                        check(card.progress==updated.progress)
                         @Suppress("UNCHECKED_CAST") val deferred=field("deferredRows") as Set<String>
                         check(key !in deferred) { "Continue watching chronology was deferred until focus left" }
                     }
@@ -464,7 +468,10 @@ internal object HomeVisualAndroidChecks {
                 }
             }
             test("Home interface size is reversible and preserves the selected title and saved preferences") {
-                reset(); focus("next-1")
+                reset()
+                main(instrumentation) { call("onNewIntent",Intent().putExtra("layout",HomeLayout.BALANCED.name)) }
+                waitFor(instrumentation) { settled() }
+                focus("next-1")
                 val baseline=main(instrumentation) { views().getValue("feature").width }
                 val before=stores.getValue("home").all.toMap()
                 val selected=main(instrumentation) { bound()["next-1"]?.id }
