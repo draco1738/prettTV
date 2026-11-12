@@ -468,6 +468,74 @@ internal object HomeVisualAndroidChecks {
                 }
                 check(LocalSettingsTransfer.export(mapOf("apps" to stores.getValue("apps")))==appPreferences)
             }
+            test("Title quick actions defer refresh ignore held OK and Back restores the exact card") {
+                reset();val key=tag(programs[5]);focus(key)
+                val prior=main(instrumentation) { Triple(views().getValue(key),root().scrollY,rows().mapValues { it.value.scrollX }) }
+                val saved=main(instrumentation) { personal().watchlist() }
+                main(instrumentation) { check(prior.first.performLongClick()) }
+                waitFor(instrumentation) { (field("appActionPanel") as? Dialog)?.window?.decorView?.hasWindowFocus()==true }
+                val panel=main(instrumentation) { field("appActionPanel") as Dialog }
+                main(instrumentation) {
+                    check((panel.currentFocus as TextView).text=="Open Fixture provider")
+                    val now=SystemClock.uptimeMillis()
+                    check(panel.dispatchKeyEvent(KeyEvent(now,now,KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_DPAD_CENTER,2)))
+                    check(panel.isShowing && personal().watchlist()==saved)
+                }
+                publish(base.copy(refreshing=true))
+                main(instrumentation) {
+                    check(field("providerRefreshPending")==true)
+                    check(views()[key]===prior.first && root().scrollY==prior.second)
+                    check(rows().mapValues { it.value.scrollX }==prior.third)
+                }
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+                waitFor(instrumentation) { field("appActionPanel")==null && settled() && activity.currentFocus===prior.first }
+                main(instrumentation) {
+                    check(root().scrollY==prior.second && rows().mapValues { it.value.scrollX }==prior.third)
+                    check(personal().watchlist()==saved && field("providerRefreshPending")==false)
+                }
+                reset()
+            }
+            test("Title quick actions update Watchlist and preserve advanced controls across A B and C") {
+                fun buttons(view:View):List<TextView> = if(view is android.widget.Button)listOf(view)
+                    else if(view is ViewGroup)(0 until view.childCount).flatMap { buttons(view.getChildAt(it)) } else emptyList()
+                fun open(key:String):Dialog {
+                    focus(key);main(instrumentation) { check(views().getValue(key).performLongClick()) }
+                    waitFor(instrumentation) { (field("appActionPanel") as? Dialog)?.window?.decorView?.hasWindowFocus()==true }
+                    return main(instrumentation) { field("appActionPanel") as Dialog }
+                }
+                val p=programs[5];val key=tag(p)
+                for(layout in HomeLayout.entries) {
+                    main(instrumentation) { call("onNewIntent",Intent().putExtra("layout",layout.name)) }
+                    waitFor(instrumentation) { settled() };reset()
+                    val add=open(key)
+                    main(instrumentation) {
+                        val actions=buttons(add.window!!.decorView)
+                        check(actions.map { it.text.toString() }==listOf("Open Fixture provider","Add to Watchlist","Hide title","More options"))
+                        check(actions.last().nextFocusDownId==actions.last().id && actions.first().nextFocusUpId==actions.first().id)
+                        check(actions.all { it.nextFocusLeftId==it.id && it.nextFocusRightId==it.id })
+                        actions[1].performClick()
+                    }
+                    waitFor(instrumentation) { field("appActionPanel")==null && settled() && activity.currentFocus?.tag==key }
+                    main(instrumentation) { check(personal().isSaved(p)) }
+                    val remove=open(key)
+                    main(instrumentation) { buttons(remove.window!!.decorView).single { it.text=="Remove from Watchlist" }.performClick() }
+                    waitFor(instrumentation) { field("appActionPanel")==null && settled() }
+                    main(instrumentation) { check(!personal().isSaved(p)) }
+                    val more=open(key)
+                    main(instrumentation) { buttons(more.window!!.decorView).single { it.text=="More options" }.performClick() }
+                    waitFor(instrumentation) { field("appActionPanel")==null && !activity.hasWindowFocus() }
+                    main(instrumentation) {
+                        val advanced=(field("settingsDialogs") as List<*>).filterIsInstance<android.app.AlertDialog>().last { it.isShowing }
+                        val list=advanced.listView.adapter
+                        val labels=(0 until list.count).map { list.getItem(it).toString() }
+                        check(labels.containsAll(listOf("I watched this most recently","Hide from large hero","Hide from Continue watching","About this title / source","Follow new episodes")))
+                        advanced.dismiss()
+                    }
+                    waitFor(instrumentation) { settled() }
+                }
+                main(instrumentation) { call("onNewIntent",Intent().putExtra("layout",HomeLayout.BALANCED.name)) }
+                waitFor(instrumentation) { settled() };reset()
+            }
             test("Top navigation stays visible while scrolling and remote boundaries remain finite in A B and C") {
                 for(layout in HomeLayout.entries) {
                     main(instrumentation) { call("onNewIntent",Intent().putExtra("layout",layout.name)) }

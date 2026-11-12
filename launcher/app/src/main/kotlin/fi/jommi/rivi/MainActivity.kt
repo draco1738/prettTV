@@ -1046,7 +1046,7 @@ class MainActivity : Activity() {
         card.contentDescription=(if(card.isContinuationCard)listOf(card.title,card.sourceLabel,card.secondaryDetail,card.action)
             else listOf(card.title,p?.detail ?: card.detail,card.action,card.sourceLabel)).filter(String::isNotBlank).distinct().joinToString(". ")
         card.setOnClickListener { if(p==null)appAnchor?.requestFocus() else openProgram(p) }
-        card.setOnLongClickListener { if(p!=null)programInfo(p) else menu(); true }
+        card.setOnLongClickListener { if(p!=null)programMenu(p,card) else menu(); true }
         if(artUrl.isNotBlank() && cardArt.none { it.card===card })cardArt.add(CardArt(card,artUrl,px(w),px(h)))
         card.invalidate()
     }
@@ -1742,15 +1742,41 @@ class MainActivity : Activity() {
             choices
         }.also { panel -> panel.setOnDismissListener { searchPanel=null };panel.show() }
     }
+    private fun programMenu(selected:Program,anchor:View) {
+        if(settingsSuspended || appActionPanel?.isShowing==true)return
+        val origin=anchor.tag as? String ?: return
+        val place=viewport(origin)
+        val epoch=SettingsBackupGuard.generation
+        val p=actionProgram(selected)
+        val presentation=TitleActionPresentation.from(p,personal.isSaved(p))
+        val items=listOf<Pair<String,()->Unit>>(
+            presentation.openLabel to { openProgram(p) },
+            presentation.watchlistLabel to { toggleSavedTitle(p) },
+            "Hide title" to { hideTitle(p,hero=true,watching=true) },
+            "More options" to { programInfo(selected) },
+        )
+        appActionPanel=AppActionPanel.show(this,anchor,p.title,
+            items.map { (label,action)->label to { if(!settingsSuspended)SettingsBackupGuard.tryWrite(epoch,action);Unit } },
+            AppActionPanel.Options(subtitle=presentation.subtitle,width=480,preferAbove=true,dividerBefore=setOf("Hide title"))) {
+            appActionPanel=null
+            if(visible && !isFinishing && !isDestroyed) {
+                focusables[origin]?.requestFocusFromTouch()
+                restoreRows(place.rows);root.scrollTo(0,place.y)
+                ui.post { if(visible && providerRefreshPending && !isFinishing && !isDestroyed)refreshProviderRows() }
+            }
+        }
+    }
+    private fun toggleSavedTitle(p:Program) {
+        val changed=if(personal.isSaved(p))personal.removeSaved(p) else personal.save(p)
+        refreshHomeRows()
+        Toast.makeText(this,if(changed)"Watchlist updated · Undo is in the top bar" else personal.lastError ?: "Already saved",Toast.LENGTH_SHORT).show()
+    }
     private fun programInfo(selected:Program) {
         if(settingsSuspended)return
         val p=actionProgram(selected)
         val items=arrayListOf<Pair<String,()->Unit>>(
             "Open ${p.app}" to { openProgram(p) },
-            (if(personal.isSaved(p))"Remove from Watchlist" else "Add to Watchlist") to {
-                val changed=if(personal.isSaved(p))personal.removeSaved(p) else personal.save(p)
-                refreshHomeRows(); Toast.makeText(this,if(changed)"Watchlist updated · Undo is in the top bar" else personal.lastError ?: "Already saved",Toast.LENGTH_SHORT).show()
-            },
+            (if(personal.isSaved(p))"Remove from Watchlist" else "Add to Watchlist") to { toggleSavedTitle(p) },
             "I watched this most recently" to { playback.confirm(p); startContent(); Toast.makeText(this,"Recent viewing corrected on this TV",Toast.LENGTH_SHORT).show() },
             "Hide from large hero" to { hideTitle(p,hero=true,watching=false) },
             "Hide from Continue watching" to { hideTitle(p,hero=false,watching=true) },

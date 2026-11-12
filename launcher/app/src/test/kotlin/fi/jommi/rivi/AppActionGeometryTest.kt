@@ -4,6 +4,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AppActionGeometryTest {
+    @Test fun titlePanelPrefersAboveToKeepItsSelectedRowVisible() {
+        val anchor=AppActionGeometry.Box(56,850,660,990)
+        val panel=AppActionGeometry.place(1920,1080,anchor,480,420,56,20,preferAbove=true)
+        assertEquals(56,panel.left);assertEquals(830,panel.bottom)
+        assertEquals(480,panel.width);assertEquals(420,panel.height)
+    }
+    @Test fun titlePanelAtTopFallsBackToTheFreeSide() {
+        val anchor=AppActionGeometry.Box(56,140,1056,642)
+        val panel=AppActionGeometry.place(1920,1080,anchor,480,420,56,20,preferAbove=true)
+        assertEquals(1076,panel.left);assertEquals(642,panel.bottom)
+    }
+    @Test fun titlePanelWithEnlargedTextRemainsInsideSafeScreenBounds() {
+        val panel=AppActionGeometry.place(1280,720,AppActionGeometry.Box(800,550,1240,700),480,1800,40,14,preferAbove=true)
+        assertEquals(40,panel.top);assertEquals(680,panel.bottom)
+        assertTrue(panel.left>=40 && panel.right<=1240)
+    }
     @Test fun appNearLeftGetsPanelOnRightWithoutCoveringCard() {
         val anchor=AppActionGeometry.Box(56,660,264,754)
         val panel=AppActionGeometry.place(1920,1080,anchor,400,460,56,20)

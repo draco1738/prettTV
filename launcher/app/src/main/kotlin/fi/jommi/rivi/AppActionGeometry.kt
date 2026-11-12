@@ -7,7 +7,7 @@ internal object AppActionGeometry {
         val height:Int get()=bottom-top
     }
 
-    fun place(screenWidth:Int,screenHeight:Int,anchor:Box?,width:Int,height:Int,inset:Int,gap:Int):Box {
+    fun place(screenWidth:Int,screenHeight:Int,anchor:Box?,width:Int,height:Int,inset:Int,gap:Int,preferAbove:Boolean=false):Box {
         val sw=screenWidth.coerceAtLeast(1); val sh=screenHeight.coerceAtLeast(1)
         val ix=inset.coerceIn(0,(sw-1)/2); val iy=inset.coerceIn(0,(sh-1)/2)
         val w=width.coerceIn(1,sw-2*ix); val h=height.coerceIn(1,sh-2*iy)
@@ -21,6 +21,7 @@ internal object AppActionGeometry {
         // Keep the selected card unobscured whenever there is a free side.
         val x:Int; val y:Int
         when {
+            preferAbove && above>=minY -> { x=anchor.left.coerceIn(minX,maxX); y=above.coerceAtMost(maxY) }
             right<=maxX -> { x=right.coerceAtLeast(minX); y=(anchor.bottom-h).coerceIn(minY,maxY) }
             left>=minX -> { x=left.coerceAtMost(maxX); y=(anchor.bottom-h).coerceIn(minY,maxY) }
             above>=minY -> { x=anchor.left.coerceIn(minX,maxX); y=above.coerceAtMost(maxY) }

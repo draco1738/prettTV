@@ -58,4 +58,5 @@
     <string name="first_aid_restart">Restart app</string>
     <string name="home_search_title">Search</string>
     <string name="home_search_scope">Your installed apps and titles loaded on Home. Use the remote microphone for Google voice search.</string>
+    <string name="title_actions_hide_description">Hide title from the hero and Continue watching on this TV</string>
 </resources>

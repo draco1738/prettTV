@@ -2,9 +2,9 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
-## OLED Home and audio candidate · 2026-11-12
+## OLED Home, title actions and audio candidate · 2026-11-12
 
-Version 0.6.5 / code 34 implements the two owner-approved concepts in [candidate scope](oled-home-audio.md). [PR #7](https://github.com/draco1738/prettTV/pull/7) remains draft for native checks. The first CI pass on `959156e` completed **628 JVM tests / 50 suites**, zero failures/errors/skips, release assembly and Android test APK compilation. It reported zero lint errors; nine newly unused labels and one new literal-text warning were subsequently cleaned up. The PR checks show the final commit's outcome.
+Version 0.6.5 / code 34 implements the three owner-approved concepts in [candidate scope](oled-home-audio.md). [PR #7](https://github.com/draco1738/prettTV/pull/7) remains draft for native checks. Before title actions were added, CI on `0b52386` completed **628 JVM tests / 50 suites**, zero failures/errors/skips, release assembly and Android test APK compilation, with zero lint errors and no new lint warnings. Title actions add regression coverage for resume eligibility, bounded placement, Back without mutation, delayed provider refresh, held OK, Watchlist changes and advanced controls across A/B/C. The PR checks show the expanded candidate's outcome; the earlier pass does not validate these additions.
 
 The TV is asleep, so native execution, actual visual review, physical remote checks and live output verification are pending. No TV commands or installation were performed. A local Gradle attempt stalled in dependency-file reads and was stopped after CI passed; it is not counted as a local build pass. Historical device-test results below do not validate this candidate.
 
