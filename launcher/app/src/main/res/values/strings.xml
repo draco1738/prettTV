@@ -36,9 +36,9 @@
     <string name="force_stop_progress">Stopping %1$s…</string>
     <string name="force_stop_cancelling">Cancelling…</string>
     <string name="app_actions_return_hint">Back returns to the same card.</string>
-    <string name="audio_devices_title">Audio devices</string>
-    <string name="bluetooth_off_notice">Turns off Bluetooth headphones and remotes</string>
-    <string name="bluetooth_remote_hint">Quick switch: select Bluetooth in Home’s top bar. Hold OK there for audio devices.</string>
+    <string name="audio_devices_title">Audio</string>
+    <string name="bluetooth_off_notice">Headphones and remotes</string>
+    <string name="bluetooth_connect_first">Turn Bluetooth on and connect an audio device first.</string>
     <string name="bluetooth_quick_on">Bluetooth on</string>
     <string name="bluetooth_quick_off">Bluetooth off</string>
     <string name="bluetooth_quick_working">Bluetooth …</string>
@@ -47,10 +47,8 @@
     <string name="bluetooth_messages_notice">Allow notifications to see Bluetooth shortcut results while using other apps. Optional: Bluetooth still works without these messages.</string>
     <string name="bluetooth_messages_denied">Messages remain off. You can enable prettTV notifications in Android app settings.</string>
     <string name="bluetooth_manage_devices">Manage devices</string>
-    <string name="audio_change_output">Change output</string>
-    <string name="audio_choose_output">Choose audio output</string>
     <string name="bluetooth_back">Back</string>
-    <string name="bluetooth_working">Please wait…</string>
+    <string name="bluetooth_working">Wait…</string>
     <string name="bluetooth_turn_off">Turn Bluetooth off</string>
     <string name="bluetooth_turn_on">Turn Bluetooth on</string>
     <string name="bluetooth_retry">Retry Bluetooth check</string>
@@ -60,4 +58,5 @@
     <string name="first_aid_restart">Restart app</string>
     <string name="home_search_title">Search</string>
     <string name="home_search_scope">Your installed apps and titles loaded on Home. Use the remote microphone for Google voice search.</string>
+    <string name="title_actions_hide_description">Hide title from the hero and Continue watching on this TV</string>
 </resources>

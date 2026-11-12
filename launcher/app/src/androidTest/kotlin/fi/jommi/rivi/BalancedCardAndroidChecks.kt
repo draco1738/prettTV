@@ -58,8 +58,8 @@ internal object BalancedCardAndroidChecks {
                         check(card.title[split-1].isWhitespace() || card.title[split].isWhitespace()) { "Hero split a word despite an available word boundary" }
                         check(near(title.left,44f) && near(title.width(),520f) && near(metadata.width(),650f))
                         check(title.top>=44f && title.bottom<=metadata.top-22f) { "Hero title overlaps metadata at $font" }
-                        check(layout.paint.textSize>=76f && layout.paint.textSize<=76f*font+.01f)
-                        check(near(action.height(),60f*font) && near(action.bottom,472f))
+                        check(layout.paint.textSize>=56f && layout.paint.textSize<=56f*font+.01f)
+                        check(near(action.height(),52f*font) && near(action.bottom,472f))
                         check(action.width()<470f && metadata.bottom<action.top)
                         check(image.getPixel((action.right-10f).toInt(),action.centerY().toInt())==Color.BLACK) { "Hero action did not keep a black face" }
                         if(progress>0f) {
@@ -78,7 +78,7 @@ internal object BalancedCardAndroidChecks {
                             val wrapped=titleLayout(card)
                             check(wrapped.lineCount==2 && wrapped.getEllipsisCount(1)==0)
                             check(card.title.substring(0,wrapped.getLineEnd(0)).trim()=="Game of") { "Feature title lost its two-line left-column hierarchy" }
-                            check(near(wrapped.paint.textSize,76f*font))
+                            check(near(wrapped.paint.textSize,56f*font))
                         } finally { approved.recycle() }
                         card.title="Short title"
                         val rebound=raster(card)

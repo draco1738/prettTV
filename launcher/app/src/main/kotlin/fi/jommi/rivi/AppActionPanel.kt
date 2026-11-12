@@ -12,6 +12,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
+import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
@@ -25,7 +26,13 @@ import android.widget.TextView
 
 /** Native, finite, focus-trapped app actions. Opening this panel never rebuilds Home. */
 object AppActionPanel {
-    fun show(activity:Activity,anchor:View,label:String,items:List<Pair<String,()->Unit>>,onDismiss:()->Unit):Dialog {
+    data class Options(val subtitle:String="",val width:Int=400,val preferAbove:Boolean=false,
+                       val dividerBefore:Set<String> = setOf("Force stop"))
+
+    fun show(activity:Activity,anchor:View,label:String,items:List<Pair<String,()->Unit>>,onDismiss:()->Unit):Dialog =
+        show(activity,anchor,label,items,Options(),onDismiss)
+
+    fun show(activity:Activity,anchor:View,label:String,items:List<Pair<String,()->Unit>>,options:Options,onDismiss:()->Unit):Dialog {
         require(items.isNotEmpty())
         val metrics=activity.resources.displayMetrics
         val scale=AppReadability.referenceScale(activity)
@@ -38,17 +45,24 @@ object AppActionPanel {
         }
         column.addView(TextView(activity).apply {
             text=label; setTextColor(AppActionStyle.IVORY)
+            maxLines=2;ellipsize=TextUtils.TruncateAt.END
             AppActionStyle.textSize(this,30,scale)
             typeface=Typeface.create("sans-serif-medium",Typeface.NORMAL)
-            setPadding(px(8),0,px(8),px(14))
+            setPadding(px(8),0,px(8),px(if(options.subtitle.isBlank())14 else 6))
+        },LinearLayout.LayoutParams(-1,-2))
+        if(options.subtitle.isNotBlank())column.addView(TextView(activity).apply {
+            text=options.subtitle;setTextColor(AppActionStyle.MUTED)
+            maxLines=2;ellipsize=TextUtils.TruncateAt.END
+            AppActionStyle.textSize(this,21,scale);setPadding(px(8),0,px(8),px(14))
         },LinearLayout.LayoutParams(-1,-2))
         var chosen:(()->Unit)?=null
         val buttons=items.mapIndexed { index,(title,action) ->
-            if(title=="Force stop" && index>0) column.addView(View(activity).apply {
+            if(title in options.dividerBefore && index>0) column.addView(View(activity).apply {
                 setBackgroundColor(PrettTvColors.EDGE);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },LinearLayout.LayoutParams(-1,px(1)).apply { topMargin=px(10);bottomMargin=px(10) })
             Button(activity).apply {
                 id=View.generateViewId(); text=title
+                if(title=="Hide title")contentDescription=activity.getString(R.string.title_actions_hide_description)
                 AppActionStyle.button(this,scale)
                 setCompoundDrawablesWithIntrinsicBounds(ActionGlyph(title,px(24)),null,null,null)
                 compoundDrawablePadding=px(16)
@@ -83,9 +97,9 @@ object AppActionPanel {
         val anchorRect=Rect()
         val box=if(anchor.getGlobalVisibleRect(anchorRect)) AppActionGeometry.Box(anchorRect.left,anchorRect.top,anchorRect.right,anchorRect.bottom) else null
         val availableWidth=(metrics.widthPixels-px(112)).coerceAtLeast(1)
-        val width=px(400).coerceAtMost(availableWidth)
+        val width=px(options.width).coerceAtMost(availableWidth)
         column.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
-        AppActionStyle.position(dialog.window,AppActionGeometry.place(metrics.widthPixels,metrics.heightPixels,box,width,column.measuredHeight,px(56),px(20)))
+        AppActionStyle.position(dialog.window,AppActionGeometry.place(metrics.widthPixels,metrics.heightPixels,box,width,column.measuredHeight,px(56),px(20),options.preferAbove))
         buttons.first().apply { isFocusableInTouchMode=true; requestFocus(); post { if(dialog.isShowing)requestFocus() } }
         return dialog
     }
@@ -101,7 +115,9 @@ object AppActionPanel {
             paint.color=AppActionStyle.IVORY
             val save=canvas.save(); canvas.translate(bounds.left.toFloat(),bounds.top.toFloat()); canvas.scale(bounds.width()/24f,bounds.height()/24f)
             when {
-                label=="Open" -> { paint.style=Paint.Style.FILL; val path=android.graphics.Path().apply { moveTo(6f,3f);lineTo(20f,12f);lineTo(6f,21f);close() }; canvas.drawPath(path,paint) }
+                label=="Open" || label.startsWith("Open ") || label.startsWith("Resume") -> { paint.style=Paint.Style.FILL; val path=android.graphics.Path().apply { moveTo(6f,3f);lineTo(20f,12f);lineTo(6f,21f);close() }; canvas.drawPath(path,paint) }
+                label.contains("Watchlist") -> { paint.style=Paint.Style.STROKE;canvas.drawLine(5f,12f,19f,12f,paint);if(label.startsWith("Add"))canvas.drawLine(12f,5f,12f,19f,paint) }
+                label=="More options" -> { paint.style=Paint.Style.FILL;for(x in listOf(5f,12f,19f))canvas.drawCircle(x,12f,1.8f,paint) }
                 label=="App first aid" -> { paint.style=Paint.Style.STROKE; canvas.drawLine(5f,12f,19f,12f,paint);canvas.drawLine(12f,5f,12f,19f,paint) }
                 label=="Force stop" -> { paint.style=Paint.Style.STROKE; canvas.drawRoundRect(5f,5f,19f,19f,1.5f,1.5f,paint) }
                 label.contains("favorite",true) -> { paint.style=Paint.Style.STROKE; val path=android.graphics.Path(); for(i in 0..9) { val a=Math.PI*i/5-Math.PI/2;val r=if(i%2==0)10.0 else 4.6;val x=(12+kotlin.math.cos(a)*r).toFloat();val y=(12+kotlin.math.sin(a)*r).toFloat();if(i==0)path.moveTo(x,y) else path.lineTo(x,y) };path.close();canvas.drawPath(path,paint) }

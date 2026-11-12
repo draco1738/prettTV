@@ -112,9 +112,11 @@ internal object HomeVisualAndroidChecks {
                     waitFor(instrumentation) { activity.currentFocus?.tag==key && visible(activity.currentFocus!!) }
                 }
                 instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
-                waitFor(instrumentation) { activity.currentFocus?.tag=="browse-shows" }
+                waitFor(instrumentation) { activity.currentFocus?.tag=="different-picks" }
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_RIGHT)
+                waitFor(instrumentation) { activity.currentFocus?.tag=="different-picks" }
                 instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
-                waitFor(instrumentation) { activity.currentFocus?.tag=="next-2" }
+                waitFor(instrumentation) { activity.currentFocus?.tag=="next-0" }
                 instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
                 waitFor(instrumentation) { activity.currentFocus===field("appAnchor") && visible(activity.currentFocus!!) }
                 instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
@@ -135,19 +137,44 @@ internal object HomeVisualAndroidChecks {
                     call("resetHomePosition")
                     val hero=views().getValue("feature")
                     val poster=views().getValue("next-0")
-                    val browse=views().getValue("browse-shows")
+                    val different=views().getValue("different-picks")
+                    check("browse-shows" !in views()) { "Redundant Browse shows returned to the compact heading" }
                     val first=views().getValue("watching-shows-${programs.first().id}")
                     val bounds=Rect();check(first.getGlobalVisibleRect(bounds) && bounds.height()==first.height)
                     check(root().scrollY==0) { "First continuation row needed scrolling" }
                     val scale=field("scale") as Float
                     check(abs(poster.width-240*scale)<=1 && abs(hero.height-502*scale)<=1)
                     val actionBounds=Rect();val posterBounds=Rect()
-                    check(browse.getGlobalVisibleRect(actionBounds) && poster.getGlobalVisibleRect(posterBounds))
-                    check(actionBounds.bottom<=posterBounds.top) { "Browse was not reclaimed into the heading" }
+                    check(different.getGlobalVisibleRect(actionBounds) && poster.getGlobalVisibleRect(posterBounds))
+                    check(posterBounds.top-actionBounds.bottom>=12*scale) { "Different picks is flush against the posters" }
                     val caption=activity.window.decorView.findViewWithTag<TextView>("app-caption-${syntheticApps.first().key}")
                     check(caption!=null && caption.text.toString()==syntheticApps.first().label && visible(caption))
                     check(!caption.isFocusable) { "App caption introduced a duplicate focus target" }
+                    val range=activity.window.decorView.findViewWithTag<TextView>("your-apps-range")
+                    check(range.text=="1–8 of 12" && !range.isFocusable) { "App counter did not describe the finite row" }
                 }
+                reset()
+            }
+            test("History filters retain remote position and clear shared titles before a local-only refresh") {
+                main(instrumentation) {
+                    personal().setRowPreferences(RowPreferences())
+                    set("content",base);call("refreshHomeRows")
+                }
+                waitFor(instrumentation) { settled() }
+                val local="watching-shows-history-this_tv_only"
+                focus(local)
+                main(instrumentation) { check(views().getValue(local).performClick()) }
+                waitFor(instrumentation) { settled() && activity.currentFocus?.tag==local }
+                main(instrumentation) {
+                    check(ViewingHistoryMode.read(stores.getValue("home"))==ViewingHistoryMode.THIS_TV_ONLY)
+                    check(bound()["feature"]==null) { "Shared-account hero survived the local-only switch" }
+                    check(views().getValue(local).isSelected)
+                }
+                val combined="watching-shows-history-combined"
+                focus(combined)
+                main(instrumentation) { check(views().getValue(combined).performClick()) }
+                waitFor(instrumentation) { settled() && activity.currentFocus?.tag==combined }
+                main(instrumentation) { check(ViewingHistoryMode.read(stores.getValue("home"))==ViewingHistoryMode.COMBINED) }
                 reset()
             }
             test("Initial partial Discover fills its three cards then remains stable on later refresh") {
@@ -209,11 +236,34 @@ internal object HomeVisualAndroidChecks {
                 main(instrumentation) { check((0..2).mapNotNull { bound()["next-$it"] }.none { it.id==removed.id }) }
                 reset()
             }
-            test("Balanced Browse shows opens an existing discovery shelf without launching a provider") {
-                reset(); focus("browse-shows")
-                main(instrumentation) { check(views().getValue("browse-shows").performClick()) }
-                waitFor(instrumentation) { activity.currentFocus?.tag.toString().startsWith("discover-") && visible(activity.currentFocus!!) }
-                main(instrumentation) { check(activity.hasWindowFocus()) }
+            test("Top Shows retains catalog access without a duplicate compact heading control") {
+                reset(); focus("nav-shows")
+                main(instrumentation) {
+                    check("browse-shows" !in views())
+                    check(views().getValue("nav-shows").performClick())
+                }
+                waitFor(instrumentation) { activity.currentFocus===field("showAnchor") && visible(activity.currentFocus!!) }
+                main(instrumentation) {
+                    check(activity.hasWindowFocus())
+                    check(rowTags("discover").isNotEmpty()) { "Full catalog shelf was removed with the duplicate button" }
+                }
+            }
+            test("Hero glyph keeps honest Open versus Resume semantics without a text action pill") {
+                for((program,expected) in listOf(
+                    programs.first() to "Open Fixture provider",
+                    programs.first().copy(intentUri="fixture://episode/2") to "Resume",
+                    programs.first().copy(intentUri="fixture://episode/2",position=0) to "Open Fixture provider")) {
+                    reset(base.copy(watching=listOf(program.copy(engagedAt=100))))
+                    focus("feature")
+                    main(instrumentation) {
+                        val card=views().getValue("feature") as PrettTvCard
+                        check(card.action==expected && card.contentDescription.toString().contains(expected))
+                        if(expected!="Resume")check(!card.contentDescription.toString().contains("Resume"))
+                        check(card.isClickable && card.isFocusable)
+                        assertHeroGlyph(card,field("scale") as Float)
+                    }
+                }
+                reset()
             }
             test("Balanced discovery survives incomplete and empty feeds without dead focus targets") {
                 reset(); focus("next-2")
@@ -417,6 +467,74 @@ internal object HomeVisualAndroidChecks {
                     check(views()[key]===prior.first)
                 }
                 check(LocalSettingsTransfer.export(mapOf("apps" to stores.getValue("apps")))==appPreferences)
+            }
+            test("Title quick actions defer refresh ignore held OK and Back restores the exact card") {
+                reset();val key=tag(programs[5]);focus(key)
+                val prior=main(instrumentation) { Triple(views().getValue(key),root().scrollY,rows().mapValues { it.value.scrollX }) }
+                val saved=main(instrumentation) { personal().watchlist() }
+                main(instrumentation) { check(prior.first.performLongClick()) }
+                waitFor(instrumentation) { (field("appActionPanel") as? Dialog)?.window?.decorView?.hasWindowFocus()==true }
+                val panel=main(instrumentation) { field("appActionPanel") as Dialog }
+                main(instrumentation) {
+                    check((panel.currentFocus as TextView).text=="Open Fixture provider")
+                    val now=SystemClock.uptimeMillis()
+                    check(panel.dispatchKeyEvent(KeyEvent(now,now,KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_DPAD_CENTER,2)))
+                    check(panel.isShowing && personal().watchlist()==saved)
+                }
+                publish(base.copy(refreshing=true))
+                main(instrumentation) {
+                    check(field("providerRefreshPending")==true)
+                    check(views()[key]===prior.first && root().scrollY==prior.second)
+                    check(rows().mapValues { it.value.scrollX }==prior.third)
+                }
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+                waitFor(instrumentation) { field("appActionPanel")==null && settled() && activity.currentFocus===prior.first }
+                main(instrumentation) {
+                    check(root().scrollY==prior.second && rows().mapValues { it.value.scrollX }==prior.third)
+                    check(personal().watchlist()==saved && field("providerRefreshPending")==false)
+                }
+                reset()
+            }
+            test("Title quick actions update Watchlist and preserve advanced controls across A B and C") {
+                fun buttons(view:View):List<TextView> = if(view is android.widget.Button)listOf(view)
+                    else if(view is ViewGroup)(0 until view.childCount).flatMap { buttons(view.getChildAt(it)) } else emptyList()
+                fun open(key:String):Dialog {
+                    focus(key);main(instrumentation) { check(views().getValue(key).performLongClick()) }
+                    waitFor(instrumentation) { (field("appActionPanel") as? Dialog)?.window?.decorView?.hasWindowFocus()==true }
+                    return main(instrumentation) { field("appActionPanel") as Dialog }
+                }
+                val p=programs[5];val key=tag(p)
+                for(layout in HomeLayout.entries) {
+                    main(instrumentation) { call("onNewIntent",Intent().putExtra("layout",layout.name)) }
+                    waitFor(instrumentation) { settled() };reset()
+                    val add=open(key)
+                    main(instrumentation) {
+                        val actions=buttons(add.window!!.decorView)
+                        check(actions.map { it.text.toString() }==listOf("Open Fixture provider","Add to Watchlist","Hide title","More options"))
+                        check(actions.last().nextFocusDownId==actions.last().id && actions.first().nextFocusUpId==actions.first().id)
+                        check(actions.all { it.nextFocusLeftId==it.id && it.nextFocusRightId==it.id })
+                        actions[1].performClick()
+                    }
+                    waitFor(instrumentation) { field("appActionPanel")==null && settled() && activity.currentFocus?.tag==key }
+                    main(instrumentation) { check(personal().isSaved(p)) }
+                    val remove=open(key)
+                    main(instrumentation) { buttons(remove.window!!.decorView).single { it.text=="Remove from Watchlist" }.performClick() }
+                    waitFor(instrumentation) { field("appActionPanel")==null && settled() }
+                    main(instrumentation) { check(!personal().isSaved(p)) }
+                    val more=open(key)
+                    main(instrumentation) { buttons(more.window!!.decorView).single { it.text=="More options" }.performClick() }
+                    waitFor(instrumentation) { field("appActionPanel")==null && !activity.hasWindowFocus() }
+                    main(instrumentation) {
+                        val advanced=(field("settingsDialogs") as List<*>).filterIsInstance<android.app.AlertDialog>().last { it.isShowing }
+                        val list=advanced.listView.adapter
+                        val labels=(0 until list.count).map { list.getItem(it).toString() }
+                        check(labels.containsAll(listOf("I watched this most recently","Hide from large hero","Hide from Continue watching","About this title / source","Follow new episodes")))
+                        advanced.dismiss()
+                    }
+                    waitFor(instrumentation) { settled() }
+                }
+                main(instrumentation) { call("onNewIntent",Intent().putExtra("layout",HomeLayout.BALANCED.name)) }
+                waitFor(instrumentation) { settled() };reset()
             }
             test("Top navigation stays visible while scrolling and remote boundaries remain finite in A B and C") {
                 for(layout in HomeLayout.entries) {
@@ -721,7 +839,7 @@ internal object HomeVisualAndroidChecks {
                                 val hero=views().getValue("feature")
                                 val poster=views().getValue("next-0")
                                 val last=views().getValue("next-2")
-                                val browse=views().getValue("browse-shows")
+                                val different=views().getValue("different-picks") as TextView
                                 fun bounds(view:View)=Rect(0,0,view.width,view.height).also { root().offsetDescendantRectToMyCoords(view,it) }
                                 check(abs(hero.width/unit-BalancedHomeLayout.HERO_WIDTH)<2)
                                 check(abs(hero.height/unit-BalancedHomeLayout.stageHeight(fontScale))<2)
@@ -734,18 +852,28 @@ internal object HomeVisualAndroidChecks {
                                 check(bounds(hero).right<bounds(poster).left && bounds(last).right<=root().width)
                                 check(bounds(hero).left>=0 && bounds(last).right<=activity.resources.displayMetrics.widthPixels)
                                 check(abs(unit-activity.resources.displayMetrics.widthPixels/1920f*size.factor)<.001f)
-                                check(bounds(browse).bottom<=bounds(poster).top) { "Heading action overlaps enlarged poster" }
-                                for(key in listOf("browse-shows","different-picks")) {
-                                    val action=views().getValue(key) as TextView
-                                    check(action.layout!=null && action.layout.getEllipsisCount(0)==0) { "$key truncates at $fontScale" }
+                                check("browse-shows" !in views())
+                                check(bounds(poster).top-bounds(different).bottom>=12*unit) { "Different picks lost poster clearance" }
+                                check(abs(bounds(different).right-bounds(last).right)<=1) { "Different picks is not aligned to the trailing poster edge" }
+                                check(abs(different.width/unit-BalancedHomeLayout.discoveryActionWidth(fontScale))<2)
+                                check(abs(different.height/unit-BalancedHomeLayout.discoveryActionHeight(fontScale))<2)
+                                check(different.paddingLeft>=15*unit && different.paddingRight>=15*unit)
+                                check(different.layout!=null && different.layout.getEllipsisCount(0)==0) { "Different picks truncates at $fontScale" }
+                                check(different.layout.height<=different.height-different.paddingTop-different.paddingBottom) { "Different picks clips vertically" }
+                                for(view in listOf(hero,last,different)) {
+                                    val visibleBounds=Rect()
+                                    check(view.getGlobalVisibleRect(visibleBounds) && visibleBounds.width()==view.width && visibleBounds.height()==view.height) { "Approved C first-stage content is clipped" }
                                 }
-                                check(visible(hero) && visible(last) && visible(browse)) { "Approved C first-stage content is clipped" }
+                                assertHeroGlyph(hero as PrettTvCard,unit)
                                 check((0..2).all { bound()["next-$it"]?.id!=bound()["feature"]?.id })
                             }
                             focus("next-0")
                             val side=main(instrumentation) { activity.currentFocus }
                             instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
                             waitFor(instrumentation) { activity.currentFocus?.tag=="different-picks" && visible(activity.currentFocus!!) }
+                            main(instrumentation) { assertControlFocus(views().getValue("different-picks") as TextView) }
+                            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_RIGHT)
+                            waitFor(instrumentation) { activity.currentFocus?.tag=="different-picks" }
                             instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
                             waitFor(instrumentation) { activity.currentFocus?.tag=="nav-home" && visible(activity.currentFocus!!) }
                             instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
@@ -789,6 +917,39 @@ internal object HomeVisualAndroidChecks {
         }
     }
 
+    /** Real Canvas output, not a text/glyph surrogate or source-string assertion. */
+    private fun assertHeroGlyph(card:PrettTvCard,unit:Float) {
+        check(card.isFocused) { "Hero glyph focus fixture did not select the hero" }
+        val bitmap=Bitmap.createBitmap(card.width,card.height,Bitmap.Config.ARGB_8888)
+        try {
+            card.draw(android.graphics.Canvas(bitmap))
+            fun bounds(name:String)=PrettTvCard::class.java.getDeclaredField(name).apply { isAccessible=true }
+                .get(card) as android.graphics.RectF
+            val action=bounds("actionBounds")
+            val font=card.resources.configuration.fontScale
+            check(abs(action.width()-action.height())<.01f && abs(action.width()-52*unit*font)<1) { "Hero returned to a wide text action pill" }
+            check(action.left-9*unit>=0 && action.top-9*unit>=0 && action.right+9*unit<=card.width && action.bottom+9*unit<=card.height) { "Hero focus ring is clipped" }
+            val title=bounds("balancedTitleBounds")
+            val metadata=bounds("balancedMetadataBounds")
+            val progress=bounds("balancedProgressBounds")
+            check(title.top>=0 && title.bottom<=action.top)
+            if(!metadata.isEmpty)check(title.bottom<=metadata.top && metadata.bottom<action.top)
+            if(!progress.isEmpty)check(progress.bottom<action.top)
+            val cx=action.centerX().toInt(); val cy=action.centerY().toInt()
+            check(Color.red(bitmap.getPixel(cx,cy))>220) { "Native play triangle is missing" }
+            check(Color.red(bitmap.getPixel((action.centerX()-12*unit*font).toInt(),cy))<30) { "Play triangle lost its black inset" }
+            val ringY=(action.top-7*unit).toInt()
+            check((ringY-1..ringY+1).any { Color.red(bitmap.getPixel(cx,it))>220 }) { "Hero focus outline is not visible" }
+        } finally { bitmap.recycle() }
+    }
+    private fun assertControlFocus(control:TextView) {
+        check(control.isFocused)
+        val bitmap=Bitmap.createBitmap(control.width,control.height,Bitmap.Config.ARGB_8888)
+        try {
+            control.draw(android.graphics.Canvas(bitmap))
+            check(Color.red(bitmap.getPixel(control.width/2,1))>220) { "Different picks has no visible white focus outline" }
+        } finally { bitmap.recycle() }
+    }
     private fun visible(view:View):Boolean {
         val bounds=Rect()
         return view.isShown && view.getGlobalVisibleRect(bounds) && bounds.width()>=view.width*.8f && bounds.height()>=view.height*.8f

@@ -13,12 +13,17 @@ internal object BalancedHomeLayout {
     const val POSTER_WIDTH=(DISCOVERY_WIDTH-2*POSTER_GAP)/3
     const val POSTER_COUNT=3
     const val TOP_GAP=38
+    const val DISCOVERY_ACTION_PADDING=16
+    // Leave one reference pixel of slack for independently rounded Larger dimensions.
+    const val HEADING_TOP_CLEARANCE=3
+    const val HEADING_BOTTOM_CLEARANCE=13
 
     private fun font(value:Float)=if(value.isFinite())value.coerceAtLeast(1f) else 1f
     fun stackedHeading(fontScale:Float)=font(fontScale)>1.3f
-    fun headingHeight(fontScale:Float)=ceil(36*font(fontScale)).toInt()+25+if(stackedHeading(fontScale))browseHeight(fontScale) else 0
+    fun headingHeight(fontScale:Float)=ceil(36*font(fontScale)).toInt()+25+if(stackedHeading(fontScale))discoveryActionHeight(fontScale) else 0
     fun posterHeight(fontScale:Float)=POSTER_WIDTH*3/2+81+ceil(70*(font(fontScale)-1f)).toInt()
-    fun browseHeight(fontScale:Float)=36+ceil(25*font(fontScale)).toInt()
+    fun discoveryActionHeight(fontScale:Float)=16+ceil(28*font(fontScale)).toInt()
+    fun discoveryActionWidth(fontScale:Float)=2*DISCOVERY_ACTION_PADDING+ceil(158*font(fontScale)).toInt()
     fun stageHeight(fontScale:Float)=headingHeight(fontScale)+posterHeight(fontScale)
     fun appCaptionHeight(fontScale:Float)=8+ceil(26*font(fontScale)).toInt()
     fun continuationHeight(fontScale:Float)=128+ceil(100*(font(fontScale)-1f)).toInt()

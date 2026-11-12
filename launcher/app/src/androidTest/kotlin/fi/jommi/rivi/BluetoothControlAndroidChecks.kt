@@ -16,19 +16,20 @@ internal object BluetoothControlAndroidChecks {
     fun run(instrumentation:Instrumentation,test:(String,()->Unit)->Unit) {
         val context=instrumentation.targetContext
         check(context.packageName=="dev.zane.pretttv.stability")
-        test("Output action sits beside radio status, preserves focus and never toggles Bluetooth") {
+        test("Audio panel separates selected output from focus and never changes radio through an output row") {
             for(fontScale in listOf(1f,1.3f)) {
                 val activity=instrumentation.startActivitySync(Intent(context,CardFocusTestActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as CardFocusTestActivity
                 try {
-                    var choices=0;val radioActions=ArrayList<Boolean?>()
+                    val choices=ArrayList<TvAudioOutput>();val radioActions=ArrayList<Boolean?>()
                     val panel=main(instrumentation) {
                         val themed=activity.createConfigurationContext(android.content.res.Configuration(activity.resources.configuration).apply { this.fontScale=fontScale })
-                        BluetoothControlView(themed,{radioActions.add(it)},{},{},changeOutput={choices++}).also {
+                        BluetoothControlView(themed,{radioActions.add(it)},{},{},changeOutput={choices.add(it)}).also {
                             it.bind(BluetoothControlSession.State(enabled=true,message="Bluetooth is on",audio=AudioOutputReport("HDMI ARC",false)))
                             activity.setContentView(android.widget.FrameLayout(activity).apply {
                                 setBackgroundColor(PrettTvColors.BACKGROUND)
-                                addView(it,android.widget.FrameLayout.LayoutParams((620*resources.displayMetrics.widthPixels/1920f).toInt(),-2,android.view.Gravity.CENTER))
+                                addView(android.widget.ScrollView(activity).apply { addView(it) },
+                                    android.widget.FrameLayout.LayoutParams((600*resources.displayMetrics.widthPixels/1920f).toInt(),-1,android.view.Gravity.END))
                             })
                         }
                     }
@@ -37,23 +38,35 @@ internal object BluetoothControlAndroidChecks {
                         check(SystemClock.uptimeMillis()<deadline) { "Output panel did not become ready" };SystemClock.sleep(40)
                     }
                     main(instrumentation) {
-                        val action=panel.findViewWithTag<Button>("audio-change-output")
+                        val speakers=panel.findViewWithTag<Button>("audio-output-speakers")
+                        val arc=panel.findViewWithTag<Button>("audio-output-hdmi_arc")
+                        val bluetooth=panel.findViewWithTag<Button>("audio-output-bluetooth")
+                        val toggle=panel.findViewWithTag<Button>("bluetooth-toggle")
                         val status=panel.findViewWithTag<TextView>("bluetooth-status")
                         val statusBox=android.graphics.Rect();val actionBox=android.graphics.Rect()
-                        check(status.getGlobalVisibleRect(statusBox) && action.getGlobalVisibleRect(actionBox))
-                        check(statusBox.right<=actionBox.left && actionBox.width()==action.width)
-                        check(action.layout!=null && (0 until action.layout.lineCount).all { action.layout.getEllipsisCount(it)==0 })
-                        check(action.requestFocus() && panel.findFocus()===action)
-                        action.performClick();check(choices==1 && radioActions.isEmpty())
+                        check(status.getGlobalVisibleRect(statusBox) && toggle.getGlobalVisibleRect(actionBox))
+                        check(statusBox.right<=actionBox.left && actionBox.width()==toggle.width)
+                        check(speakers.requestFocus() && panel.findFocus()===speakers)
+                        check(!speakers.isSelected && arc.isSelected && !bluetooth.isSelected)
+                        check(arc.compoundDrawablesRelative[2]!=null && speakers.compoundDrawablesRelative[2]==null)
+                        check(speakers.layout!=null && (0 until speakers.layout.lineCount).all { speakers.layout.getEllipsisCount(it)==0 })
+                        speakers.performClick();check(choices==listOf(TvAudioOutput.SPEAKERS) && radioActions.isEmpty())
                         val output=java.io.File(checkNotNull(context.getExternalFilesDir(null)),"visual-review").apply { mkdirs() }
                         val bitmap=Bitmap.createBitmap(panel.width,panel.height,Bitmap.Config.ARGB_8888)
                         try { panel.draw(Canvas(bitmap));java.io.File(output,"audio-output-$fontScale.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) } } finally { bitmap.recycle() }
                         panel.bind(BluetoothControlSession.State(working=true,message="Switching media output…"))
-                        repeat(4) { action.performClick() };check(choices==1 && panel.findFocus()===action)
+                        repeat(4) { speakers.performClick();arc.performClick();toggle.performClick() }
+                        check(choices.size==1 && radioActions.isEmpty() && panel.findFocus()===speakers)
+                        check(!arc.isSelected && !speakers.isSelected)
                         panel.bind(BluetoothControlSession.State(enabled=true,message="TV speakers selected.",audio=AudioOutputReport("TV speakers",false)))
-                        check(status.text=="Bluetooth is on" && panel.findFocus()===action && radioActions.isEmpty())
+                        check(toggle.text=="On" && panel.findFocus()===speakers && radioActions.isEmpty())
+                        check(speakers.isSelected && !arc.isSelected)
                         check(panel.findViewWithTag<TextView>("audio-feedback").text=="TV speakers selected.")
-                        check(action.nextFocusDownId==panel.findViewWithTag<Button>("bluetooth-toggle").id)
+                        panel.bind(BluetoothControlSession.State(enabled=false,message="Bluetooth is off",audio=AudioOutputReport("TV speakers",false)))
+                        bluetooth.performClick()
+                        check(choices.size==1 && radioActions.isEmpty())
+                        check(panel.findViewWithTag<TextView>("audio-feedback").text.contains("Turn Bluetooth on"))
+                        check(speakers.nextFocusDownId==arc.id && toggle.nextFocusDownId==speakers.id)
                     }
                 } finally { main(instrumentation) { activity.finish() };instrumentation.waitForIdleSync() }
             }
@@ -125,14 +138,14 @@ internal object BluetoothControlAndroidChecks {
                     val status=panel.findViewWithTag<TextView>("bluetooth-status")
                     check(actions.isEmpty()) { "Opening the panel changed Bluetooth" }
                     panel.bind(BluetoothControlSession.State(enabled=true,message="Bluetooth is on"))
-                    check(toggle.text=="Turn Bluetooth off" && status.text=="Bluetooth is on")
+                    check(toggle.text=="On" && status.contentDescription=="Bluetooth is on")
                     check(toggle.performClick() && actions==listOf(false))
                     panel.bind(BluetoothControlSession.State(working=true,message="Turning Bluetooth off…"))
                     check(toggle.isEnabled);toggle.performClick();check(actions==listOf(false))
                     panel.bind(BluetoothControlSession.State(enabled=false,message="Bluetooth is off"))
-                    check(toggle.text=="Turn Bluetooth on");toggle.performClick();check(actions==listOf(false,true))
+                    check(toggle.text=="Off");toggle.performClick();check(actions==listOf(false,true))
                     panel.bind(BluetoothControlSession.State(message="Local control is unavailable. Use Manage devices."))
-                    check(toggle.text=="Retry Bluetooth check");toggle.performClick();check(actions==listOf(false,true,null))
+                    check(toggle.text=="Check");toggle.performClick();check(actions==listOf(false,true,null))
                     panel.findViewWithTag<View>("bluetooth-manage").performClick()
                     panel.findViewWithTag<View>("bluetooth-close").performClick()
                     check(managed==1 && closed==1)
@@ -203,8 +216,9 @@ internal object BluetoothControlAndroidChecks {
                     val notice=panel.findViewWithTag<TextView>("bluetooth-messages-notice")
                     val manage=panel.findViewWithTag<Button>("bluetooth-manage")
                     val close=panel.findViewWithTag<Button>("bluetooth-close")
-                    fun checkChain(vararg radioButtons:Button) {
-                        val buttons=listOf(panel.findViewWithTag<Button>("audio-change-output"))+radioButtons
+                    fun checkChain() {
+                        val buttons=listOf(toggle)+listOf("speakers","hdmi_arc","bluetooth").map { panel.findViewWithTag<Button>("audio-output-$it") }+
+                            listOf(manage,messages,close).filter { it.visibility==View.VISIBLE }
                         buttons.forEachIndexed { index,button ->
                             check(button.isFocusableInTouchMode) { "${button.tag} cannot receive focus after touch input" }
                             check(button.nextFocusLeftId==button.id && button.nextFocusRightId==button.id)
@@ -218,7 +232,7 @@ internal object BluetoothControlAndroidChecks {
                     check(messages.visibility==View.VISIBLE && notice.visibility==View.VISIBLE)
                     check(messages.text=="Enable shortcut messages" && requests==0 && actions.isEmpty())
                     check(activity.currentFocus===toggle) { "Permission offer stole Bluetooth toggle focus" }
-                    checkChain(toggle,messages,manage,close)
+                    checkChain()
                     check(messages.requestFocus() && messages.performClick())
                     check(requests==1 && actions.isEmpty()) { "Permission action changed Bluetooth or did not request permission" }
                     panel.bindShortcutMessages(33,false,true)
@@ -227,28 +241,28 @@ internal object BluetoothControlAndroidChecks {
                     panel.bindShortcutMessages(33,false,denied=true)
                     check(messages.visibility==View.VISIBLE && activity.currentFocus===messages && requests==1)
                     check(notice.text=="Messages remain off. You can enable prettTV notifications in Android app settings.")
-                    checkChain(toggle,messages,manage,close)
+                    checkChain()
                     panel.bindShortcutMessages(33,true)
                     check(messages.visibility==View.GONE && notice.visibility==View.GONE)
-                    check(activity.currentFocus===toggle && toggle.nextFocusDownId==manage.id)
-                    checkChain(toggle,manage,close)
+                    check(activity.currentFocus===toggle && toggle.nextFocusDownId==panel.findViewWithTag<Button>("audio-output-speakers").id)
+                    checkChain()
                     panel.bindShortcutMessages(34,false)
                     check(activity.currentFocus===toggle && messages.visibility==View.VISIBLE)
-                    checkChain(toggle,messages,manage,close)
+                    checkChain()
                     check(manage.requestFocus())
                     panel.bindShortcutMessages(34,true)
                     check(activity.currentFocus===manage) { "Grant refresh stole a deliberate selection" }
                     panel.bindShortcutMessages(32,false)
                     check(messages.visibility==View.GONE && notice.visibility==View.GONE)
-                    check(toggle.nextFocusDownId==manage.id && activity.currentFocus===manage)
-                    checkChain(toggle,manage,close)
+                    check(toggle.nextFocusDownId==panel.findViewWithTag<Button>("audio-output-speakers").id && activity.currentFocus===manage)
+                    checkChain()
                     check(close.requestFocus() && activity.currentFocus===close)
                     panel.bindShortcutMessages(34,false)
                     check(activity.currentFocus===close) { "Permission offer stole Back button focus" }
-                    checkChain(toggle,messages,manage,close)
+                    checkChain()
                     panel.bindShortcutMessages(34,true)
                     check(activity.currentFocus===close) { "Grant refresh stole Back button focus" }
-                    checkChain(toggle,manage,close)
+                    checkChain()
                     check(requests==1 && actions.isEmpty()) { "Permission state refresh dispatched an action" }
                 }
             } finally {
