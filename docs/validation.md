@@ -4,7 +4,9 @@
 
 ## OLED Home and audio candidate · 2026-11-12
 
-Version 0.6.5 / code 34 implements the two owner-approved concepts in [candidate scope](oled-home-audio.md). The TV is asleep, so native execution, actual visual review, physical remote checks and live output verification are pending. No TV commands or installation were performed. JVM/build/lint results are recorded after completion; dispatched build commands alone do not establish a pass.
+Version 0.6.5 / code 34 implements the two owner-approved concepts in [candidate scope](oled-home-audio.md). [PR #7](https://github.com/draco1738/prettTV/pull/7) remains draft for native checks. The first CI pass on `959156e` completed **628 JVM tests / 50 suites**, zero failures/errors/skips, release assembly and Android test APK compilation. It reported zero lint errors; nine newly unused labels and one new literal-text warning were subsequently cleaned up. The PR checks show the final commit's outcome.
+
+The TV is asleep, so native execution, actual visual review, physical remote checks and live output verification are pending. No TV commands or installation were performed. A local Gradle attempt stalled in dependency-file reads and was stopped after CI passed; it is not counted as a local build pass. Historical device-test results below do not validate this candidate.
 
 ## PR #6 local-history classification follow-up — 2026-11-12
 

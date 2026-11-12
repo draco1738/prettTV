@@ -135,7 +135,7 @@ internal class BluetoothControlView(context:android.content.Context,private val 
         action("audio-output-${target.name.lowercase()}",target.label) {
             if(!state.working) {
                 if(target==TvAudioOutput.BLUETOOTH && state.enabled!=true) {
-                    feedback.text="Turn Bluetooth on and connect an audio device first."
+                    feedback.setText(R.string.bluetooth_connect_first)
                     feedback.visibility=VISIBLE
                 } else changeOutput(target)
             }
@@ -166,13 +166,13 @@ internal class BluetoothControlView(context:android.content.Context,private val 
     }
     init {
         orientation=VERTICAL;setPadding(px(32),px(28),px(32),px(24));background=AppActionStyle.surface(scale)
-        addView(label("Audio",40),LayoutParams(-1,-2).apply { bottomMargin=px(28) })
+        addView(label(context.getString(R.string.audio_devices_title),40),LayoutParams(-1,-2).apply { bottomMargin=px(28) })
         addView(LinearLayout(context).apply {
             orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
             addView(LinearLayout(context).apply {
                 orientation=VERTICAL
                 addView(status)
-                addView(label("Headphones and remotes",20,AppActionStyle.MUTED))
+                addView(label(context.getString(R.string.bluetooth_off_notice),20,AppActionStyle.MUTED))
             },LayoutParams(0,-2,1f).apply { marginEnd=px(12) })
             addView(toggle,LayoutParams(px(112),-2))
         },LayoutParams(-1,-2))
@@ -209,12 +209,12 @@ internal class BluetoothControlView(context:android.content.Context,private val 
         state=value
         radioIcon.bind(value)
         val radio=when(value.enabled) { true->"Bluetooth is on";false->"Bluetooth is off";null->value.message }
-        toggle.text=when { value.working->"Wait…";value.enabled==true->"On";value.enabled==false->"Off";else->"Check" }
+        toggle.text=when { value.working->context.getString(R.string.bluetooth_working);value.enabled==true->"On";value.enabled==false->"Off";else->"Check" }
         toggle.contentDescription=when {
             value.working->"Bluetooth. Please wait."
-            value.enabled==true->"Bluetooth on. Turn Bluetooth off."
-            value.enabled==false->"Bluetooth off. Turn Bluetooth on."
-            else->"Retry Bluetooth check"
+            value.enabled==true->"Bluetooth on. ${context.getString(R.string.bluetooth_turn_off)}."
+            value.enabled==false->"Bluetooth off. ${context.getString(R.string.bluetooth_turn_on)}."
+            else->context.getString(R.string.bluetooth_retry)
         }
         status.contentDescription=radio
         output.text=if(value.working)"Checking output…" else value.audio?.description ?: "Output not verified"
