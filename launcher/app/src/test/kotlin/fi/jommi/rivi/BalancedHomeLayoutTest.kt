@@ -12,13 +12,36 @@ class BalancedHomeLayoutTest {
         assertEquals(502,BalancedHomeLayout.stageHeight(1f))
         assertEquals(128,BalancedHomeLayout.continuationHeight(1f))
     }
-    @Test fun enlargedTextReservesSpaceInsteadOfOverlappingTheBrowseAction() {
+    @Test fun enlargedTextReservesSpaceInsteadOfOverlappingDifferentPicks() {
         for(font in listOf(1f,1.3f,2f)) {
-            assertTrue(BalancedHomeLayout.headingHeight(font)>=BalancedHomeLayout.browseHeight(font))
+            assertTrue(BalancedHomeLayout.headingHeight(font)>=BalancedHomeLayout.discoveryActionHeight(font))
             assertEquals(BalancedHomeLayout.headingHeight(font)+BalancedHomeLayout.posterHeight(font),BalancedHomeLayout.stageHeight(font))
             assertTrue(BalancedHomeLayout.continuationHeight(font)>=128)
         }
         assertTrue(BalancedHomeLayout.stageHeight(1.3f)>BalancedHomeLayout.stageHeight(1f))
+    }
+    @Test fun compactDiscoverActionLeavesClearanceAboveThePortraits() {
+        assertEquals("Different picks should be a quiet 44-reference-pixel control",44,BalancedHomeLayout.discoveryActionHeight(1f))
+        for(font in listOf(1f,1.3f)) {
+            assertTrue("Action must leave top and bottom focus clearance at font $font",
+                BalancedHomeLayout.headingHeight(font)-BalancedHomeLayout.discoveryActionHeight(font)>=17)
+        }
+    }
+    @Test fun bothInterfaceSizesKeepTheCompactHeadingAndPortraitGeometryAtBothFontScales() {
+        assertEquals(190,BalancedHomeLayout.discoveryActionWidth(1f))
+        assertEquals(16,BalancedHomeLayout.DISCOVERY_ACTION_PADDING)
+        for(unit in listOf(1f,1.04f))for(font in listOf(1f,1.3f)) {
+            fun px(value:Int)=(value*unit+.5f).toInt()
+            val height=px(BalancedHomeLayout.headingHeight(font))
+            val action=px(BalancedHomeLayout.discoveryActionHeight(font))
+            val top=px(BalancedHomeLayout.HEADING_TOP_CLEARANCE)
+            val bottom=px(BalancedHomeLayout.HEADING_BOTTOM_CLEARANCE)
+            assertTrue("Heading squeezes the control at $unit/$font",height-top-bottom>=action)
+            assertTrue("Action lost poster separation",bottom>=12*unit)
+            assertTrue("Heading control became a wide pill",BalancedHomeLayout.discoveryActionWidth(font)<=240)
+            assertTrue("Discover label has no breathing room",BalancedHomeLayout.DISCOVERY_WIDTH-BalancedHomeLayout.discoveryActionWidth(font)>400)
+            assertEquals(360f,BalancedHomeLayout.POSTER_WIDTH*1.5f,0f)
+        }
     }
     @Test fun invalidOrSmallFontScaleNeverCollapsesTheStage() {
         for(font in listOf(Float.NaN,Float.POSITIVE_INFINITY,-1f,.5f))assertEquals(502,BalancedHomeLayout.stageHeight(font))

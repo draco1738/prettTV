@@ -12,6 +12,8 @@
 
 ## Make Home yours
 
+**Staged for 0.6.5:** a calmer Balanced Home with smaller hero controls, one Shuffle action, a finite app-row counter and direct All activity / This TV history filters. The redesigned Audio panel puts Bluetooth power and direct output choices together, marking only the verified selected route. These owner-approved changes are being prepared while the TV sleeps; device validation and installation remain pending. [Candidate scope and checks →](docs/oled-home-audio.md)
+
 **New in 0.6.3:** larger Discover picture areas (240×360), consistent Standard/Larger sizing across prettTV, direct session Undo, truthful recommendation explanations and Not interested controls, and explicit on-TV settings backup/restore. Startup reliability now has full-repository and real Android slow-transport coverage. **529 JVM tests and 184 isolated Android checks passed**; detailed evidence and limits are in [Validation](docs/validation.md). [Controls and backup →](docs/usage.md#interface-size-undo-and-recommendations)
 
 **New in 0.6.1:** the three Discover cards beside the large feature now fill their frames proportionally. C can fetch genuine portrait artwork for exact series matches, instead of displaying landscape banners with empty bands. Artwork stays separate from progress and launch destinations, preferred-service tiers remain intact, and A/B are unchanged. [Appearance, controls, verified screenshots and limits →](docs/balanced-home.md)

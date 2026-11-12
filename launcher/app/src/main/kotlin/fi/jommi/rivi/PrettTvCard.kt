@@ -381,7 +381,7 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
         val inset=s(44f); val space=(w-2*inset).coerceAtLeast(1f); val copyWidth=minOf(s(650f),space)
         val font=resources.configuration.fontScale
         val hasAction=action.isNotBlank(); val hasSource=sourceLabel.isNotBlank()
-        val buttonH=s(60f)*font
+        val buttonH=s(52f)*font
         val buttonBottom=h-s(38f); val buttonTop=buttonBottom-if(hasAction || hasSource)buttonH else 0f
         val metadata=listOf(detail,secondaryDetail).filter(String::isNotBlank).distinct().joinToString("  |  ")
         var titleBottom=buttonTop
@@ -398,11 +398,11 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
             titleBottom=balancedMetadataBounds.top-s(23f)
         } else if(validProgress())titleBottom-=s(4f)
         // Keep multiword feature titles in the left-hand column, not stretched over the scene.
-        drawWrappedTitle(c,inset,titleBottom,minOf(s(520f),copyWidth),76f,(titleBottom-inset).coerceAtLeast(1f),true)
+        drawWrappedTitle(c,inset,titleBottom,minOf(s(520f),copyWidth),56f,(titleBottom-inset).coerceAtLeast(1f),true)
         if(hasAction) {
-            prepareBalancedText(26f,true)
-            val buttonW=(text.measureText(action)+s(74f)).coerceAtLeast(s(184f)).coerceAtMost(copyWidth*.72f)
-            actionBounds.set(inset,buttonTop,inset+buttonW,buttonBottom)
+            // The whole hero is the action target. Keep its honest action in accessibility,
+            // but draw only a compact native play mark, never a service-name-sized pill.
+            actionBounds.set(inset,buttonTop,inset+buttonH,buttonBottom)
             paint.color=Color.BLACK; c.drawRoundRect(actionBounds,s(12f),s(12f),paint)
             paint.style=Paint.Style.STROKE; paint.strokeWidth=s(1f); paint.color=if(isFocused)ivory else PrettTvColors.STRONG_EDGE
             c.drawRoundRect(actionBounds,s(12f),s(12f),paint)
@@ -411,15 +411,16 @@ class PrettTvCard(context:Context,private val unit:Float,private val mode:Mode,p
                 paint.color=ivory; paint.strokeWidth=s(3f); c.drawRoundRect(feedbackBounds,s(19f),s(19f),paint)
             }
             paint.style=Paint.Style.FILL
-            val cy=actionBounds.centerY()
-            actionPlay.reset(); actionPlay.moveTo(inset+s(26f),cy-s(8f)); actionPlay.lineTo(inset+s(26f),cy+s(8f))
-            actionPlay.lineTo(inset+s(38f),cy); actionPlay.close(); paint.color=ivory; c.drawPath(actionPlay,paint)
-            line(c,action,inset+s(51f),cy-(metrics.ascent+metrics.descent)/2,26f,buttonW-s(70f),ivory,true)
+            val cx=actionBounds.centerX(); val cy=actionBounds.centerY()
+            actionPlay.reset(); actionPlay.moveTo(cx-s(7f)*font,cy-s(11f)*font)
+            actionPlay.lineTo(cx-s(7f)*font,cy+s(11f)*font); actionPlay.lineTo(cx+s(11f)*font,cy)
+            actionPlay.close(); paint.color=ivory; c.drawPath(actionPlay,paint)
         }
-        if(hasSource) {
-            prepareBalancedText(23f)
+        if(hasSource || hasAction) {
+            prepareBalancedText(26f)
             val sourceX=if(hasAction)actionBounds.right+s(25f) else inset
-            line(c,sourceLabel,sourceX,buttonTop+buttonH/2-(metrics.ascent+metrics.descent)/2,23f,w-inset-sourceX,muted)
+            val label=if(action=="Resume" && hasSource)"Resume · $sourceLabel" else if(hasAction)action else sourceLabel
+            line(c,label,sourceX,buttonTop+buttonH/2-(metrics.ascent+metrics.descent)/2,26f,w-inset-sourceX,ivory)
         }
     }
     private fun drawContinuation(c:Canvas,w:Float,h:Float) {

@@ -440,6 +440,27 @@ class MainActivity : Activity() {
         addView(text(title,28,ink,true),LinearLayout.LayoutParams(0,px(44),1f))
         if(extra.isNotEmpty())addView(text(extra,19,muted),LinearLayout.LayoutParams(-2,px(44)))
     }
+    private fun watchingSection(title:String,key:String):View {
+        val heading=if(BalancedHomeLayout.stackedHeading(balancedFont))column() else row()
+        val caption=text(title,28,ink,true)
+        heading.addView(caption,if(heading.orientation==LinearLayout.HORIZONTAL)LinearLayout.LayoutParams(0,px(52),1f) else LinearLayout.LayoutParams(-1,px(52)))
+        val choices=row()
+        for((mode,label) in listOf(ViewingHistoryMode.COMBINED to "All activity",ViewingHistoryMode.THIS_TV_ONLY to "This TV")) {
+            val selected=mode==viewingHistoryMode
+            val action=button(label,"$key-history-${mode.name.lowercase()}") { applyViewingHistoryMode(mode) }.apply {
+                setTextSize(TypedValue.COMPLEX_UNIT_PX,22f*scale*balancedFont)
+                isSelected=selected
+                contentDescription="$label. ${if(selected)"Selected. " else ""}"+if(mode==ViewingHistoryMode.COMBINED)"Includes activity shared by your apps." else "Viewing observed on this TV."
+                fun paint(focused:Boolean) { background=round(PrettTvColors.SURFACE,if(focused)ink else if(selected)PrettTvColors.SECONDARY else PrettTvColors.EDGE) }
+                paint(false);setOnFocusChangeListener { _,focused->paint(focused) }
+                setOnLongClickListener { chooseViewingHistory();true }
+            }
+            choices.addView(action,LinearLayout.LayoutParams(px((174*balancedFont).toInt()),px((48*balancedFont).toInt())).apply { marginStart=px(12) })
+        }
+        constrainRow(choices)
+        heading.addView(choices,LinearLayout.LayoutParams(-2,-2).apply { gravity=Gravity.END or Gravity.CENTER_VERTICAL })
+        return heading
+    }
     private fun gap(n:Int) { page.addView(View(this),LinearLayout.LayoutParams(1,px(n))) }
     private fun updateClock() { if(::clock.isInitialized)clock.text=android.text.format.DateFormat.getTimeFormat(this).format(Date()); updateHomeStatus() }
     private fun updateWeatherHeader() {
@@ -623,24 +644,24 @@ class MainActivity : Activity() {
         firstCard=hero
         val side=column()
         val heading=if(BalancedHomeLayout.stackedHeading(balancedFont))column() else row()
+        heading.isBaselineAligned=false
+        heading.setPadding(0,px(BalancedHomeLayout.HEADING_TOP_CLEARANCE),0,px(BalancedHomeLayout.HEADING_BOTTOM_CLEARANCE))
         val caption=text("Discover",29,ink,true).apply { gravity=Gravity.CENTER_VERTICAL }
-        val actions=row().apply { gravity=Gravity.CENTER_VERTICAL }
-        fun discoveryAction(label:String,key:String,action:()->Unit)=button(label,key,action).apply {
-            gravity=Gravity.CENTER;setPadding(px(10),0,px(10),0)
+        val different=button("Shuffle","different-picks") { differentPicks() }.apply {
+            gravity=Gravity.CENTER
+            setPadding(px(BalancedHomeLayout.DISCOVERY_ACTION_PADDING),0,px(BalancedHomeLayout.DISCOVERY_ACTION_PADDING),0)
             setTextSize(TypedValue.COMPLEX_UNIT_PX,22f*scale*balancedFont)
             background=round(PrettTvColors.SURFACE,PrettTvColors.EDGE)
             setOnFocusChangeListener { _,focused -> background=round(PrettTvColors.SURFACE,if(focused)ink else PrettTvColors.EDGE) }
         }
-        val different=discoveryAction("Different picks","different-picks") { differentPicks() }
-        val browse=discoveryAction("Browse shows","browse-shows") { browseDiscovery() }
-        actions.addView(different,LinearLayout.LayoutParams(0,px(BalancedHomeLayout.browseHeight(balancedFont)),1f).apply { rightMargin=px(12) })
-        actions.addView(browse,LinearLayout.LayoutParams(0,px(BalancedHomeLayout.browseHeight(balancedFont)),1f))
+        val actionParams=LinearLayout.LayoutParams(px(BalancedHomeLayout.discoveryActionWidth(balancedFont)),
+            px(BalancedHomeLayout.discoveryActionHeight(balancedFont)))
         if(BalancedHomeLayout.stackedHeading(balancedFont)) {
             heading.addView(caption,LinearLayout.LayoutParams(-1,0,1f))
-            heading.addView(actions,LinearLayout.LayoutParams(-1,px(BalancedHomeLayout.browseHeight(balancedFont))))
+            heading.addView(different,actionParams.apply { gravity=Gravity.END })
         } else {
             heading.addView(caption,LinearLayout.LayoutParams(0,-1,1f))
-            heading.addView(actions,LinearLayout.LayoutParams(px(520),-1))
+            heading.addView(different,actionParams.apply { gravity=Gravity.CENTER_VERTICAL })
         }
         side.addView(heading,LinearLayout.LayoutParams(-1,px(BalancedHomeLayout.headingHeight(balancedFont))))
         val shelf=FrameLayout(this).apply { clipChildren=false; clipToPadding=false }
@@ -661,18 +682,8 @@ class MainActivity : Activity() {
         updateBalancedDiscovery(next)
         buildContentRows()
     }
-    private fun browseDiscovery() {
-        val target=listOf("explore","discover","trending").firstNotNullOfOrNull { key ->
-            windowedRows[key]?.ensure(0) ?: rowSections[key]?.let { section ->
-                focusables.values.firstOrNull { it.isFocusable && it.visibility==View.VISIBLE && descendant(it,section) }
-            }
-        } ?: showAnchor ?: appAnchor
-        target?.requestFocusFromTouch()
-        revealFocus(target)
-    }
     private fun updateBalancedDiscovery(next:List<Program>) {
         val hero=focusables["feature"] ?: return
-        val browse=focusables["browse-shows"] ?: return
         val different=focusables["different-picks"] ?: return
         val empty=focusables["discovery-empty"] ?: return
         val posters=(0 until BalancedHomeLayout.POSTER_COUNT).mapNotNull { focusables["next-$it"] }
@@ -684,24 +695,22 @@ class MainActivity : Activity() {
         }
         val available=posters.take(next.size)
         empty.visibility=if(available.isEmpty())View.VISIBLE else View.GONE
-        (empty as? TextView)?.text=if(discoverRotation.current().hasMore)"This batch has no available picks\nChoose Different picks above"
-            else "No recommendations in this batch\nBrowse shows or open your apps"
-        different.contentDescription=if(discoverRotation.current().hasMore)"Different picks. Show another available batch."
-            else "Different picks. No more unseen picks available."
+        (empty as? TextView)?.text=if(discoverRotation.current().hasMore)"This batch has no available picks\nChoose Shuffle above"
+            else "No recommendations in this batch\nChoose Shows above or open your apps"
+        different.contentDescription=if(discoverRotation.current().hasMore)"Shuffle. Show another available batch."
+            else "Shuffle. No more unseen picks available."
         val entry=available.firstOrNull() ?: empty
         hero.nextFocusRightId=entry.id
         available.forEachIndexed { i,card ->
             card.nextFocusLeftId=available.getOrNull(i-1)?.id ?: hero.id
             card.nextFocusRightId=available.getOrNull(i+1)?.id ?: card.id
-            card.nextFocusUpId=if(i<2)different.id else browse.id
+            card.nextFocusUpId=different.id
             card.nextFocusDownId=appAnchor?.id ?: hero.id
         }
         empty.nextFocusLeftId=hero.id; empty.nextFocusRightId=empty.id
         empty.nextFocusUpId=different.id; empty.nextFocusDownId=appAnchor?.id ?: hero.id
-        different.nextFocusLeftId=hero.id;different.nextFocusRightId=browse.id
-        browse.nextFocusLeftId=different.id; browse.nextFocusRightId=browse.id
+        different.nextFocusLeftId=hero.id;different.nextFocusRightId=different.id
         different.nextFocusUpId=focusables.getValue("nav-home").id;different.nextFocusDownId=entry.id
-        browse.nextFocusUpId=focusables.getValue("nav-home").id; browse.nextFocusDownId=available.lastOrNull()?.id ?: entry.id
         focusables.filterKeys { it.startsWith("favorite-") || it=="empty-app-row" }.values.forEachIndexed { i,view ->
             view.nextFocusUpId=if(i<5)hero.id else available.lastOrNull()?.id ?: entry.id
         }
@@ -894,7 +903,7 @@ class MainActivity : Activity() {
     private fun updateHomeStatus() {
         val age=if(content.snapshotAt>0)android.text.format.DateUtils.getRelativeTimeSpanString(content.snapshotAt,System.currentTimeMillis(),60_000).toString() else ""
         homeStatus?.text=when {
-            content.refreshing->"Updating…"
+            content.refreshing->""
             content.offline->"Offline · ${if(age.isEmpty())"saved content" else "saved $age"}"
             content.refreshFailed->"Update unavailable${if(age.isEmpty())"" else " · saved $age"}"
             else->""
@@ -1042,7 +1051,8 @@ class MainActivity : Activity() {
         card.invalidate()
     }
     private fun buildShowRow(title:String,programs:List<Program>,height:Int,key:String,count:Int,note:String="",emptyText:String="",previous:Pair<String,()->Unit>?=null,next:Pair<String,()->Unit>?=null,mode:PrettTvCard.Mode=PrettTvCard.Mode.SHOW) {
-        page.addView(section(title,if(programs.isNotEmpty())listOf("${programs.size} titles",note).filter(String::isNotBlank).joinToString(" · ") else note))
+        page.addView(if(wide && key.startsWith("watching-"))watchingSection(title,key)
+            else section(title,if(programs.isNotEmpty())listOf("${programs.size} titles",note).filter(String::isNotBlank).joinToString(" · ") else note))
         if(wide)gap(10)
         // Leave a visible slice of the next card to make horizontal scrolling discoverable.
         val cardGap=if(mode==PrettTvCard.Mode.CONTINUATION)16 else 20
@@ -1163,7 +1173,11 @@ class MainActivity : Activity() {
     }
     private fun buildApps(height:Int) {
         val entries=orderedApps().filter { it.key !in prefs.hidden }
-        page.addView(section("Your apps","Hold OK for app actions"))
+        val range=text("",19,muted).apply { tag="your-apps-range";importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO }
+        page.addView(if(wide)row().apply {
+            addView(text("Your apps",28,ink,true),LinearLayout.LayoutParams(0,px(44),1f))
+            addView(range,LinearLayout.LayoutParams(-2,px(44)))
+        } else section("Your apps","Hold OK for app actions"))
         if(wide)gap(8)
         val strip=row(); val width=208
         val captionHeight=if(wide)BalancedHomeLayout.appCaptionHeight(balancedFont) else 0
@@ -1181,6 +1195,9 @@ class MainActivity : Activity() {
             clipChildren=true; clipToPadding=true; isSmoothScrollingEnabled=android.animation.ValueAnimator.areAnimatorsEnabled(); setPadding(0,px(4),0,px(4))
         }
         horizontalRows["your-apps"]=scroll
+        fun updateRange() { range.text=AppRowRange.label(entries.size,scroll.scrollX,scroll.width,px(width),px(12)) }
+        scroll.setOnScrollChangeListener { _,_,_,_,_->updateRange() }
+        scroll.addOnLayoutChangeListener { _,_,_,_,_,_,_,_,_->updateRange() }
         entries.forEachIndexed { i,e ->
             val card=appCard(e,"favorite-${e.key}",36f)
             val tile:View=if(wide)column().apply {
@@ -1323,7 +1340,7 @@ class MainActivity : Activity() {
         balancedDiscovery()
         val change=discoverRotation.next()
         if(change==null) {
-            Toast.makeText(this,"No more unseen picks in the available catalog. Browse shows or use Undo.",Toast.LENGTH_LONG).show()
+            Toast.makeText(this,"No more unseen picks in the available catalog. Choose Shows above or use Undo.",Toast.LENGTH_LONG).show()
             return
         }
         personal.recordUndo("Different picks",settingsGeneration) {

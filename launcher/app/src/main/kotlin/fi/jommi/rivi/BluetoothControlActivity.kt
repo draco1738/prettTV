@@ -1,7 +1,6 @@
 package fi.jommi.rivi
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.app.NotificationManager
 import android.annotation.SuppressLint
 import android.os.Build
@@ -19,7 +18,6 @@ class BluetoothControlActivity:Activity() {
     private lateinit var controls:BluetoothControlView
     private var requestingMessages=false
     private var messagesDenied=false
-    private var outputDialog:AlertDialog?=null
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
         window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -31,37 +29,29 @@ class BluetoothControlActivity:Activity() {
                 AudioDeviceSettings.Destination.UNAVAILABLE->android.widget.Toast.makeText(this,R.string.bluetooth_settings_unavailable,android.widget.Toast.LENGTH_LONG).show()
                 else->Unit
             }
-        },{ finish() },{ enableShortcutMessages() },{ chooseOutput() })
+        },{ finish() },{ enableShortcutMessages() },{ target ->
+            if(!BluetoothControlSession.selectOutput(this,target))
+                controls.bind(BluetoothControlSession.State(message=getString(R.string.bluetooth_busy)))
+        })
         requestingMessages=savedInstanceState?.getBoolean("requesting-shortcut-messages",false) ?: false
         messagesDenied=savedInstanceState?.getBoolean("shortcut-messages-denied",false) ?: false
         setContentView(FrameLayout(this).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             val scale=AppReadability.referenceScale(this@BluetoothControlActivity)
-            val width=(620*scale+.5f).toInt()
-            val scroll=ScrollView(this@BluetoothControlActivity).apply { isFillViewport=false;addView(controls) }
-            addView(scroll,FrameLayout.LayoutParams(width,-2,Gravity.CENTER).apply {
-                val margin=(56*scale+.5f).toInt()
-                topMargin=margin;bottomMargin=margin
+            val width=(600*scale+.5f).toInt().coerceAtMost(resources.displayMetrics.widthPixels)
+            val scroll=ScrollView(this@BluetoothControlActivity).apply {
+                isFillViewport=true;isFocusable=false;isVerticalScrollBarEnabled=false
+                background=AppActionStyle.surface(scale);clipToOutline=true;addView(controls)
+            }
+            addView(scroll,FrameLayout.LayoutParams(width,-1,Gravity.END).apply {
+                val margin=(36*scale+.5f).toInt()
+                topMargin=margin;bottomMargin=margin;marginEnd=margin
             })
         })
     }
     override fun onResume() {
         super.onResume()
         refreshShortcutMessages()
-    }
-    private fun chooseOutput() {
-        if(BluetoothControlSession.busy || outputDialog?.isShowing==true || isFinishing)return
-        val choices=TvAudioOutput.entries
-        val current=BluetoothControlSession.state.audio?.output
-        val dialog=AlertDialog.Builder(this).setTitle(R.string.audio_choose_output)
-            .setItems(choices.map { it.label+if(it.label==current)" · selected" else "" }.toTypedArray()) { _,index ->
-                if(!BluetoothControlSession.selectOutput(this,choices[index]))
-                    controls.bind(BluetoothControlSession.State(message=getString(R.string.bluetooth_busy)))
-            }.setNegativeButton(R.string.bluetooth_back,null).create()
-        outputDialog=dialog
-        dialog.setOnDismissListener { if(outputDialog===dialog)outputDialog=null }
-        dialog.show()
-        AppReadability.styleDialog(dialog)
     }
     override fun onSaveInstanceState(outState:Bundle) {
         outState.putBoolean("requesting-shortcut-messages",requestingMessages)
@@ -108,79 +98,97 @@ class BluetoothControlActivity:Activity() {
         }
     }
     override fun onStop() {
-        outputDialog?.dismiss();outputDialog=null
         BluetoothControlSession.cancel(this);BluetoothControlSession.unlisten(this)
         super.onStop()
     }
     private companion object { const val SHORTCUT_MESSAGES_REQUEST=73 }
 }
 
-/** Reuses the existing action palette, with stable controls and no nested confirmation. */
-// Created only in code with required action callbacks; this view is never inflated from XML.
+/** Stable controls: selection describes a verified route; focus only describes remote position. */
 @SuppressLint("ViewConstructor")
 internal class BluetoothControlView(context:android.content.Context,private val change:(Boolean?)->Unit,
-    manage:()->Unit,close:()->Unit,enableMessages:()->Unit={},changeOutput:()->Unit={}):LinearLayout(context) {
+    manage:()->Unit,close:()->Unit,enableMessages:()->Unit={},changeOutput:(TvAudioOutput)->Unit={}):LinearLayout(context) {
     private val scale=AppReadability.referenceScale(context)
     private fun px(value:Int)=(value*scale+.5f).toInt().coerceAtLeast(1)
     private var state=BluetoothControlSession.State()
     private var focusedInitial=false
     private var requestingMessages=false
-    private val status=TextView(context).apply { tag="bluetooth-status";setTextColor(AppActionStyle.IVORY);AppActionStyle.textSize(this,26,scale) }
-    private val output=TextView(context).apply { tag="audio-output";setTextColor(AppActionStyle.MUTED);AppActionStyle.textSize(this,23,scale) }
-    private val feedback=TextView(context).apply { tag="audio-feedback";visibility=GONE;setTextColor(AppActionStyle.MUTED);AppActionStyle.textSize(this,20,scale) }
-    private val outputButton=Button(context).apply {
-        tag="audio-change-output";id=View.generateViewId();AppActionStyle.button(this,scale);isFocusableInTouchMode=true
-        setText(R.string.audio_change_output);setOnClickListener { if(!state.working)changeOutput() }
+    private fun label(value:String,size:Int,color:Int=AppActionStyle.IVORY)=TextView(context).apply {
+        text=value;setTextColor(color);AppActionStyle.textSize(this,size,scale)
     }
-    private val toggle=Button(context).apply {
-        tag="bluetooth-toggle";id=View.generateViewId();AppActionStyle.button(this,scale);isFocusableInTouchMode=true
-        setOnClickListener { if(!state.working)change(state.enabled?.not()) }
+    private fun action(key:String,value:String,run:()->Unit)=Button(context).apply {
+        tag=key;id=View.generateViewId();text=value;AppActionStyle.button(this,scale)
+        isFocusableInTouchMode=true;setOnClickListener { run() }
     }
-    private val messagesNotice=TextView(context).apply {
+    private val status=label("Bluetooth",28).apply { tag="bluetooth-status" }
+    private val output=label("",20,AppActionStyle.MUTED).apply { tag="audio-output" }
+    private val feedback=label("",20,AppActionStyle.MUTED).apply { tag="audio-feedback";visibility=GONE }
+    private val toggle=action("bluetooth-toggle","Check") { if(!state.working)change(state.enabled?.not()) }.apply {
+        gravity=Gravity.CENTER
+        background=context.getDrawable(R.drawable.oled_control)
+    }
+    private val outputButtons=listOf(TvAudioOutput.SPEAKERS,TvAudioOutput.HDMI_ARC,TvAudioOutput.BLUETOOTH).associateWith { target ->
+        action("audio-output-${target.name.lowercase()}",target.label) {
+            if(!state.working) {
+                if(target==TvAudioOutput.BLUETOOTH && state.enabled!=true) {
+                    feedback.text="Turn Bluetooth on and connect an audio device first."
+                    feedback.visibility=VISIBLE
+                } else changeOutput(target)
+            }
+        }.apply {
+            compoundDrawablePadding=px(20)
+            setPadding(px(18),px(18),px(18),px(18))
+            accessibilityDelegate=object:View.AccessibilityDelegate() {
+                override fun onInitializeAccessibilityNodeInfo(host:View,info:android.view.accessibility.AccessibilityNodeInfo) {
+                    super.onInitializeAccessibilityNodeInfo(host,info)
+                    info.isCheckable=true;info.isChecked=host.isSelected
+                }
+            }
+        }
+    }
+    private val messagesNotice=label("",20,AppActionStyle.MUTED).apply {
         tag="bluetooth-messages-notice";visibility=GONE;setText(R.string.bluetooth_messages_notice)
-        setTextColor(AppActionStyle.MUTED);AppActionStyle.textSize(this,20,scale)
     }
-    private val messagesButton=Button(context).apply {
-        id=View.generateViewId();tag="bluetooth-messages";visibility=GONE
-        setText(R.string.bluetooth_enable_messages);AppActionStyle.button(this,scale);isFocusableInTouchMode=true
-        setOnClickListener { if(!requestingMessages && visibility==VISIBLE)enableMessages() }
+    private val messagesButton=action("bluetooth-messages",context.getString(R.string.bluetooth_enable_messages)) {
+        if(!requestingMessages)enableMessages()
+    }.apply { visibility=GONE }
+    private val manageButton=action("bluetooth-manage",context.getString(R.string.bluetooth_manage_devices),manage).apply {
+        gravity=Gravity.CENTER;background=context.getDrawable(R.drawable.oled_control)
     }
-    private val manageButton=Button(context).apply {
-        id=View.generateViewId();tag="bluetooth-manage";setText(R.string.bluetooth_manage_devices)
-        AppActionStyle.button(this,scale);isFocusableInTouchMode=true;setOnClickListener { manage() }
-    }
-    private val closeButton=Button(context).apply {
-        id=View.generateViewId();tag="bluetooth-close";setText(R.string.bluetooth_back)
-        AppActionStyle.button(this,scale);isFocusableInTouchMode=true;setOnClickListener { close() }
+    private val closeButton=action("bluetooth-close",context.getString(R.string.bluetooth_back),close).apply { gravity=Gravity.CENTER }
+    private fun divider() {
+        addView(View(context).apply { setBackgroundColor(PrettTvColors.DIVIDER) },
+            LayoutParams(-1,px(1)).apply { topMargin=px(24);bottomMargin=px(24) })
     }
     init {
-        orientation=VERTICAL;setPadding(px(24),px(22),px(24),px(22));background=AppActionStyle.surface(scale)
-        addView(TextView(context).apply { setText(R.string.audio_devices_title);setTextColor(AppActionStyle.IVORY);AppActionStyle.textSize(this,32,scale) },LayoutParams(-1,-2).apply { bottomMargin=px(20) })
+        orientation=VERTICAL;setPadding(px(32),px(28),px(32),px(24));background=AppActionStyle.surface(scale)
+        addView(label("Audio",40),LayoutParams(-1,-2).apply { bottomMargin=px(28) })
         addView(LinearLayout(context).apply {
             orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
-            addView(status,LayoutParams(0,-2,1f).apply { marginEnd=px(12) })
-            addView(outputButton,LayoutParams(px(240),-2))
-        },LayoutParams(-1,-2).apply { bottomMargin=px(12) })
-        addView(output,LayoutParams(-1,-2).apply { bottomMargin=px(18) })
-        addView(feedback,LayoutParams(-1,-2).apply { bottomMargin=px(12) })
-        addView(toggle,LayoutParams(-1,-2))
-        addView(TextView(context).apply {
-            setText(R.string.bluetooth_off_notice);setTextColor(AppActionStyle.MUTED);AppActionStyle.textSize(this,20,scale)
-        },LayoutParams(-1,-2).apply { topMargin=px(4);bottomMargin=px(8) })
-        addView(TextView(context).apply {
-            setText(R.string.bluetooth_remote_hint);setTextColor(AppActionStyle.MUTED);AppActionStyle.textSize(this,20,scale)
-        },LayoutParams(-1,-2).apply { bottomMargin=px(18) })
+            addView(LinearLayout(context).apply {
+                orientation=VERTICAL
+                addView(status)
+                addView(label("Headphones and remotes",20,AppActionStyle.MUTED))
+            },LayoutParams(0,-2,1f).apply { marginEnd=px(12) })
+            addView(toggle,LayoutParams(px(112),-2))
+        },LayoutParams(-1,-2))
+        divider()
+        addView(label("Sound output",30),LayoutParams(-1,-2))
+        addView(output,LayoutParams(-1,-2).apply { topMargin=px(6);bottomMargin=px(18) })
+        outputButtons.values.forEach { addView(it,LayoutParams(-1,-2).apply { bottomMargin=px(8) }) }
+        addView(feedback,LayoutParams(-1,-2).apply { topMargin=px(8);bottomMargin=px(8) })
+        addView(manageButton,LayoutParams(-1,-2).apply { topMargin=px(20);bottomMargin=px(12) })
         addView(messagesNotice,LayoutParams(-1,-2).apply { bottomMargin=px(8) })
         addView(messagesButton,LayoutParams(-1,-2))
-        addView(manageButton,LayoutParams(-1,-2));addView(closeButton,LayoutParams(-1,-2))
-        updateFocusLinks()
-        bind(state)
+        addView(closeButton,LayoutParams(-1,-2))
+        updateFocusLinks();bind(state)
     }
     private fun updateFocusLinks() {
-        val buttons=listOf(outputButton,toggle,messagesButton,manageButton,closeButton).filter { it.visibility==VISIBLE }
+        val buttons=(listOf(toggle)+outputButtons.values+listOf(manageButton,messagesButton,closeButton)).filter { it.visibility==VISIBLE }
         buttons.forEachIndexed { i,button ->
             button.nextFocusLeftId=button.id;button.nextFocusRightId=button.id
-            button.nextFocusUpId=buttons[(i-1).coerceAtLeast(0)].id;button.nextFocusDownId=buttons[(i+1).coerceAtMost(buttons.lastIndex)].id
+            button.nextFocusUpId=buttons[(i-1).coerceAtLeast(0)].id
+            button.nextFocusDownId=buttons[(i+1).coerceAtMost(buttons.lastIndex)].id
         }
     }
     fun bindShortcutMessages(apiLevel:Int,notificationsEnabled:Boolean,requesting:Boolean=false,denied:Boolean=false) {
@@ -191,21 +199,43 @@ internal class BluetoothControlView(context:android.content.Context,private val 
         messagesNotice.visibility=if(show)VISIBLE else GONE
         messagesButton.visibility=if(show)VISIBLE else GONE
         updateFocusLinks()
-        // Granting the permission removes its action. Keep a deliberate selection elsewhere,
-        // or return to the primary toggle only if the removed action itself had focus.
         if(restoreToggleFocus)toggle.requestFocus()
     }
     fun bind(value:BluetoothControlSession.State) {
         state=value
         val radio=when(value.enabled) { true->"Bluetooth is on";false->"Bluetooth is off";null->value.message }
-        status.text=radio
+        toggle.text=when { value.working->"Wait…";value.enabled==true->"On";value.enabled==false->"Off";else->"Check" }
+        toggle.contentDescription=when {
+            value.working->"Bluetooth. Please wait."
+            value.enabled==true->"Bluetooth on. Turn Bluetooth off."
+            value.enabled==false->"Bluetooth off. Turn Bluetooth on."
+            else->"Retry Bluetooth check"
+        }
+        status.contentDescription=radio
+        output.text=if(value.working)"Checking output…" else value.audio?.description ?: "Output not verified"
         feedback.text=value.message
-        feedback.visibility=if(!value.working && value.enabled!=null && value.message!=radio)VISIBLE else GONE
-        output.text=if(value.working)"Checking media output…" else "Media output: ${value.audio?.description ?: "Couldn’t verify output"}"
-        // Keep the remote's focus in place while the click listener ignores repeated input.
-        toggle.setText(when { value.working->R.string.bluetooth_working;value.enabled==true->R.string.bluetooth_turn_off;value.enabled==false->R.string.bluetooth_turn_on;else->R.string.bluetooth_retry })
+        feedback.visibility=if(!value.working && value.message.isNotBlank() && value.message!=radio ||
+            !value.working && value.enabled==null)VISIBLE else GONE
+        for((target,button) in outputButtons) {
+            val choice=AudioOutputChoice.describe(target,value.audio,value.enabled,value.working)
+            button.isSelected=choice.selected
+            button.contentDescription="${target.label}. ${choice.detail}."
+            val copy=android.text.SpannableString("${target.label}\n${choice.detail}")
+            val start=target.label.length+1
+            copy.setSpan(android.text.style.RelativeSizeSpan(.76f),start,copy.length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            copy.setSpan(android.text.style.ForegroundColorSpan(AppActionStyle.MUTED),start,copy.length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            button.text=copy;AppActionStyle.textSize(button,28,scale)
+            val icon=context.getDrawable(when(target) {
+                TvAudioOutput.SPEAKERS->R.drawable.ic_audio_speaker
+                TvAudioOutput.HDMI_ARC->R.drawable.ic_audio_hdmi
+                TvAudioOutput.BLUETOOTH->R.drawable.ic_audio_headphones
+            })?.apply { setBounds(0,0,px(40),px(40)) }
+            val checked=if(choice.selected)context.getDrawable(R.drawable.ic_selected_check)?.apply { setBounds(0,0,px(24),px(24)) } else null
+            button.setCompoundDrawablesRelative(icon,null,checked,null)
+        }
         if(!value.working && value.enabled!=null && !focusedInitial) {
-            focusedInitial=true;if(findFocus()==null)outputButton.requestFocus()
+            focusedInitial=true
+            if(findFocus()==null)outputButtons.getValue(TvAudioOutput.SPEAKERS).requestFocus()
         }
     }
 }

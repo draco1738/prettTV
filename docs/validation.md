@@ -2,6 +2,10 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
+## OLED Home and audio candidate · 2026-11-12
+
+Version 0.6.5 / code 34 implements the two owner-approved concepts in [candidate scope](oled-home-audio.md). The TV is asleep, so native execution, actual visual review, physical remote checks and live output verification are pending. No TV commands or installation were performed. JVM/build/lint results are recorded after completion; dispatched build commands alone do not establish a pass.
+
 ## PR #6 local-history classification follow-up — 2026-11-12
 
 Review found that automatic title-only observations dropped the movie/series classification. In **This TV only**, the title could remain in the hero but disappear from both Continue watching rows. New regression checks reproduced the issue and failed before the repair: **60 scoped JVM tests, four failures**. The fix retains title-level classification and repairs older unknown snapshots from compatible same-app metadata without borrowing provider episode text, deep links, progress or recency. Known local classifications are retained; conflicting title identities and unsupported provider types do not fill unknown classifications.
