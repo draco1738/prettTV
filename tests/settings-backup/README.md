@@ -1,6 +1,8 @@
 # Local settings backup checks
 
-`python tests/settings-backup/run_checks.py` compiles the transfer, guard, backup storage, Activity, readability dependency and three native UI checks against the cached E: toolchain, then runs `SettingsBackupChecks` on the host JVM. The scoped harness reads unchanged validator/style classes from the sibling production checkout; it never writes that checkout, builds an APK or uses a device. Gradle's complete JVM suite compiles all current sources instead.
+`python tests/settings-backup/run_checks.py` now compiles the transfer, guard, local/portable storage, Activity, readability dependency and local/portable Android-check sources against the cached E: toolchain, runs `SettingsBackupChecks` and `PortableSettingsBackupChecks` on the host JVM, then runs the PC utility tests with the real shared Kotlin validator and fake ADB boundary. The scoped harness reads unchanged validator/style classes from the sibling production checkout; it never writes that checkout, builds an APK or uses a device. Gradle's complete JVM suite compiles all current sources instead.
+
+Portable workflow, exact PC commands, immutable preview/rollback behavior and parent-owned native registration are documented in [portable settings backup](../../docs/portable-settings-backup.md). Private evidence lives under `E:/Development/tcl-tv-tools/snapshots/home-control-2026-11-11/portable-backup/`: fail-first `34 tests / 2 failures`, final `44 JVM tests` and `10 PC utility tests`. Native portable sources compile here but must be executed separately by the parent. Synthetic interoperability snapshots are test fixtures, not a real TV backup.
 
 `SettingsWriterIntegrationTest` adds real writer-API regressions using in-memory SharedPreferences: apps, weather, playback and personalization reject a busy restore without opening editors; old generations and late Undo registration are rejected; all personalization instances invalidate previous Undo; recoveryRequired freezes writers; admitted nested writes finish before restore takes the lock; diagnostic import excludes concurrent writers. Run with Gradle `:app:testReleaseUnitTest --tests fi.jommi.rivi.SettingsWriterIntegrationTest`.
 
@@ -27,6 +29,24 @@ A failed recovery attempt keeps `RECOVERY_REQUIRED`, including when it successfu
 Nine focused host regressions in `SettingsBackupChecks` cover recovery without either snapshot, verified/unverified rollback failures, invalid input before editors, last-store readback mismatch, failure before editing, concurrent imports/writers, the unintegrated gate, and ordinary verified rollback. They use the real transfer/guard code with synthetic in-memory preferences that change memory before failed commits.
 
 Executed scoped evidence for this defect: baseline `OK (23 tests)`; fail-first additions `Tests run: 31, Failures: 8` against the original guard; isolated negative control removing only sticky recovery state `Tests run: 32, Failures: 3`; final fixed source `OK (32 tests)`. Run `python tests/settings-backup/run_checks.py` to repeat the host suite. Logs and the negative-control runner are under `E:/Development/tcl-tv-tools/snapshots/readability-controls-2026-11-11/diagnostic-recovery/`. The negative control modifies only an evidence-directory source copy, not the working tree. This is host evidence, not execution of MainActivity or Android filesystem/device recovery.
+
+## PC configured-weather runtime regression
+
+The Android SDK `android.util.JsonReader` is a throwing stub on a desktop JVM. The PC validator previously rejected valid configured weather, while weather-free fixtures passed. The host harness now compiles `host-runtime/android/util/{JsonReader,JsonToken}.java` ahead of the SDK jar. These thin API adapters delegate streaming parsing to cached Gson **2.10.1**, pinned to SHA-256 `4241c14a7727c34feea6507ec801318a3d4a90f070e4525681079fb94ee4c593`. They live outside all Android source sets and never ship in the APK. This is Gson-backed host evidence, not native Android parser equivalence. Production weather/schema validation was not changed or weakened.
+
+Regression evidence under the private portable-backup evidence directory:
+
+- `weather-runtime-fail-first.log`: 12 PC tests, one error on valid configured-weather export before the runtime fix.
+- Final `host/tests.log`: 44 JVM schema/storage checks passed; `host/pc-tests.log`: 12 PC utility tests passed, including configured weather through export, exact local snapshot payload roundtrip and offline verification. Invalid duplicate fields, numeric/string type confusion, trailing data, truncation and lenient syntax remain rejected.
+- Real identity-gated, read-only parent export helper: `owner-export.log` and `owner-verify.log` both exit zero. Created new `owner-tv-before-0.6.4.snapshot` and its `.manifest.json`; existing files were confirmed absent before export. Snapshot is 86,312 bytes, SHA-256 `f4920d5d3557979e5244d7741d3b229cfc29d391ffcef043156ef786ca66810b`. Independent readback confirms all four stores and configured weather; no private settings values are published here.
+
+The real snapshot is unencrypted private local evidence, not a repository fixture. No Gradle, app launch, foreground/power change, restore or device mutation was performed for this fix; ADB was used only for identity-gated read-only export.
+
+## Portable audit regressions
+
+Nested local/provider snapshots are validated as typed program records before consent. Provider document operations run on a separate bounded lane with caller cancellation/deadline and bounded asynchronous cleanup; an uncooperative provider cannot occupy the preference/rollback worker. Host evidence: `audit-red` compiled with 47 tests / 2 failures; `audit-green-expanded` passed 50 tests, then five independent repeated JVM runs passed. The PC suite has 12 tests. All overlap the integrated 607-test count where included; repetitions are not added. Offline validation of the unchanged real owner envelope also passed.
+
+The final native run passed 202 checks, including blocked-provider open/read/write, Pause cancellation, continued PC review and deadline handling. The provider fixture explicitly overrides typed/untyped asset cancellation overloads because Android’s defaults discard the signal. The initial failed native attempt is retained. Actual production PC staging/readback and Cancel-first preview passed without a restore; temporary staging was removed.
 
 ## Limits
 

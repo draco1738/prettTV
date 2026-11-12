@@ -118,11 +118,31 @@ object LocalSettingsTransfer {
             throw RestoreFailure(recovered,failure)
         }
     }
+    /** Portable/private snapshots fail closed on unknown fields; diagnostics retain legacy compatibility. */
+    internal fun prepareSnapshot(data:String):Prepared {
+        val plan=prepare(data,allowedStores,requireAllStores=true)
+        plan.values.forEach { (name,values) ->
+            values.keys.forEach { key ->
+                require(when(name) {
+                    "home" -> key in setOf("layout","focus","weatherLocation","weatherUnits","interfaceSize","historySource",
+                        "discovery","tvPermissionAsked","weatherEnabled","quietMotion","sportsPackages","preferredServices",
+                        "hiddenHeroTitles","hiddenWatchingTitles") || key.startsWith("hiddenTitleLabel:")
+                    "apps" -> key in setOf("fav","focus","theme","motion","recent","fav_init","hidden")
+                    "playback" -> key in setOf("known","baselineCutoff","providerLastObserved") ||
+                        listOf("baseline:","played:","position:","duration:","event:","providerObserved:").any(key::startsWith)
+                    PersonalizationStore.PREFS_NAME -> key=="state"
+                    else -> false
+                }) { "Unsupported snapshot field" }
+            }
+        }
+        return plan
+    }
+
     private fun validateKnownKeys(name:String,values:Map<String,Any>) {
         values.forEach { (key,value)->
             val expected=when(name) {
                 "home"->when {
-                    key in setOf("layout","focus","weatherLocation","weatherUnits","interfaceSize") || key.startsWith("hiddenTitleLabel:")->"string"
+                    key in setOf("layout","focus","weatherLocation","weatherUnits","interfaceSize","historySource") || key.startsWith("hiddenTitleLabel:")->"string"
                     key in setOf("discovery","tvPermissionAsked","weatherEnabled","quietMotion")->"boolean"
                     key in setOf("sportsPackages","preferredServices","hiddenHeroTitles","hiddenWatchingTitles")->"set"
                     else->null
@@ -148,6 +168,7 @@ object LocalSettingsTransfer {
                 "long"->value is Long && value>=0
                 else->true
             }) { "Invalid type for $name/$key" }
+            if(name=="home" && key=="historySource")require(value=="COMBINED" || value=="THIS_TV_ONLY") { "Invalid history source" }
             if(name=="home" && key=="weatherLocation")require(WeatherRepository.validateLocationJson(value as String)) { "Invalid weather location" }
             if(name=="home" && key=="weatherUnits")require(value=="F" || value=="C") { "Invalid weather units" }
             if(name=="home" && key=="interfaceSize")require(HomeInterfaceSize.entries.any { it.name==value }) { "Invalid Home interface size" }
@@ -155,16 +176,36 @@ object LocalSettingsTransfer {
                 val rows=JSONArray(value as String)
                 repeat(rows.length()) { index->
                     val row=rows.optJSONObject(index) ?: error("Invalid playback title")
-                    listOf("id","title","detail","art","pkg","app","uri","type","imdbId","posterArt").forEach {
-                        if(row.has(it))require(row.opt(it) is String) { "Invalid playback title field" }
-                    }
-                    listOf("pos","dur","releaseYear").forEach {
-                        if(row.has(it))require(row.opt(it) is Int || row.opt(it) is Long) { "Invalid playback number" }
+                    validateProgram(row,false)
+                    if(row.has("providerAbsent"))require(row.opt("providerAbsent") is Boolean) { "Invalid provider absence flag" }
+                    // These are program objects, not arbitrary JSON. Validate before a preview
+                    // exists: PlaybackHistory's optString/optLong readers otherwise coerce input.
+                    for(field in listOf("localSnapshot","providerProgressBaseline")) {
+                        if(row.has(field))validateProgram(row.opt(field) as? JSONObject
+                            ?: error("Invalid playback snapshot"),true)
                     }
                 }
             }
         }
     }
+    private fun validateProgram(row:JSONObject,nested:Boolean) {
+        val strings=setOf("id","title","detail","art","pkg","app","uri","type","imdbId","posterArt")
+        val numbers=setOf("pos","dur","releaseYear")
+        if(nested) {
+            require(row.keys().asSequence().all { it in strings || it in numbers }) { "Unsupported playback snapshot field" }
+            require(setOf("id","title","detail","art","pkg","app","uri","type","pos","dur").all(row::has)) { "Incomplete playback snapshot" }
+        }
+        strings.forEach { if(row.has(it))require(row.opt(it) is String) { "Invalid playback title field" } }
+        numbers.forEach {
+            if(row.has(it)) {
+                val value=row.opt(it)
+                require(value is Int || value is Long) { "Invalid playback number" }
+                val number=(value as Number).toLong()
+                require(number>=0 && (it!="releaseYear" || number<=Int.MAX_VALUE)) { "Playback number out of range" }
+            }
+        }
+    }
+
     private fun write(prefs:SharedPreferences,values:Map<String,Any?>):Boolean {
         val edit=prefs.edit().clear()
         values.forEach { (key,value)->when(value) {

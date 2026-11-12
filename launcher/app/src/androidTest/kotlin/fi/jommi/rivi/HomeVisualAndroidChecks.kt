@@ -74,6 +74,7 @@ internal object HomeVisualAndroidChecks {
                 "Fixture app $i",Intent().setComponent(ComponentName(context.packageName,"fi.jommi.rivi.NoSuchVisualFixture$i")),false,1) }
             fun reset(value:HomeContent=base) {
                 main(instrumentation) {
+                    set("discoverRotation",DiscoverRotation(candidateLimit=180))
                     personal().setRowPreferences(RowPreferences(hidden=setOf("watching-shows","watching-movies","watchlist","episodes","explore","new")))
                     set("content",value); call("refreshHomeRows")
                 }
@@ -110,8 +111,10 @@ internal object HomeVisualAndroidChecks {
                     instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_RIGHT)
                     waitFor(instrumentation) { activity.currentFocus?.tag==key && visible(activity.currentFocus!!) }
                 }
-                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
                 waitFor(instrumentation) { activity.currentFocus?.tag=="browse-shows" }
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
+                waitFor(instrumentation) { activity.currentFocus?.tag=="next-2" }
                 instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
                 waitFor(instrumentation) { activity.currentFocus===field("appAnchor") && visible(activity.currentFocus!!) }
                 instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
@@ -119,6 +122,92 @@ internal object HomeVisualAndroidChecks {
                 focus("next-0")
                 instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_LEFT)
                 waitFor(instrumentation) { activity.currentFocus?.tag=="feature" }
+            }
+            test("Compact Home keeps full portraits named apps and the first continuation row visible at Standard") {
+                main(instrumentation) {
+                    personal().setRowPreferences(RowPreferences())
+                    set("content",base);call("refreshHomeRows")
+                    call("applyInterfaceSize",HomeInterfaceSize.STANDARD)
+                }
+                waitFor(instrumentation) { settled() }
+                focus("feature")
+                main(instrumentation) {
+                    call("resetHomePosition")
+                    val hero=views().getValue("feature")
+                    val poster=views().getValue("next-0")
+                    val browse=views().getValue("browse-shows")
+                    val first=views().getValue("watching-shows-${programs.first().id}")
+                    val bounds=Rect();check(first.getGlobalVisibleRect(bounds) && bounds.height()==first.height)
+                    check(root().scrollY==0) { "First continuation row needed scrolling" }
+                    val scale=field("scale") as Float
+                    check(abs(poster.width-240*scale)<=1 && abs(hero.height-502*scale)<=1)
+                    val actionBounds=Rect();val posterBounds=Rect()
+                    check(browse.getGlobalVisibleRect(actionBounds) && poster.getGlobalVisibleRect(posterBounds))
+                    check(actionBounds.bottom<=posterBounds.top) { "Browse was not reclaimed into the heading" }
+                    val caption=activity.window.decorView.findViewWithTag<TextView>("app-caption-${syntheticApps.first().key}")
+                    check(caption!=null && caption.text.toString()==syntheticApps.first().label && visible(caption))
+                    check(!caption.isFocusable) { "App caption introduced a duplicate focus target" }
+                }
+                reset()
+            }
+            test("Initial partial Discover fills its three cards then remains stable on later refresh") {
+                reset(base.copy(suggestions=programs.take(2),trending=emptyList(),discoverySettled=false))
+                fun picks()=(0..2).mapNotNull { bound()["next-$it"]?.titleKey }
+                main(instrumentation) { check(picks()==listOf(programs[1].titleKey)) }
+                publish(base.copy(trending=emptyList(),discoverySettled=true))
+                waitFor(instrumentation) { settled() && picks().size==3 }
+                val established=main(instrumentation) { picks() }
+                publish(base.copy(suggestions=programs.reversed(),trending=emptyList(),discoverySettled=false))
+                waitFor(instrumentation) { settled() }
+                main(instrumentation) { check(picks()==established) { "A later refresh re-ranked established picks" } }
+                reset()
+            }
+            test("Different picks is explicit keeps the hero stable and top bar Undo restores the trio") {
+                reset();focus("different-picks")
+                fun picks()=(0..2).mapNotNull { bound()["next-$it"]?.titleKey }
+                val before=main(instrumentation) { personal().clearUndoHistory();picks() }
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
+                waitFor(instrumentation) { settled() && picks()!=before && views()["nav-undo"]?.visibility==View.VISIBLE }
+                val after=main(instrumentation) {
+                    check(picks().none { it in before });check(bound()["feature"]==base.feature)
+                    check(activity.currentFocus?.tag=="different-picks");picks()
+                }
+                publish(base.copy(suggestions=programs.reversed()))
+                waitFor(instrumentation) { settled() }
+                main(instrumentation) { check(picks()==after) { "Background refresh rearranged the explicit batch" } }
+                focus("nav-undo");instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
+                waitFor(instrumentation) { settled() && picks()==before }
+                main(instrumentation) { check(bound()["feature"]==base.feature) }
+            }
+            test("Different picks reaches beyond the artwork pool and exhaustion is a no op") {
+                reset(base.copy(trending=emptyList()));focus("different-picks")
+                val seen=linkedSetOf<String>()
+                main(instrumentation) {
+                    personal().clearUndoHistory()
+                    repeat(4) {
+                        val batch=(0..2).mapNotNull { bound()["next-$it"]?.titleKey }
+                        check(batch.none { it in seen });seen.addAll(batch)
+                        if(it<3)call("differentPicks")
+                    }
+                    check(seen==programs.drop(1).map { it.titleKey }.toSet()) { "Rotation truncated the local catalog" }
+                    val before=(0..2).map { bound()["next-$it"] }
+                    val undo=personal().undoLabel()
+                    call("differentPicks")
+                    check((0..2).map { bound()["next-$it"] }==before && personal().undoLabel()==undo)
+                    check(views().getValue("different-picks").contentDescription.toString().contains("No more unseen"))
+                }
+                reset()
+            }
+            test("Different picks Undo cannot restore a removed recommendation") {
+                reset();focus("different-picks")
+                val removed=main(instrumentation) { checkNotNull(bound()["next-0"]) }
+                main(instrumentation) { personal().clearUndoHistory();call("differentPicks") }
+                publish(base.copy(suggestions=programs.filterNot { it.id==removed.id }))
+                waitFor(instrumentation) { settled() }
+                focus("nav-undo");instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
+                waitFor(instrumentation) { settled() && personal().undoLabel()==null }
+                main(instrumentation) { check((0..2).mapNotNull { bound()["next-$it"] }.none { it.id==removed.id }) }
+                reset()
             }
             test("Balanced Browse shows opens an existing discovery shelf without launching a provider") {
                 reset(); focus("browse-shows")
@@ -139,6 +228,7 @@ internal object HomeVisualAndroidChecks {
                 instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_RIGHT)
                 waitFor(instrumentation) { activity.currentFocus?.tag=="discovery-empty" }
                 publish(base)
+                main(instrumentation) { call("differentPicks") }
                 waitFor(instrumentation) { settled() && activity.currentFocus?.tag=="next-0" && (0..2).all { views().getValue("next-$it").visibility==View.VISIBLE } && views().getValue("discovery-empty").visibility==View.GONE }
                 focus("feature")
             }
@@ -165,13 +255,13 @@ internal object HomeVisualAndroidChecks {
                 val hints=mapOf(selected.id to PresentationArtwork(poster="content://visual.fixture/verified-poster"),
                     programs[0].id to PresentationArtwork(backdrop="content://visual.fixture/clean-backdrop"))
                 publish(base.copy(presentationArtwork=hints))
-                waitFor(instrumentation) { settled() && bound()["next-0"]==selected && activity.currentFocus?.tag=="next-0" }
+                waitFor(instrumentation) { settled() && bound()["next-1"]==selected && activity.currentFocus?.tag=="next-1" }
                 main(instrumentation) {
                     val requests=field("cardArt") as List<*>
                     fun artwork(key:String)=requests.firstOrNull { request ->
                         request!!::class.java.getDeclaredField("card").apply { isAccessible=true }.get(request)===views().getValue(key)
                     }?.let { request -> request::class.java.getDeclaredField("url").apply { isAccessible=true }.get(request) }
-                    check(artwork("next-0")==hints.getValue(selected.id).poster)
+                    check(artwork("next-1")==hints.getValue(selected.id).poster)
                     check(artwork("feature")==hints.getValue(programs[0].id).backdrop)
                     check(artwork(tag(selected))==null) { "Presentation metadata leaked into the lower provider shelf" }
                     check(views()["feature"]===hero && bound()["feature"]==base.feature)
@@ -553,6 +643,25 @@ internal object HomeVisualAndroidChecks {
                 waitFor(instrumentation) { settled() && activity.currentFocus?.tag=="next-1" }
                 main(instrumentation) { check(views().getValue("feature").width==baseline) }
             }
+            test("Viewing history mode clears a shared hero immediately and preserves both histories") {
+                reset()
+                val before=stores.getValue("playback").all.toMap()
+                main(instrumentation) { call("applyViewingHistoryMode",ViewingHistoryMode.THIS_TV_ONLY) }
+                waitFor(instrumentation) { settled() && content().viewingHistoryMode==ViewingHistoryMode.THIS_TV_ONLY }
+                main(instrumentation) {
+                    check(bound()["feature"]==null && content().watching.isEmpty())
+                    check((views().getValue("feature") as PrettTvCard).title=="Your viewing on this TV")
+                    check(ViewingHistoryMode.read(stores.getValue("home"))==ViewingHistoryMode.THIS_TV_ONLY)
+                    check(stores.getValue("playback").all==before)
+                    set("content",base.copy(watching=emptyList(),viewingHistoryMode=ViewingHistoryMode.THIS_TV_ONLY))
+                    call("refreshHomeRows")
+                    check(bound()["feature"]==null) { "Recommendation became a local-only hero" }
+                }
+                main(instrumentation) { call("applyViewingHistoryMode",ViewingHistoryMode.COMBINED) }
+                waitFor(instrumentation) { settled() && ViewingHistoryMode.read(stores.getValue("home"))==ViewingHistoryMode.COMBINED }
+                main(instrumentation) { check(stores.getValue("playback").all==before) }
+                reset()
+            }
             test("Native A B C visual captures retain usable navigation at both interface and text sizes") {
                 val originalConfiguration=main(instrumentation) { Configuration(activity.resources.configuration) }
                 val originalMetrics=main(instrumentation) { DisplayMetrics().apply { setTo(activity.resources.displayMetrics) } }
@@ -625,14 +734,22 @@ internal object HomeVisualAndroidChecks {
                                 check(bounds(hero).right<bounds(poster).left && bounds(last).right<=root().width)
                                 check(bounds(hero).left>=0 && bounds(last).right<=activity.resources.displayMetrics.widthPixels)
                                 check(abs(unit-activity.resources.displayMetrics.widthPixels/1920f*size.factor)<.001f)
-                                check(bounds(poster).bottom<=bounds(browse).top) { "Enlarged poster title overlaps Browse shows" }
+                                check(bounds(browse).bottom<=bounds(poster).top) { "Heading action overlaps enlarged poster" }
+                                for(key in listOf("browse-shows","different-picks")) {
+                                    val action=views().getValue(key) as TextView
+                                    check(action.layout!=null && action.layout.getEllipsisCount(0)==0) { "$key truncates at $fontScale" }
+                                }
                                 check(visible(hero) && visible(last) && visible(browse)) { "Approved C first-stage content is clipped" }
                                 check((0..2).all { bound()["next-$it"]?.id!=bound()["feature"]?.id })
                             }
                             focus("next-0")
                             val side=main(instrumentation) { activity.currentFocus }
                             instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
-                            waitFor(instrumentation) { activity.currentFocus?.tag.toString().startsWith("nav-") && visible(activity.currentFocus!!) }
+                            waitFor(instrumentation) { activity.currentFocus?.tag=="different-picks" && visible(activity.currentFocus!!) }
+                            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
+                            waitFor(instrumentation) { activity.currentFocus?.tag=="nav-home" && visible(activity.currentFocus!!) }
+                            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
+                            waitFor(instrumentation) { activity.currentFocus?.tag=="different-picks" }
                             instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN)
                             waitFor(instrumentation) { activity.currentFocus===side && visible(side!!) }
                         }

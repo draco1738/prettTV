@@ -1,6 +1,8 @@
 package fi.jommi.rivi
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
@@ -28,7 +30,12 @@ class SettingsBackupActivity:Activity() {
     private var lifecycle=0L
     private var pageOpenedAt=0L
     private var job:SettingsBackupCancellation?=null
-    private var confirmation:SettingsBackupConfirmation<Pair<LocalSettingsBackup.Snapshot,LocalSettingsBackup.Slot>>?=null
+    private var confirmation:SettingsBackupConfirmation<Pair<LocalSettingsBackup.Snapshot,LocalSettingsBackup.Slot?>>?=null
+    // Chooser departure is not restore consent. Never persist these fields in Bundle/intents.
+    private var chooser:Int?=null
+    private var exportBytes:ByteArray?=null
+    private var documentResult:Pair<Int,Uri>?=null
+    private var chooserMessage:String?=null
     private var saved=LocalSettingsBackup.Status()
     private var recovery=LocalSettingsBackup.Status()
     private var message="Checking private snapshots…"
@@ -45,7 +52,10 @@ class SettingsBackupActivity:Activity() {
 
     override fun onResume() {
         super.onResume();active=true;lifecycle++
-        if(job==null)loadStatus() else { message="Finishing the cancelled action safely…";renderHome() }
+        if(job!=null) { message="Finishing the cancelled action safely…";renderHome() }
+        else if(documentResult!=null)processDocumentResult()
+        else if(chooser!=null) { message="Waiting for the system document chooser…";renderHome() }
+        else { val after=chooserMessage;chooserMessage=null;loadStatus(after) }
     }
 
     override fun onPause() {
@@ -57,6 +67,7 @@ class SettingsBackupActivity:Activity() {
 
     override fun onDestroy() {
         job?.cancel();confirmation?.cancel();confirmation=null
+        chooser=null;documentResult=null;exportBytes=null
         ui.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
@@ -75,6 +86,95 @@ class SettingsBackupActivity:Activity() {
         if(event.keyCode in AppActionStyle.CONFIRM_KEYS &&
             (event.repeatCount>0 || event.downTime<pageOpenedAt))return true
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun documentIntent(request:Int)=Intent(if(request==EXPORT_DOCUMENT)Intent.ACTION_CREATE_DOCUMENT else Intent.ACTION_OPEN_DOCUMENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type="application/octet-stream"
+        if(request==EXPORT_DOCUMENT)putExtra(Intent.EXTRA_TITLE,"prettTV-settings.snapshot")
+    }
+
+    private fun canChoose(request:Int)=runCatching {
+        val component=documentIntent(request).resolveActivity(packageManager)
+        component!=null && component.packageName!="com.android.tv.frameworkpackagestubs"
+    }.getOrDefault(false)
+
+    private fun reviewPcCopy() {
+        runWork("Reading and validating the staged PC copy…",{ cancel ->
+            val directory=getExternalFilesDir(null) ?: error("App-specific staging storage unavailable")
+            val file=java.io.File(directory,PortableSettingsBackup.PC_IMPORT_FILENAME)
+            require(file.canonicalFile.parentFile==directory.canonicalFile) { "Unexpected staging path" }
+            val bytes=java.io.FileInputStream(file).use { PortableSettingsBackup.readBounded(it,cancel) }
+            PortableSettingsBackup.decode(bytes,cancel)
+        }) { result ->
+            result.onSuccess { showConfirmation(it,null) }
+                .onFailure { message="PC staging copy missing, invalid, oversized or unreadable. Copy the verified PC snapshot to the documented app-specific staging filename, then choose Review PC copy. Nothing was restored.";renderHome() }
+        }
+    }
+
+    private fun exportDocument() {
+        runWork("Capturing and validating a portable snapshot…",{ backup.exportPortable(it) }) { result ->
+            result.onSuccess { bytes -> exportBytes=bytes;launchChooser(EXPORT_DOCUMENT) }
+                .onFailure { message=failureMessage(it);renderHome() }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun launchChooser(request:Int) {
+        if(!active || job!=null || chooser!=null || !canChoose(request)) {
+            exportBytes=null;message="System document chooser unavailable. No document was saved or restored.";renderHome();return
+        }
+        confirmation?.cancel();confirmation=null
+        chooser=request
+        try { startActivityForResult(documentIntent(request),request) }
+        catch(_:Exception) {
+            chooser=null;exportBytes=null
+            message="System document chooser could not open. Nothing was restored.";renderHome()
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?) {
+        super.onActivityResult(requestCode,resultCode,data)
+        // A file-open intent or unexpected callback has no authority, even with a valid URI.
+        if(chooser!=requestCode || requestCode !in setOf(EXPORT_DOCUMENT,IMPORT_DOCUMENT))return
+        chooser=null
+        val uri=data?.data
+        if(resultCode!=RESULT_OK || uri==null || uri.scheme!="content") {
+            exportBytes=null
+            chooserMessage="Document selection cancelled or unavailable. Nothing was restored; a provider may have created an empty destination."
+            if(active) { val after=chooserMessage;chooserMessage=null;loadStatus(after) }
+            return
+        }
+        documentResult=requestCode to uri
+        if(active && job==null)processDocumentResult()
+    }
+
+    private fun processDocumentResult() {
+        val (request,uri)=documentResult ?: return
+        documentResult=null
+        if(request==IMPORT_DOCUMENT) {
+            runWork("Reading bounded document bytes and validating all four stores…",{ cancel ->
+                val bytes=PortableSettingsBackup.readDocument(contentResolver,uri,cancel)
+                PortableSettingsBackup.decode(bytes,cancel)
+            }) { result ->
+                result.onSuccess { showConfirmation(it,null) }
+                    .onFailure { message="Document invalid, unsupported, too large or unreadable. Nothing was restored.";renderHome() }
+            }
+        } else {
+            val bytes=exportBytes;exportBytes=null
+            if(bytes==null) { message="Export expired. Choose Export again.";renderHome();return }
+            runWork("Writing portable snapshot and attempting provider readback…",{ cancel ->
+                PortableSettingsBackup.writeDocument(bytes,contentResolver,uri,cancel)
+            }) { result ->
+                message=result.fold(onSuccess={ when(it) {
+                    PortableSettingsBackup.SaveResult.VERIFIED -> "Portable snapshot saved and byte-for-byte readback verified. Keep a separate copy on your PC; provider storage may still be on this TV."
+                    PortableSettingsBackup.SaveResult.UNVERIFIED -> "Document write completed, but readback was unavailable. This backup is NOT verified. Check it on your PC before relying on it."
+                    PortableSettingsBackup.SaveResult.MISMATCH -> "Document readback did not match. This backup is NOT verified. Do not rely on it; export to another destination."
+                } },onFailure={ "Export did not finish verification. The destination may contain a complete or partial file. Do not rely on it until independently validated. No settings were restored." })
+                renderHome()
+            }
+        }
     }
 
     private fun loadStatus(after:String?=null) {
@@ -110,15 +210,15 @@ class SettingsBackupActivity:Activity() {
         }
     }
 
-    private fun showConfirmation(snapshot:LocalSettingsBackup.Snapshot,slot:LocalSettingsBackup.Slot) {
+    private fun showConfirmation(snapshot:LocalSettingsBackup.Snapshot,slot:LocalSettingsBackup.Slot?) {
         val consent=SettingsBackupConfirmation(snapshot to slot,SystemClock.elapsedRealtime())
         confirmation=consent
-        val label=if(slot==LocalSettingsBackup.Slot.SAVED)"saved snapshot" else "pre-restore copy"
+        val label=when(slot) { null->"portable snapshot";LocalSettingsBackup.Slot.SAVED->"saved snapshot";else->"pre-restore copy" }
         render("Restore local settings?",
-            "Validated $label · ${time(snapshot.savedAt)}\n\n"+
+            "Validated $label · ${time(snapshot.savedAt)}\n\n${PortableSettingsBackup.preview(snapshot)}\n\n"+
                 "Replaces your current Home layout, hidden titles, app arrangement, local Watchlist, preferences and local playback records with this snapshot. Changes made since it was saved will be replaced.\n\n"+
                 "Android device settings, accessibility helpers, streaming apps and accounts are not restored. Your saved snapshot stays intact.\n\n"+
-                (if(slot==LocalSettingsBackup.Slot.SAVED)"A separate pre-restore copy must be saved successfully before any settings change.\n\n" else "The existing pre-restore copy will be kept.\n\n")+
+                (if(slot!=LocalSettingsBackup.Slot.BEFORE_RESTORE)"A separate pre-restore copy must be saved successfully before any settings change.\n\n" else "The existing pre-restore copy will be kept.\n\n")+
                 "Cancel is selected. This confirmation expires after two minutes.",
             listOf("Cancel" to { cancelConfirmation() },"Restore these local settings" to {
                 val selected=consent.take(SystemClock.elapsedRealtime())
@@ -152,24 +252,29 @@ class SettingsBackupActivity:Activity() {
     }
 
     private fun renderHome() {
-        val writable=SettingsBackupGuard.writersIntegrated && job==null
+        val writable=SettingsBackupGuard.writersIntegrated && job==null && chooser==null
         fun summary(name:String,status:LocalSettingsBackup.Status)=when {
             status.invalid -> "$name: damaged or unsupported — restore unavailable."
             status.savedAt!=null -> "$name: ${time(status.savedAt)}"
             else -> "$name: none saved."
         }
         val buttons=mutableListOf<Pair<String,()->Unit>>()
-        if(job!=null)buttons+="Cancel and go back" to { finish() }
+        if(job!=null || chooser!=null)buttons+="Cancel and go back" to { finish() }
         else {
             if(writable && !SettingsBackupGuard.recoveryRequired)buttons+=(if(saved.savedAt==null)"Save snapshot on this TV" else "Replace saved snapshot") to { save() }
             if(writable && !SettingsBackupGuard.recoveryRequired && saved.savedAt!=null)buttons+="Review saved snapshot" to { preview(LocalSettingsBackup.Slot.SAVED) }
             if(writable && recovery.savedAt!=null)buttons+="Review pre-restore copy" to { preview(LocalSettingsBackup.Slot.BEFORE_RESTORE) }
+            if(writable && !SettingsBackupGuard.recoveryRequired && canChoose(EXPORT_DOCUMENT))buttons+="Export portable snapshot…" to { exportDocument() }
+            if(writable)buttons+="Review PC copy" to { reviewPcCopy() }
+            if(writable && canChoose(IMPORT_DOCUMENT))buttons+="Import portable snapshot…" to { launchChooser(IMPORT_DOCUMENT) }
             buttons+="Back" to { finish() }
         }
         render("Local settings backup",
             "$message\n\n${summary("Saved snapshot",saved)}\n${summary("Pre-restore copy",recovery)}\n\n"+
                 "Includes Home layout, hidden titles, app arrangement, local Watchlist, preferences and local playback records. Only prettTV’s four app-owned settings stores are included.\n\n"+
-                "Private on this TV only. No cloud, account or sign-in. This backup will NOT survive uninstalling prettTV or clearing its app data.\n\n"+
+                "Private copies on this TV do NOT survive uninstall or clear-data. Export a portable copy to a separate PC or a location outside app storage to keep it. Document actions appear only when a system chooser is available; USB support is not yet verified on this TV.\n\n"+
+                "PC fallback: use tools/portable-settings-backup.py on your authorized PC. To restore, stage its verified snapshot as ${PortableSettingsBackup.PC_IMPORT_FILENAME} in this app’s external files directory, then select Review PC copy. Staging alone NEVER restores settings. The TV staging copy is lost on uninstall; retain the original on E:.\n\n"+
+                "Portable files are not encrypted. They include viewing records and preferences, not account credentials. Keep them private. No cloud service or broad storage access is added.\n\n"+
                 "No Android device settings, helper configuration or streaming-account logins. Saving replaces the saved snapshot only after the new copy is verified and atomically written.",buttons)
     }
 
@@ -236,7 +341,7 @@ class SettingsBackupActivity:Activity() {
                     job=null
                     if(isDestroyed || isFinishing)return@post
                     if(active && lifecycle==started)done(result)
-                    else if(active)loadStatus("Previous action ended. Review the snapshot status before continuing.")
+                    else if(active)loadStatus("Previous action ended. An admitted save may have completed or left a partial document. Verify the destination before relying on it; review local snapshot status before continuing.")
                 }
             }
         } catch(_:java.util.concurrent.RejectedExecutionException) {
@@ -255,6 +360,8 @@ class SettingsBackupActivity:Activity() {
     private fun time(value:Long)=DateFormat.getDateTimeInstance(DateFormat.MEDIUM,DateFormat.SHORT).format(Date(value))
 
     companion object {
+        private const val EXPORT_DOCUMENT=0xB101
+        private const val IMPORT_DOCUMENT=0xB102
         private const val RESTORE_BUTTON_ID=0x00BACC01
         // One running operation and one queued operation across all Activity instances.
         private val worker=ThreadPoolExecutor(1,1,30,TimeUnit.SECONDS,ArrayBlockingQueue(1),

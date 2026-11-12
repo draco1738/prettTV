@@ -2,6 +2,9 @@
     <application android:label="prettTV stability sandbox" tools:replace="android:label"
         android:networkSecurityConfig="@xml/startup_reliability_network_security">
         <receiver android:name=".UpdateSessionTestReceiver" android:exported="false" />
+        <provider android:name="fi.jommi.rivi.PortableSettingsBackupTestProvider"
+            android:authorities="${applicationId}.portable-backup-fixture"
+            android:exported="false" android:grantUriPermissions="false" />
         <activity android:name=".CardFocusTestActivity" android:exported="false" />
         <!-- The test copy exercises callbacks directly and must not filter the real remote. -->
         <service android:name=".SettingsKeyService" android:enabled="false" />

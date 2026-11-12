@@ -30,10 +30,13 @@ data class HomeContent(val watching: List<Program> = emptyList(), val suggestion
     val kickoffReminders:List<SportsEvent> = emptyList(),
     val refreshing:Boolean=false,val refreshFailed:Boolean=false,
     // C-only display hints, never written into Program, playback, launch destinations or saved titles.
-    val presentationArtwork:Map<String,PresentationArtwork> = emptyMap()) {
+    val presentationArtwork:Map<String,PresentationArtwork> = emptyMap(),
+    val viewingHistoryMode:ViewingHistoryMode = ViewingHistoryMode.COMBINED,
+    // Initial discovery may fill/re-rank until ordinary catalog loading finishes, not artwork.
+    val discoverySettled:Boolean = true) {
     val visibleWatching: List<Program> get() = watching.filter { it.titleKey !in hiddenWatchingTitles }
     val feature: Program? get() = watching.filter { it.titleKey !in hiddenHeroTitles }.maxByOrNull { it.engagedAt }
-        ?: suggestions.firstOrNull { it.titleKey !in hiddenHeroTitles }
+        ?: if(viewingHistoryMode==ViewingHistoryMode.COMBINED)suggestions.firstOrNull { it.titleKey !in hiddenHeroTitles } else null
 }
 
 object ContentPolicy {

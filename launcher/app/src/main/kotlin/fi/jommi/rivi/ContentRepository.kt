@@ -129,6 +129,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
 
     private fun deliverStatus(content:HomeContent=delivered) {
         if(SettingsBackupGuard.busy || SettingsBackupGuard.recoveryRequired || settingsGeneration!=SettingsBackupGuard.generation)return
+        if(content.viewingHistoryMode!=ViewingHistoryMode.read(context))return
         delivered=refreshState.snapshot().applyTo(content)
         deliver(delivered)
     }
@@ -138,6 +139,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private fun load() {
         if(SettingsBackupGuard.busy || SettingsBackupGuard.recoveryRequired)return
         val settingsEpoch=settingsGeneration
+        val historyMode=ViewingHistoryMode.read(context)
         val g = ++generation; val available = installed; val excluded = hidden; val useCatalog = discovery
         val priority=preferred; val selectedServices=serviceOverride
         val useArtwork=balancedArtworkEnabled && useCatalog
@@ -146,7 +148,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             .getStringSet("hiddenHeroTitles",emptySet()).orEmpty().toSet() else emptySet()
         worker.post {
             fun current() = active && g == generation && settingsEpoch==SettingsBackupGuard.generation &&
-                !SettingsBackupGuard.busy && !SettingsBackupGuard.recoveryRequired
+                !SettingsBackupGuard.busy && !SettingsBackupGuard.recoveryRequired && ViewingHistoryMode.read(context)==historyMode
             if(!current())return@post
             val attempt=RefreshAttempt(g)
             readingAttempt=attempt
@@ -194,7 +196,16 @@ class ContentRepository(private val context: Context, private val deliver: (Home
             val published=lastShared.published
             val watching = (lastShared.watching + published.filter { it.watchingSource }).sortedByDescending { it.engagedAt }
             val previews = published.filterNot { it.watchingSource }
-            val services=(selectedServices ?: RecommendationPolicy.inferredServices(watching)).intersect(available)
+            // Select evidence before service inference, recommendation exclusion or hero selection.
+            // Retained local titles need an installed, nonhidden destination, just like provider rows.
+            val providerWatching=ContentPolicy.clean(watching,excluded)
+            val historyInput=if(historyMode==ViewingHistoryMode.COMBINED)providerWatching else watching
+                .filter { it.title.isNotBlank() && it.packageName in available && it.packageName !in excluded }
+                .distinctBy { it.packageName+"|"+it.titleKey }.take(2000)
+            val selectedWatching=selectViewingHistory(playback,historyInput,historyMode,available,excluded,settingsEpoch)
+            if(!current())return@post
+            val inferenceWatching=if(historyMode==ViewingHistoryMode.COMBINED)watching else selectedWatching
+            val services=(selectedServices ?: RecommendationPolicy.inferredServices(inferenceWatching)).intersect(available)
             recommendationServices=services
             availableServices=(watching+previews).map { it.packageName }.toSet()+RecommendationPolicy.knownServices.intersect(available)
             val sources=previews.groupBy { it.packageName }.entries.joinToString("\n") { (pkg,rows) ->
@@ -202,6 +213,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                     " genres="+rows.map { it.genres }.filter { it.isNotBlank() }.distinct().take(8).joinToString(";")
             }
             var snapshot=lastCatalog.eligible(useCatalog,available,excluded)
+            var discoverySettled=false
             var artworkSelection=HomeContent()
             fun publish() {
                 if (!current()) return
@@ -211,11 +223,11 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 // Older feedback records may contain only a canonical ID. Remember the exact
                 // source title before filtering it away so discovery experiences can hide copies.
                 personal.rememberDismissedTitles(watching+previews+catalogRows+catalogBrowse+releases,settingsEpoch)
-                val cleanWatching=ContentPolicy.clean(watching,excluded)
+                val cleanWatching=if(historyMode==ViewingHistoryMode.COMBINED)providerWatching else selectedWatching
                 val cleanReleases=ContentPolicy.clean(releases,excluded).filterNot { feedback.isDismissed(it) }
                 val rows=RecommendationPolicy.build(previews,catalogRows+catalogBrowse,catalogBrowse,cleanWatching,cleanReleases,services,priority,excluded,feedback=feedback)
                 val liveGames=if(useCatalog)SportsPolicy.upcoming(games,System.currentTimeMillis(),favoriteTeams) else emptyList()
-                val base = HomeContent(watching=playback.merge(cleanWatching,settingsEpoch),suggestions=rows.suggestions,
+                val base = HomeContent(watching=selectedWatching,suggestions=rows.suggestions,viewingHistoryMode=historyMode,discoverySettled=discoverySettled,
                     trending=rows.trending,newReleases=cleanReleases,discover=rows.discover,
                     liveSports=ContentPolicy.clean(published.filter { it.liveSports },excluded),
                     games=liveGames,snapshotAt=maxOf(sharedAt,catalogAt),offline=online==false,
@@ -261,6 +273,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 // Reuse all fetched entries for app-title popularity matching and discovery.
                 if(current()) { lastCatalog=snapshot; catalogAt=maxOf(catalogAt,catalogReadAt); publish() }
             }
+            if(current()) { discoverySettled=true; publish() }
             if(useCatalog && online!=false && active && g==generation) {
                 val freshGames=sports.load(favoriteTeams) { current() }
                 if(current()) { games=freshGames; publish() }
@@ -304,7 +317,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 readingAttempt=null
                 ui.post { if(current()) {
                     statusTask?.let(ui::removeCallbacks); statusTask=null
-                    if(finished)deliverStatus()
+                    if(finished)deliverStatus(delivered.copy(discoverySettled=true))
                     ui.removeCallbacks(refreshTask); ui.postDelayed(refreshTask,120_000)
                 } }
             }
@@ -416,6 +429,13 @@ class ContentRepository(private val context: Context, private val deliver: (Home
 
     private data class Seed(val id:Int,val pkg:String,val app:String,val episode:Int)
     companion object {
+        /** Host-testable boundary: no provider progress can reach local-only consumers. */
+        internal fun selectViewingHistory(history:PlaybackHistory,rows:List<Program>,mode:ViewingHistoryMode,
+            available:Set<String>,excluded:Set<String>,settingsEpoch:Long):List<Program> {
+            val merged=history.merge(rows,settingsEpoch,mode)
+            return if(mode==ViewingHistoryMode.COMBINED)merged
+                else ContentPolicy.clean(merged.filter { it.packageName in available },excluded)
+        }
         private const val STREMIO="com.stremio.one"
         private val SEEDS=listOf(
             Seed(44933,"com.apple.atve.androidtv.appletv","Apple TV",2238231),
