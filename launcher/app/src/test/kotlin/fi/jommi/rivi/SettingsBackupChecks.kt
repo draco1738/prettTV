@@ -440,6 +440,25 @@ class SettingsBackupChecks {
         assertEquals(SettingsBackupGuard.RestoreState.RESTORED,SettingsBackupGuard.restoreState)
     }
 
+    @Test fun historySourceHasKnownStringValuesAndMissingRemainsCompatible()=fixture { _,stores,backup ->
+        backup.save(cancel()) // Older snapshots omit this key.
+        for(value in listOf("COMBINED","THIS_TV_ONLY")) {
+            stores.getValue("home").values["historySource"]=value
+            assertEquals(value,backup.save(cancel()).plan.values.getValue("home")["historySource"])
+        }
+        for(value in listOf<Any>(true,"UNKNOWN")) {
+            stores.getValue("home").values["historySource"]=value
+            rejects { backup.save(cancel()) }
+        }
+        assertEquals(0,editors(stores))
+    }
+
+    @Test fun portableSnapshotsCannotSilentlyIncludeUnknownCredentialFields()=fixture { _,stores,backup ->
+        stores.getValue("home").values["accountToken"]="fixture-not-a-secret"
+        rejects { backup.save(cancel()) }
+        assertEquals(0,editors(stores))
+    }
+
     @Test fun confirmationRequiresDelayExpiresCancelsAndIsSingleUse() {
         val early=SettingsBackupConfirmation("snapshot",100)
         assertNull(early.take(101));assertEquals("snapshot",early.take(1_300));assertNull(early.take(1_301))

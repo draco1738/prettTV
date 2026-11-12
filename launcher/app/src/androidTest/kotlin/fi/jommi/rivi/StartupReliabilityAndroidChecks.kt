@@ -55,6 +55,7 @@ internal object StartupReliabilityAndroidChecks {
                 val providerMs=SystemClock.elapsedRealtime()-started
                 check(f.sources.artworkUrls.isEmpty())
                 check(f.states.last().presentationArtwork.isEmpty())
+                check(!f.states.last().discoverySettled) { "Partial catalog prematurely froze initial Discover picks" }
                 catalogGate.release.countDown();artworkGate.awaitEntered()
                 f.waitUntil("all ordinary feeds before artwork release") {
                     f.teams.get().isNotEmpty() && f.states.any { it.trending.isNotEmpty() && it.newReleases.isNotEmpty() &&
@@ -62,6 +63,7 @@ internal object StartupReliabilityAndroidChecks {
                 }
                 val ordinaryMs=SystemClock.elapsedRealtime()-started
                 val ordinary=f.states.last()
+                check(ordinary.discoverySettled) { "Ordinary catalog did not settle before optional artwork" }
                 check(ordinary.presentationArtwork.isEmpty()) { "Artwork gate was bypassed" }
                 check(ordinary.watching.map { it.id }==listOf("watch_next_program:1"))
                 check((ordinary.suggestions+ordinary.discover).any { it.id=="tvmaze:53647" }) { "Cold-cache seed missing from useful feeds" }

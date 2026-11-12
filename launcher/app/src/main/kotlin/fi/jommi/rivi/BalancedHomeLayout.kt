@@ -15,10 +15,12 @@ internal object BalancedHomeLayout {
     const val TOP_GAP=38
 
     private fun font(value:Float)=if(value.isFinite())value.coerceAtLeast(1f) else 1f
-    fun headingHeight(fontScale:Float)=ceil(36*font(fontScale)).toInt()+25
+    fun stackedHeading(fontScale:Float)=font(fontScale)>1.3f
+    fun headingHeight(fontScale:Float)=ceil(36*font(fontScale)).toInt()+25+if(stackedHeading(fontScale))browseHeight(fontScale) else 0
     fun posterHeight(fontScale:Float)=POSTER_WIDTH*3/2+81+ceil(70*(font(fontScale)-1f)).toInt()
     fun browseHeight(fontScale:Float)=36+ceil(25*font(fontScale)).toInt()
-    fun stageHeight(fontScale:Float)=maxOf(510,headingHeight(fontScale)+posterHeight(fontScale)+4+browseHeight(fontScale))
+    fun stageHeight(fontScale:Float)=headingHeight(fontScale)+posterHeight(fontScale)
+    fun appCaptionHeight(fontScale:Float)=8+ceil(26*font(fontScale)).toInt()
     fun continuationHeight(fontScale:Float)=128+ceil(100*(font(fontScale)-1f)).toInt()
 
     /** One scale for both axes: artwork must never inherit the card's aspect ratio. */

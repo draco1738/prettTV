@@ -11,6 +11,17 @@ import android.os.Looper
 import android.os.SystemClock
 import android.service.notification.NotificationListenerService
 
+/** The tracker write boundary, kept independent of Android session objects for scoped checks. */
+internal object PlaybackObservation {
+    fun record(history:PlaybackHistory,p:Program,playingForMs:Long,position:Long,duration:Long?,
+        eventAt:()->Long={ System.currentTimeMillis() },settingsGeneration:Long=SettingsBackupGuard.generation):Boolean {
+        val observedDuration=duration?.takeIf { it>0 } ?: 0L
+        if(playingForMs<15_000 || position<15_000 || (observedDuration>0 && observedDuration<180_000))return false
+        val observedPosition=if(observedDuration>0)position.coerceAtMost(observedDuration) else position
+        return history.observe(p,observedPosition,observedDuration,eventAt(),settingsGeneration)
+    }
+}
+
 /** Uses media sessions only. No notification text is read, logged, retained or transmitted. */
 class PlaybackTracker:NotificationListenerService() {
     companion object {
@@ -68,9 +79,8 @@ class PlaybackTracker:NotificationListenerService() {
             val k=p.packageName+"|"+p.titleKey; active.add(k); playing=true
             val now=SystemClock.elapsedRealtime(); val began=firstPlaying.getOrPut(k) { now }
             val position=state.position+(if(state.lastPositionUpdateTime>0)(now-state.lastPositionUpdateTime).coerceAtLeast(0)*state.playbackSpeed else 0f).toLong()
-            val duration=m?.getLong(MediaMetadata.METADATA_KEY_DURATION)?.takeIf { it>0 } ?: p.duration
-            if(now-began>=15_000 && position>=15_000 && duration>=180_000)
-                history.confirm(p,position.coerceAtMost(duration),duration,confirmedEvents.confirm(eventKey,System.currentTimeMillis()),epoch)
+            PlaybackObservation.record(history,p,now-began,position,m?.getLong(MediaMetadata.METADATA_KEY_DURATION),
+                { confirmedEvents.confirm(eventKey,System.currentTimeMillis()) },epoch)
         }
         firstPlaying.keys.retainAll(active)
         confirmedEvents.retain(present)

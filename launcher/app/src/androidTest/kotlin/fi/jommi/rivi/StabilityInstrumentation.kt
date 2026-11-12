@@ -66,6 +66,7 @@ class StabilityInstrumentation:Instrumentation() {
                 if(readabilityOnly)AppReadabilitySizingAndroidChecks.run(this,::test)
                 if(settingsBackupOnly) {
                     SettingsBackupAndroidChecks.run(this,::test)
+                    PortableSettingsBackupAndroidChecks.run(this,::test)
                     HomeBackupIntegrationAndroidChecks.run(this,::test)
                 }
                 if(startupReliabilityOnly) {
@@ -155,6 +156,7 @@ class StabilityInstrumentation:Instrumentation() {
             LightweightAndroidChecks.run(this, ::test)
             AppReadabilitySizingAndroidChecks.run(this, ::test)
             SettingsBackupAndroidChecks.run(this, ::test)
+            PortableSettingsBackupAndroidChecks.run(this, ::test)
             HomeBackupIntegrationAndroidChecks.run(this, ::test)
             StartupReliabilityAndroidChecks.run(this, ::test)
             PersonalizationAndroidChecks.run(targetContext, ::test)

@@ -22,12 +22,18 @@ internal object BalancedArtworkPolicy {
      * Do not scan further down the feed when matches fail; the same pool drives rendering and lookup. */
     fun discoveryCandidates(content:HomeContent,services:Set<String> = RecommendationPolicy.inferredServices(content.watching),
                             recent:List<String> = emptyList(),feedback:RecommendationFeedback = RecommendationFeedback()):List<Program> {
+        return rankedDiscovery(content,services,recent,feedback).take(CANDIDATE_LIMIT)
+    }
+
+    /** Full bounded local pool for explicit rotation; this does NOT enlarge the network lookup pool. */
+    fun rankedDiscovery(content:HomeContent,services:Set<String> = RecommendationPolicy.inferredServices(content.watching),
+                        recent:List<String> = emptyList(),feedback:RecommendationFeedback = RecommendationFeedback()):List<Program> {
         val featured=content.feature
         val eligible=(content.suggestions.take(60)+content.discover.take(60)+content.trending.take(60))
             .filter { it.title.isNotBlank() && it.id!=featured?.id && it.titleKey!=featured?.titleKey && !isSports(it) }
         val ranked=RecommendationPolicy.balanced(eligible,services,recent,lowerPriority=setOf("tv.pluto.android"),feedback=feedback)
         return ranked.groupBy { RecommendationPolicy.tier(it,services,setOf("tv.pluto.android")) }.values
-            .flatMap { tier->tier.filter { it.mediaType=="series" }+tier.filter { it.mediaType!="series" } }.take(CANDIDATE_LIMIT)
+            .flatMap { tier->tier.filter { it.mediaType=="series" }+tier.filter { it.mediaType!="series" } }
     }
 
     /** Prefer successfully verified portraits only within that small ranked pool. Never alter Program. */

@@ -9,18 +9,19 @@ class BalancedHomeLayoutTest {
         assertEquals(1920,2*BalancedHomeLayout.INSET+BalancedHomeLayout.WIDTH)
         assertEquals(BalancedHomeLayout.WIDTH,BalancedHomeLayout.HERO_WIDTH+BalancedHomeLayout.SPLIT_GAP+BalancedHomeLayout.DISCOVERY_WIDTH)
         assertTrue(3*BalancedHomeLayout.POSTER_WIDTH+2*BalancedHomeLayout.POSTER_GAP<=BalancedHomeLayout.DISCOVERY_WIDTH)
-        assertEquals(567,BalancedHomeLayout.stageHeight(1f))
+        assertEquals(502,BalancedHomeLayout.stageHeight(1f))
         assertEquals(128,BalancedHomeLayout.continuationHeight(1f))
     }
     @Test fun enlargedTextReservesSpaceInsteadOfOverlappingTheBrowseAction() {
         for(font in listOf(1f,1.3f,2f)) {
-            assertTrue(BalancedHomeLayout.stageHeight(font)>=BalancedHomeLayout.headingHeight(font)+BalancedHomeLayout.posterHeight(font)+4+BalancedHomeLayout.browseHeight(font))
+            assertTrue(BalancedHomeLayout.headingHeight(font)>=BalancedHomeLayout.browseHeight(font))
+            assertEquals(BalancedHomeLayout.headingHeight(font)+BalancedHomeLayout.posterHeight(font),BalancedHomeLayout.stageHeight(font))
             assertTrue(BalancedHomeLayout.continuationHeight(font)>=128)
         }
         assertTrue(BalancedHomeLayout.stageHeight(1.3f)>BalancedHomeLayout.stageHeight(1f))
     }
     @Test fun invalidOrSmallFontScaleNeverCollapsesTheStage() {
-        for(font in listOf(Float.NaN,Float.POSITIVE_INFINITY,-1f,.5f))assertEquals(567,BalancedHomeLayout.stageHeight(font))
+        for(font in listOf(Float.NaN,Float.POSITIVE_INFINITY,-1f,.5f))assertEquals(502,BalancedHomeLayout.stageHeight(font))
     }
     @Test fun discoverPostersAreLargerWithoutRemovingTheThirdCardOrGrowingTheViewport() {
         assertEquals(240,BalancedHomeLayout.POSTER_WIDTH)

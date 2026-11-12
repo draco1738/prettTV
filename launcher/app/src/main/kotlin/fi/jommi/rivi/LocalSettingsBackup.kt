@@ -2,19 +2,15 @@ package fi.jommi.rivi
 
 import android.content.Context
 import android.content.SharedPreferences
-import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.io.DataInputStream
-import java.io.DataOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import java.security.MessageDigest
 
-/** Private, bounded, checksummed snapshots. No URI, intent, network or external path input. */
+/** Private snapshot storage and guarded restore; portable bytes use the same strict codec. */
 internal class LocalSettingsBackup(
     private val directory:File,
     private val stores:Map<String,SharedPreferences>,
@@ -26,8 +22,11 @@ internal class LocalSettingsBackup(
     },
     private val sync:(FileOutputStream)->Unit={ it.fd.sync() },
 ) {
-    enum class Slot(val filename:String) { SAVED("saved.snapshot"), BEFORE_RESTORE("before-restore.snapshot") }
-    class Snapshot internal constructor(val savedAt:Long,internal val encoded:String,internal val plan:LocalSettingsTransfer.Prepared)
+    enum class Slot(val filename:String) { SAVED("saved.snapshot"), BEFORE_RESTORE("before-restore.snapshot"), BEFORE_RECOVERY("before-recovery.snapshot") }
+    class Snapshot internal constructor(val savedAt:Long,internal val encoded:String,internal val plan:LocalSettingsTransfer.Prepared) {
+        // Constructed on the worker: never hash or parse a multi-MB preview on the UI thread.
+        internal val previewText=PortableSettingsBackup.describe(this)
+    }
     data class Status(val savedAt:Long?=null,val invalid:Boolean=false)
 
     init { require(stores.keys==STORE_NAMES) { "TV backup requires the four app-owned stores" } }
@@ -52,14 +51,16 @@ internal class LocalSettingsBackup(
     }
 
     /** Restores the exact immutable, validated preview, never a newly reread file. */
-    fun restore(snapshot:Snapshot,source:Slot,cancel:SettingsBackupCancellation) = synchronized(fileLock) {
+    fun restore(snapshot:Snapshot,source:Slot?,cancel:SettingsBackupCancellation) = synchronized(fileLock) {
         SettingsBackupGuard.exclusive(true,cancel) {
             cancel.check()
             val recoveryRequired=SettingsBackupGuard.recoveryRequired
-            check(!recoveryRequired || source==Slot.BEFORE_RESTORE) { "Recover the pre-restore copy first" }
+            check(!recoveryRequired || source==null || source==Slot.BEFORE_RESTORE) { "Recover the pre-restore copy first" }
             // Keep the user's saved snapshot untouched. A separate, verified recovery copy
             // must succeed BEFORE the first preferences edit. Recovering that copy preserves it.
-            if(source!=Slot.BEFORE_RESTORE)write(Slot.BEFORE_RESTORE,capture(cancel),cancel)
+            if(source!=Slot.BEFORE_RESTORE) {
+                write(if(recoveryRequired)Slot.BEFORE_RECOVERY else Slot.BEFORE_RESTORE,capture(cancel),cancel)
+            }
             cancel.check()
             SettingsBackupGuard.recordRestore(SettingsBackupGuard.RestoreState.RUNNING)
             try {
@@ -74,12 +75,19 @@ internal class LocalSettingsBackup(
         }
     }
 
+    /** Capture current settings without replacing either private recovery slot. Worker only. */
+    fun exportPortable(cancel:SettingsBackupCancellation):ByteArray = synchronized(fileLock) {
+        check(!SettingsBackupGuard.recoveryRequired) { "Recover previous settings before export" }
+        val snapshot=SettingsBackupGuard.exclusive(false,cancel) { capture(cancel) }
+        PortableSettingsBackup.encode(snapshot)
+    }
+
     private fun capture(cancel:SettingsBackupCancellation):Snapshot {
         cancel.check()
         val encoded=LocalSettingsTransfer.export(stores)
         cancel.check()
         return Snapshot(clock().also { require(it>0) },encoded,
-            LocalSettingsTransfer.prepare(encoded,STORE_NAMES,requireAllStores=true))
+            LocalSettingsTransfer.prepareSnapshot(encoded))
     }
 
     private fun write(slot:Slot,snapshot:Snapshot,cancel:SettingsBackupCancellation):Snapshot {
@@ -111,37 +119,8 @@ internal class LocalSettingsBackup(
         } finally { temporary.delete() }
     }
 
-    private fun encode(snapshot:Snapshot):ByteArray {
-        require(snapshot.encoded.length<=MAX_PAYLOAD)
-        val bytes=snapshot.encoded.toByteArray(Charsets.US_ASCII)
-        val buffer=ByteArrayOutputStream(bytes.size+HEADER_BYTES+DIGEST_BYTES)
-        DataOutputStream(buffer).use { output ->
-            output.writeLong(MAGIC);output.writeInt(1);output.writeLong(snapshot.savedAt)
-            output.writeInt(bytes.size);output.write(bytes)
-        }
-        val body=buffer.toByteArray()
-        return body+MessageDigest.getInstance("SHA-256").digest(body)
-    }
-
-    private fun decode(bytes:ByteArray,cancel:SettingsBackupCancellation):Snapshot {
-        cancel.check()
-        require(bytes.size in (HEADER_BYTES+DIGEST_BYTES)..MAX_FILE) { "Invalid snapshot length" }
-        val contentSize=bytes.size-DIGEST_BYTES
-        val digest=MessageDigest.getInstance("SHA-256").apply { update(bytes,0,contentSize) }.digest()
-        require(MessageDigest.isEqual(digest,bytes.copyOfRange(contentSize,bytes.size))) { "Snapshot checksum mismatch" }
-        DataInputStream(ByteArrayInputStream(bytes,0,contentSize)).use { input ->
-            require(input.readLong()==MAGIC && input.readInt()==1) { "Unsupported snapshot format" }
-            val savedAt=input.readLong().also { require(it>0) { "Invalid snapshot time" } }
-            val length=input.readInt()
-            require(length in 1..MAX_PAYLOAD && length==contentSize-HEADER_BYTES) { "Invalid snapshot payload size" }
-            val payload=ByteArray(length);input.readFully(payload)
-            require(payload.all { it.toInt() in 0..127 }) { "Invalid snapshot encoding" }
-            val encoded=String(payload,Charsets.US_ASCII)
-            val plan=LocalSettingsTransfer.prepare(encoded,STORE_NAMES,requireAllStores=true)
-            cancel.check()
-            return Snapshot(savedAt,encoded,plan)
-        }
-    }
+    private fun encode(snapshot:Snapshot)=PortableSettingsBackup.encode(snapshot)
+    private fun decode(bytes:ByteArray,cancel:SettingsBackupCancellation)=PortableSettingsBackup.decode(bytes,cancel)
 
     private fun readBounded(file:File,cancel:SettingsBackupCancellation):ByteArray {
         require(file.length() in 1..MAX_FILE.toLong()) { "Snapshot missing or exceeds 16 MB" }
@@ -170,7 +149,6 @@ internal class LocalSettingsBackup(
         internal const val HEADER_BYTES=24
         internal const val DIGEST_BYTES=32
         internal const val MAX_FILE=MAX_PAYLOAD+HEADER_BYTES+DIGEST_BYTES
-        private const val MAGIC=0x5052455454424B31L // PRETTBK1
 
         /** noBackupFilesDir also excludes these viewing/preferences snapshots from OS backup. */
         fun create(context:Context):LocalSettingsBackup {
