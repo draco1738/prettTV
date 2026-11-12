@@ -120,7 +120,11 @@ internal class BluetoothControlView(context:android.content.Context,private val 
         tag=key;id=View.generateViewId();text=value;AppActionStyle.button(this,scale)
         isFocusableInTouchMode=true;setOnClickListener { run() }
     }
-    private val status=label("Bluetooth",28).apply { tag="bluetooth-status" }
+    private val radioIcon=BluetoothStatusDrawable(px(36)).apply { setBounds(0,0,px(36),px(36)) }
+    private val status=label("Bluetooth",28).apply {
+        tag="bluetooth-status";compoundDrawablePadding=px(12)
+        setCompoundDrawablesRelative(radioIcon,null,null,null)
+    }
     private val output=label("",20,AppActionStyle.MUTED).apply { tag="audio-output" }
     private val feedback=label("",20,AppActionStyle.MUTED).apply { tag="audio-feedback";visibility=GONE }
     private val toggle=action("bluetooth-toggle","Check") { if(!state.working)change(state.enabled?.not()) }.apply {
@@ -203,6 +207,7 @@ internal class BluetoothControlView(context:android.content.Context,private val 
     }
     fun bind(value:BluetoothControlSession.State) {
         state=value
+        radioIcon.bind(value)
         val radio=when(value.enabled) { true->"Bluetooth is on";false->"Bluetooth is off";null->value.message }
         toggle.text=when { value.working->"Wait…";value.enabled==true->"On";value.enabled==false->"Off";else->"Check" }
         toggle.contentDescription=when {
