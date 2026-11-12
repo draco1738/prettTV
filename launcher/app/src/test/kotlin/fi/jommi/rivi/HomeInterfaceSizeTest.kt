@@ -12,7 +12,7 @@ class HomeInterfaceSizeTest {
     @Test fun largerIsOneProportionalScaleForCardsAndText() {
         assertEquals(1f,HomeInterfaceSize.STANDARD.factor,0f)
         assertEquals(1.04f,HomeInterfaceSize.LARGER.factor,0.0001f)
-        for(value in listOf(1112f,510f,202f,303f,208f,94f,26f,36f))
+        for(value in listOf(1000f,567f,240f,360f,208f,94f,26f,36f))
             assertEquals(1.04f,value*HomeInterfaceSize.LARGER.factor/value,0.0001f)
     }
     @Test fun allLayoutsFitWithVisibleEdgesAtBothSizes() {

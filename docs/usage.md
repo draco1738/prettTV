@@ -5,7 +5,7 @@
 Choose a layout, arrange your apps and use the remote to move through your Home screen. The same apps, viewing history and feeds are available in all three layouts.
 
 > [!NOTE]
-> This page describes **0.5.2** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
+> This page describes **0.6.3** source behavior. Actual checks, evidence and limitations are recorded by version in [Validation](validation.md); a control description is not a claim that every device or app supports it.
 
 **Focus motion:** Settings → Home & apps → Focus motion offers Classic (the existing lift and artwork slide) or Quiet (a smaller 120 ms lift with still artwork). Classic remains the default. Both preserve the black cards, white focus outline and remote navigation. [Performance and memory behavior](lightweight-home.md).
 
@@ -19,11 +19,27 @@ Open **Settings → Home & apps → Layout** to switch. Every layout uses the sa
 | --- | --- |
 | **A · Cinema** | Wide feature with content rows below. |
 | **B · Quiet** | Apps first, followed by content rows. |
-| **C · Balanced** | Large feature, two discovery cards and a compact app row. The default layout. |
+| **C · Balanced** | Large resume feature, three portrait discovery cards, Browse shows and one finite app row. The default layout. |
 
 The default rows below Your apps are **Continue watching · Shows → Continue watching · Movies → Watchlist → New episodes → Live sports → Suggestions → Discover → Trending → New releases**. New episodes appears only when unread alerts exist. The large feature uses the most recent eligible viewing record; [how viewing order works](content-and-sports.md#continue-watching-and-the-large-feature) explains the available data and fallback.
 
 Continue watching applies new chronological ordering immediately and keeps the selected title focused. The hero follows the latest eligible record. Changes in app-published playback progress can contribute a separately stored observation; refreshed timestamps alone cannot. Provider observations may be delayed or come from a shared account, remain separate from confirmed local viewing and do not automatically remove titles from Watchlist.
+
+## Interface size, Undo and recommendations
+
+**Settings → Home & apps → Interface size** offers **Standard · 100%** (default) and **Larger · 104%**. It scales prettTV-owned cards, text, spacing and controls consistently across Home, Discovery, Search, settings and utility screens. Android font scaling remains independent. It does not change Android density, streaming apps or system screens. C's three picture areas are now 240×360 reference pixels beside the 1000-pixel resume feature; lower shelves scroll normally.
+
+After a supported local change, **Undo** appears directly in Home's top bar, without stealing selection or imposing a short expiry timer. Blind Pick and Rabbit Hole have their own session-local Undo beside Back. Undo is not a permanent transaction log; a settings restore clears stale session history.
+
+Applicable recommendation title menus offer **Why this recommendation?** and **Not interested**. Explanations describe the actual source and explicit or inferred service priority, not subscriptions, sign-in status or a guessed viewing motive. Not interested changes local recommendation eligibility without removing Watchlist or viewing history. Preferred services remain under **Settings → Shows & recommendations → Recommendation services**; all feedback can be reset under **Recommendation feedback**.
+
+## Local settings backup
+
+Open **Settings → Support → Local settings backup**. **Save snapshot on this TV** stores a verified private copy of Home settings, app arrangement, local playback records and personalization, including Watchlist. Choose **Review saved snapshot**, inspect the summary, then explicitly choose **Restore these local settings**. Cancel is initially selected, held OK cannot accept immediately, and confirmation expires after two minutes. Leaving the screen revokes unfinished consent.
+
+A verified pre-restore copy is required before a TV restore changes settings. Home pauses its settings writers, rejects obsolete queued writes and reloads restored preferences when you return. An already-started disk commit can finish after cancellation while rollback drains. Restoring four stores is not crash-atomic; if rollback cannot be verified, automatic writers stay paused until explicit recovery succeeds. A valid pre-restore copy can be reviewed on the TV; if none exists after a diagnostic-import failure, recovery requires an explicit diagnostic import of a known-good export retained before the failure.
+
+This is **on-TV recovery, not an off-device backup**. Both copies are lost if prettTV is uninstalled or its app data is cleared. Android settings, streaming accounts, helper credentials and other apps are excluded. No cloud account or sign-in is involved.
 
 ## Remote controls
 

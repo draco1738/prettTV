@@ -454,6 +454,67 @@ internal object HomeVisualAndroidChecks {
                     check(views().getValue("nav-bluetooth").contentDescription.contains("unavailable")) { "Header did not receive the refreshed unavailable state" }
                 }
             }
+            test("Immediate Undo appears without stealing focus and restores a hidden title through the remote") {
+                reset()
+                main(instrumentation) { call("onNewIntent",Intent().putExtra("layout",HomeLayout.BALANCED.name)) }
+                waitFor(instrumentation) { settled() }
+                focus("next-1")
+                main(instrumentation) {
+                    personal().clearUndoHistory()
+                    call("hideTitle",programs[1],true,true)
+                }
+                waitFor(instrumentation) { settled() && views()["nav-undo"]?.visibility==View.VISIBLE }
+                main(instrumentation) {
+                    check(activity.currentFocus?.tag=="next-1") { "Undo stole content focus" }
+                    check(programs[1].titleKey in content().hiddenWatchingTitles)
+                    check(views().getValue("nav-undo").contentDescription.toString().contains(programs[1].title))
+                }
+                focus("nav-home")
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_RIGHT)
+                waitFor(instrumentation) { activity.currentFocus?.tag=="nav-undo" }
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
+                waitFor(instrumentation) { settled() && views()["nav-undo"]?.visibility==View.GONE }
+                main(instrumentation) {
+                    check(programs[1].titleKey !in content().hiddenWatchingTitles)
+                    check(programs[1].titleKey !in content().hiddenHeroTitles)
+                    check(activity.currentFocus?.tag=="nav-home") { "Exhausting Undo left focus on a hidden view" }
+                }
+            }
+            test("Immediate Undo restores Watchlist removal without opening Settings") {
+                reset(); focus("next-1")
+                main(instrumentation) {
+                    check(personal().save(programs[1]))
+                    personal().clearUndoHistory()
+                    check(personal().removeSaved(programs[1]))
+                }
+                waitFor(instrumentation) { views()["nav-undo"]?.visibility==View.VISIBLE }
+                focus("nav-undo")
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
+                waitFor(instrumentation) { settled() && personal().isSaved(programs[1]) }
+                main(instrumentation) { personal().removeSaved(programs[1]); personal().clearUndoHistory() }
+            }
+            test("Immediate Undo reverses the actual app-menu arrangement action") {
+                reset()
+                val key="favorite-${syntheticApps.first().key}"
+                focus(key)
+                val before=main(instrumentation) { (field("prefs") as Prefs).favourites.toList() }
+                main(instrumentation) {
+                    personal().clearUndoHistory()
+                    call("appMenu",syntheticApps.first(),key)
+                    val panel=field("appActionPanel") as Dialog
+                    fun find(view:View):TextView? {
+                        if(view is TextView && view.text.toString()=="Move right")return view
+                        if(view is ViewGroup)for(i in 0 until view.childCount)find(view.getChildAt(i))?.let { return it }
+                        return null
+                    }
+                    check(find(checkNotNull(panel.window).decorView)?.performClick()==true)
+                }
+                waitFor(instrumentation) { settled() && views()["nav-undo"]?.visibility==View.VISIBLE }
+                main(instrumentation) { check((field("prefs") as Prefs).favourites!=before) }
+                focus("nav-undo")
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
+                waitFor(instrumentation) { settled() && (field("prefs") as Prefs).favourites==before }
+            }
             test("Continue watching binding shows episode and remaining fields once without changing provider data") {
                 main(instrumentation) {
                     val supplied=programs.first().copy(detail="Fixture provider · S1 E2 · S1 E2 · 9 min left",summary="Original full synopsis")
@@ -556,6 +617,11 @@ internal object HomeVisualAndroidChecks {
                                 check(abs(hero.width/unit-BalancedHomeLayout.HERO_WIDTH)<2)
                                 check(abs(hero.height/unit-BalancedHomeLayout.stageHeight(fontScale))<2)
                                 check(abs(poster.width/unit-BalancedHomeLayout.POSTER_WIDTH)<2)
+                                check(abs(poster.width/unit-240f)<2) { "Discover did not use the enlarged portrait width" }
+                                val picture=PrettTvCard::class.java.getDeclaredField("balancedArtBounds").apply { isAccessible=true }
+                                    .get(poster) as android.graphics.RectF
+                                check(picture.width()>0 && abs(picture.height()/picture.width()-1.5f)<.001f) { "Larger Discover artwork lost its 2:3 frame" }
+                                check(poster.height-picture.bottom>=80*unit) { "Larger Discover artwork consumed its title clearance" }
                                 check(bounds(hero).right<bounds(poster).left && bounds(last).right<=root().width)
                                 check(bounds(hero).left>=0 && bounds(last).right<=activity.resources.displayMetrics.widthPixels)
                                 check(abs(unit-activity.resources.displayMetrics.widthPixels/1920f*size.factor)<.001f)

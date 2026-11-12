@@ -12,7 +12,7 @@ OWN-WORLD: OLED black, white native system type, thin white focus outlines and r
 
 STORY: Resume the newest eligible viewing, inspect three recommendations, or open an app with a remote from couch distance.
 
-FIRST VIEWPORT: At Standard size on a 1920×1080 viewport, C has 64-pixel side insets, a 1112×510 feature, a 40-pixel gutter and a 640-pixel discovery region. Three 202-pixel-wide portrait cards sit to the right with 16-pixel gaps; Browse shows sits below them. Your apps is one finite row of 208×94 cards with 36-pixel corners and 12-pixel gaps. Standard-size C Continue watching rows contain three compact 128-pixel-high cards. System text scaling may increase heights. A Cinema and B Quiet remain separate available compositions.
+FIRST VIEWPORT: The owner's later request explicitly enlarges Discover beside the resume feature without replacing C. At Standard size on a 1920×1080 viewport, the new source keeps 64-pixel side insets and the 40-pixel gutter, narrows the feature to 1000 pixels and widens Discover to 752 pixels. All three portraits grow from 202×303 to 240×360 picture areas, with the same 16-pixel gaps and full title clearance; Browse shows remains below. The shared stage grows from 510 to 567 pixels instead of squeezing titles. Your apps remains one finite row of 208×94 cards with 36-pixel corners and 12-pixel gaps. Standard-size C Continue watching rows retain three compact 128-pixel-high cards and scroll normally below. System text scaling may increase heights. A Cinema and B Quiet remain unchanged.
 
 HEADER: A persistent opaque horizontal bar contains Home, Shows, Library, Inputs, Search and Settings, then optional location/weather, clock and the far-right Bluetooth symbol. Up reaches navigation; Down returns to remembered content. Normal system volume is untouched. Bluetooth radio status is not proof of the selected audio output.
 
@@ -22,7 +22,7 @@ FINISH: Versioned native captures and validation determine what shipped. Current
 
 ## Refinement source contract
 
-Home interface size offers Standard (100%) and Larger (104%). One app-local unit scales Home cards, text, icons, spacing and controls proportionally. Smaller outer margins retain the complete hero and three-poster stage rather than cropping a magnified bitmap. Lower content scrolls normally. Android density, system font preferences, other applications and separate system screens are not changed. Standard remains the default and restores the approved geometry. The saved setting is included in explicit local settings transfer.
+Interface size offers Standard (100%) and Larger (104%). One app-local unit scales cards, text, icons, spacing and controls proportionally. Smaller outer margins retain the complete hero and three-poster stage rather than cropping a magnified bitmap. Lower content scrolls normally. Android density, system font preferences, other applications and separate system screens are not changed. Standard remains the default; both sizes use the newly requested Discover proportions, independent of the overall size option. The saved setting is included in explicit local settings transfer. New source, including broader prettTV screen coverage, requires its own native verification before installation claims.
 
 Continue watching compact metadata must show each known episode/source/time field once. Full provider descriptions remain available in title details. Do not infer progress, episode identity, entitlement or account-wide history from a decorative label.
 

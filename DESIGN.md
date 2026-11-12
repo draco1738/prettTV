@@ -164,6 +164,10 @@ components:
 
 The **0.6.1 C Balanced override** below supersedes earlier C geometry, compact-panel descriptions and landscape containment. Other sections retain their stated historical source scope. Actual native visual and release outcomes belong to the [versioned validation record](docs/validation.md); earlier captures and passed checks remain historical evidence, not certification of a newer build.
 
+## Enlarged Discover · 0.6.3 source
+
+The owner asked to scale up Discover next to the large resume box. This narrow refinement supersedes only the earlier C split proportions: a 1000-pixel feature, unchanged 40-pixel gap and 752-pixel Discover region still fill the same 1792-pixel content width. Three 240×360 portrait picture areas replace 202×303, retaining proportional 2:3 artwork, 16-pixel gaps, title space and Browse shows. The shared stage is 567 pixels at normal system text scale and grows for enlarged text. The apps and continuation rows retain their sizes and scroll below; A/B, black styling, still artwork and navigation stay unchanged. This is source intent, not a claim of installation or native validation.
+
 ## C Balanced composition · 0.6.1
 
 **Refinement candidate:** Home interface size in the 0.6.2 source offers Standard (100%, unchanged default) and Larger (104%). The same reference geometry below is multiplied by one app-local unit for cards, text, icons and spacing. Outer margins are recomputed from the viewport to keep the stage inside the screen; lower shelves scroll. This is not a new composition, bitmap zoom or system-density change. Separate Activities/system screens are outside this setting. Versioned validation, not this source contract, establishes installation and device results.

@@ -32,7 +32,7 @@ class AppForceStopActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var cancel: Button
     private lateinit var progressPanel: LinearLayout
-    private val scale:Float get()=resources.displayMetrics.widthPixels/1920f
+    private val scale:Float get()=AppReadability.referenceScale(this)
     private fun px(value:Int)=(value*scale+.5f).toInt().coerceAtLeast(1)
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -176,6 +176,58 @@ internal object DiscoveryActivityAndroidChecks {
                     } finally { check(stores.getValue("home").edit().putBoolean("discovery",false).commit()) }
                 }
             }
+            val recommendation=removed.copy(id="tvmaze:995001",title="Recommendation fixture",app="Fixture app")
+            fun details(program:Program)=DiscoveryActivity::class.java.getDeclaredMethod("details",Program::class.java)
+                .apply { isAccessible=true }.invoke(activity,program)
+            fun chooseAction(label:String) {
+                val menu=field("dialog") as android.app.AlertDialog
+                val list=menu.listView
+                val index=(0 until list.adapter.count).single { list.adapter.getItem(it).toString()==label }
+                check(list.performItemClick(list.getChildAt(index),index,list.adapter.getItemId(index)))
+            }
+            test("Discovery title menu explains source and explicit preference without claiming entitlement") {
+                prepareEnrichment(listOf(recommendation),BlindPickFilters(),"Drama")
+                main(instrumentation) {
+                    check(stores.getValue("home").edit().putStringSet("preferredServices",setOf(recommendation.packageName)).commit())
+                    details(recommendation)
+                    chooseAction("Why this recommendation?")
+                    val explanation=(field("dialog") as android.app.AlertDialog).findViewById<android.widget.TextView>(android.R.id.message).text.toString()
+                    check(explanation.contains("Fixture app shared this title with Android TV"))
+                    check(explanation.contains("This service is selected"))
+                    check(explanation.contains("cannot verify your sign-in, subscription"))
+                    (field("dialog") as android.app.AlertDialog).dismiss()
+                }
+            }
+            test("Discovery Not interested and direct Undo change eligibility without removing Watchlist") {
+                main(instrumentation) {
+                    val personal=(field("personal\$delegate") as Lazy<*>).value as PersonalizationStore
+                    check(personal.save(recommendation))
+                    personal.clearUndoHistory()
+                    details(recommendation)
+                    chooseAction("Not interested")
+                }
+                waitFor(instrumentation) {
+                    @Suppress("UNCHECKED_CAST") val controls=field("controls") as Map<String,android.view.View>
+                    controls["discovery-undo"]?.visibility==android.view.View.VISIBLE
+                }
+                main(instrumentation) {
+                    val personal=(field("personal\$delegate") as Lazy<*>).value as PersonalizationStore
+                    check(personal.recommendationFeedback().isDismissed(recommendation))
+                    check(personal.isSaved(recommendation))
+                    @Suppress("UNCHECKED_CAST") val candidates=field("candidates") as List<Program>
+                    check(candidates.none { ContentIdentity.key(it)==ContentIdentity.key(recommendation) })
+                    @Suppress("UNCHECKED_CAST") val controls=field("controls") as Map<String,android.view.View>
+                    check(controls.getValue("discovery-undo").requestFocusFromTouch())
+                }
+                instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER)
+                waitFor(instrumentation) { !((field("personal\$delegate") as Lazy<*>).value as PersonalizationStore).recommendationFeedback().isDismissed(recommendation) }
+                main(instrumentation) {
+                    val personal=(field("personal\$delegate") as Lazy<*>).value as PersonalizationStore
+                    check(personal.isSaved(recommendation) && !personal.canUndo())
+                    @Suppress("UNCHECKED_CAST") val candidates=field("candidates") as List<Program>
+                    check(candidates.any { ContentIdentity.key(it)==ContentIdentity.key(recommendation) })
+                }
+            }
             test("Discovery re-registers and refreshes package inventory across actual stop and start") {
                 repeat(2) {
                     main(instrumentation) { staleRabbit() }

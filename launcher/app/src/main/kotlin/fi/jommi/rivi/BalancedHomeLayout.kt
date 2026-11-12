@@ -2,13 +2,13 @@ package fi.jommi.rivi
 
 import kotlin.math.ceil
 
-/** Reference-pixel geometry for the approved C composition; A/B keep their own layout. */
+/** C keeps its split composition, with the owner's larger Discover posters; A/B are unchanged. */
 internal object BalancedHomeLayout {
     const val INSET=64
     const val WIDTH=1792
-    const val HERO_WIDTH=1112
+    const val HERO_WIDTH=1000
     const val SPLIT_GAP=40
-    const val DISCOVERY_WIDTH=640
+    const val DISCOVERY_WIDTH=752
     const val POSTER_GAP=16
     const val POSTER_WIDTH=(DISCOVERY_WIDTH-2*POSTER_GAP)/3
     const val POSTER_COUNT=3
@@ -16,7 +16,7 @@ internal object BalancedHomeLayout {
 
     private fun font(value:Float)=if(value.isFinite())value.coerceAtLeast(1f) else 1f
     fun headingHeight(fontScale:Float)=ceil(36*font(fontScale)).toInt()+25
-    fun posterHeight(fontScale:Float)=384+ceil(70*(font(fontScale)-1f)).toInt()
+    fun posterHeight(fontScale:Float)=POSTER_WIDTH*3/2+81+ceil(70*(font(fontScale)-1f)).toInt()
     fun browseHeight(fontScale:Float)=36+ceil(25*font(fontScale)).toInt()
     fun stageHeight(fontScale:Float)=maxOf(510,headingHeight(fontScale)+posterHeight(fontScale)+4+browseHeight(fontScale))
     fun continuationHeight(fontScale:Float)=128+ceil(100*(font(fontScale)-1f)).toInt()

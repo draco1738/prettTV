@@ -9,7 +9,7 @@ class BalancedHomeLayoutTest {
         assertEquals(1920,2*BalancedHomeLayout.INSET+BalancedHomeLayout.WIDTH)
         assertEquals(BalancedHomeLayout.WIDTH,BalancedHomeLayout.HERO_WIDTH+BalancedHomeLayout.SPLIT_GAP+BalancedHomeLayout.DISCOVERY_WIDTH)
         assertTrue(3*BalancedHomeLayout.POSTER_WIDTH+2*BalancedHomeLayout.POSTER_GAP<=BalancedHomeLayout.DISCOVERY_WIDTH)
-        assertEquals(510,BalancedHomeLayout.stageHeight(1f))
+        assertEquals(567,BalancedHomeLayout.stageHeight(1f))
         assertEquals(128,BalancedHomeLayout.continuationHeight(1f))
     }
     @Test fun enlargedTextReservesSpaceInsteadOfOverlappingTheBrowseAction() {
@@ -20,7 +20,23 @@ class BalancedHomeLayoutTest {
         assertTrue(BalancedHomeLayout.stageHeight(1.3f)>BalancedHomeLayout.stageHeight(1f))
     }
     @Test fun invalidOrSmallFontScaleNeverCollapsesTheStage() {
-        for(font in listOf(Float.NaN,Float.POSITIVE_INFINITY,-1f,.5f))assertEquals(510,BalancedHomeLayout.stageHeight(font))
+        for(font in listOf(Float.NaN,Float.POSITIVE_INFINITY,-1f,.5f))assertEquals(567,BalancedHomeLayout.stageHeight(font))
+    }
+    @Test fun discoverPostersAreLargerWithoutRemovingTheThirdCardOrGrowingTheViewport() {
+        assertEquals(240,BalancedHomeLayout.POSTER_WIDTH)
+        assertEquals(752,BalancedHomeLayout.DISCOVERY_WIDTH)
+        assertEquals(1000,BalancedHomeLayout.HERO_WIDTH)
+        assertEquals(3,BalancedHomeLayout.POSTER_COUNT)
+        assertEquals(BalancedHomeLayout.DISCOVERY_WIDTH,3*BalancedHomeLayout.POSTER_WIDTH+2*BalancedHomeLayout.POSTER_GAP)
+        assertTrue(BalancedHomeLayout.POSTER_WIDTH>=202*1.18f)
+    }
+    @Test fun largerPortraitsKeepTheirTwoToThreeArtAndOriginalTitleClearance() {
+        val imageHeight=BalancedHomeLayout.POSTER_WIDTH*1.5f
+        assertEquals(360f,imageHeight,0f)
+        for(font in listOf(1f,1.3f,2f)) {
+            val originalTitleClearance=81+kotlin.math.ceil(70*(font-1f)).toInt()
+            assertTrue(BalancedHomeLayout.posterHeight(font)-imageHeight>=originalTitleClearance)
+        }
     }
     @Test fun discoveryKeepsServicePriorityAndSkipsTheFeatureAndDuplicateTitles() {
         val hero=program("hero","The Show").copy(engagedAt=100)

@@ -120,7 +120,7 @@ internal class ConfirmedPlaybackEvents<K> {
 }
 
 /** UI-owned, bounded session history. Undo actions may update state without recording another action. */
-class UndoHistory(private val capacity: Int = 20) {
+class UndoHistory(private val capacity: Int = 20,private val onChanged:()->Unit = {}) {
     private data class Entry(val label: String, val action: () -> Unit)
     private val entries = ArrayDeque<Entry>()
     private var applying = false
@@ -128,10 +128,12 @@ class UndoHistory(private val capacity: Int = 20) {
         if (applying || capacity <= 0) return
         entries.addLast(Entry(label, action))
         while (entries.size > capacity) entries.removeFirst()
+        changed()
     }
     fun canUndo() = entries.isNotEmpty()
     fun label(): String? = entries.lastOrNull()?.label
-    fun clear() = entries.clear()
+    private fun changed() { runCatching { onChanged() } }
+    fun clear() { entries.clear(); changed() }
     fun undo(): String? {
         val entry = entries.lastOrNull() ?: return null
         applying = true
@@ -139,6 +141,6 @@ class UndoHistory(private val capacity: Int = 20) {
             entry.action()
             entries.removeLast()
             return entry.label
-        } finally { applying = false }
+        } finally { applying = false; changed() }
     }
 }

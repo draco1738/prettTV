@@ -16,10 +16,11 @@ class StockRecoveryActivity : Activity() {
     private var modal: AlertDialog? = null
     private var rendered: StockRecoverySession.Phase? = null
     private lateinit var status: TextView
+    private val sizing by lazy { AppReadability.dimensions(this) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        status = TextView(this).apply { textSize = 22f; setTextColor(PrettTvColors.TEXT); setBackgroundColor(PrettTvColors.BACKGROUND); setPadding(64,64,64,64) }
+        status = TextView(this).apply { textSize = sizing.sp(22f); setTextColor(PrettTvColors.TEXT); setBackgroundColor(PrettTvColors.BACKGROUND); setPadding(sizing.pixels(64),sizing.pixels(64),sizing.pixels(64),sizing.pixels(64)) }
         setContentView(status)
         if (!StockRecoverySession.busy) { StockRecoverySession.cancel(); showFirstConfirmation() }
     }
@@ -33,7 +34,7 @@ class StockRecoveryActivity : Activity() {
                 StockRecoverySession.Phase.READY -> showSecondConfirmation(value.packageCount)
                 StockRecoverySession.Phase.FAILED, StockRecoverySession.Phase.FINISHED -> {
                     modal = AlertDialog.Builder(this).setTitle(if(value.phase == StockRecoverySession.Phase.FINISHED) "Stock restore complete" else "Restore needs attention")
-                        .setMessage(value.message).setPositiveButton("Close") { _, _ -> finish() }.create().also { it.show() }
+                        .setMessage(value.message).setPositiveButton("Close") { _, _ -> finish() }.create().also { it.show(); AppReadability.styleDialog(it) }
                 }
                 else -> Unit
             }
@@ -57,7 +58,7 @@ class StockRecoveryActivity : Activity() {
         if (plan == null) {
             modal = AlertDialog.Builder(this).setTitle("Recovery setup needed")
                 .setMessage("The original TV setup record has not been saved in prettTV. Import it from your setup backup before using full restore. Nothing has changed.\n\nSetup instructions: github.com/draco1738/prettTV/blob/main/docs/stock-recovery.md")
-                .setPositiveButton("Close") { _,_ -> finish() }.create().also { it.show() }
+                .setPositiveButton("Close") { _,_ -> finish() }.create().also { it.show(); AppReadability.styleDialog(it) }
             return
         }
         val last = store.status()
@@ -83,6 +84,7 @@ class StockRecoveryActivity : Activity() {
                 (event.repeatCount > 0 || SystemClock.elapsedRealtime() - shown < 1200)
         }
         dialog.setOnShowListener {
+            AppReadability.styleDialog(dialog)
             val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             positive.isEnabled = false
             val cancel = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)

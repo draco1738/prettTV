@@ -51,6 +51,8 @@ class AppFirstAidTest {
         assertEquals("TV & audio",SettingsGroups.group("Audio devices"))
         assertEquals("Home & apps",SettingsGroups.group("Layout: C"))
         assertEquals("Home & apps",SettingsGroups.group("Home interface size: Larger · 104%"))
+        assertEquals("Home & apps",SettingsGroups.group("Interface size: Larger · 104%"))
+        assertEquals("Support",SettingsGroups.group("Backup and restore"))
         assertEquals("Shows & recommendations",SettingsGroups.group("Hidden titles"))
     }
 }

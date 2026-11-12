@@ -15,9 +15,9 @@ object PlaybackPolicy {
 }
 
 /** Local confirmations and separately observed provider progress; timestamps alone never count. */
-class PlaybackHistory(context:Context) {
+class PlaybackHistory internal constructor(private val prefs:android.content.SharedPreferences) {
+    constructor(context:Context):this(context.getSharedPreferences("prett-playback",Context.MODE_PRIVATE))
     companion object { private val historyLock=Any() }
-    private val prefs=context.getSharedPreferences("prett-playback",Context.MODE_PRIVATE)
     private fun key(p:Program)=p.packageName+"|"+p.titleKey
     private fun json(p:Program)=JSONObject().put("id",p.id).put("title",p.title).put("detail",p.detail).put("art",p.art)
         .put("pkg",p.packageName).put("app",p.app).put("uri",p.intentUri).put("pos",p.position).put("dur",p.duration).put("type",p.mediaType)
@@ -25,7 +25,8 @@ class PlaybackHistory(context:Context) {
     private fun program(j:JSONObject)=Program(j.optString("id"),j.optString("title"),j.optString("detail"),j.optString("art"),j.optString("pkg"),j.optString("app"),
         j.optString("uri"),j.optLong("pos"),j.optLong("dur"),mediaType=j.optString("type"),watchingSource=true,
         imdbId=j.optString("imdbId"),releaseYear=j.optInt("releaseYear"),posterArt=(j.opt("posterArt") as? String).orEmpty())
-    fun merge(rows:List<Program>):List<Program> = synchronized(historyLock) {
+    fun merge(rows:List<Program>,settingsGeneration:Long=SettingsBackupGuard.generation):List<Program> =
+        SettingsBackupGuard.writeResult(emptyList(),settingsGeneration) { synchronized(historyLock) {
         val now=System.currentTimeMillis(); val cutoff=prefs.getLong("baselineCutoff",now)
         val initialImport=!prefs.contains("baselineCutoff")
         val previous=try {
@@ -60,13 +61,14 @@ class PlaybackHistory(context:Context) {
         }
         edit.putString("known",known.toString()).apply()
         ContentPolicy.chronological(result)
-    }
-    fun confirm(p:Program,position:Long=p.position,duration:Long=p.duration,eventAt:Long=System.currentTimeMillis()) = synchronized(historyLock) {
+    } }
+    fun confirm(p:Program,position:Long=p.position,duration:Long=p.duration,eventAt:Long=System.currentTimeMillis(),
+        settingsGeneration:Long=SettingsBackupGuard.generation) = SettingsBackupGuard.tryWrite(settingsGeneration) { synchronized(historyLock) {
         val k=key(p)
         val playedAt=ProviderPlaybackPolicy.nextObservedAt(System.currentTimeMillis(),recencyCeiling())
         prefs.edit().putLong("played:$k",playedAt).putLong("position:$k",position.coerceAtLeast(0))
             .putLong("duration:$k",duration.coerceAtLeast(0)).putLong("event:$k",eventAt.coerceAtLeast(0)).apply()
-    }
+    } }
     private fun recencyCeiling()=prefs.all.entries.asSequence().filter {
         it.key=="providerLastObserved" || it.key.startsWith("providerObserved:") || it.key.startsWith("played:") || it.key.startsWith("baseline:")
     }.mapNotNull { it.value as? Long }.maxOrNull()?.coerceAtLeast(0) ?: 0

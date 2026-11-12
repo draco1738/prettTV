@@ -2,6 +2,7 @@ package fi.jommi.rivi
 
 import android.content.Context
 import android.database.ContentObserver
+import android.database.Cursor
 import android.net.Uri
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -16,12 +17,24 @@ import java.net.URL
 
 /** All queries and catalog work stay off the UI thread. Observers exist only while Home is visible. */
 class ContentRepository(private val context: Context, private val deliver: (HomeContent) -> Unit) {
+    /** External boundaries only: parsing, caches, ranking and worker/UI queues remain real.
+     * Default off, instance-local and installable only in the isolated instrumentation target. */
+    internal class StabilityInputs(val network:()->Boolean?,val provider:(String,Array<String>?)->Cursor?,
+        val request:(String,Int)->String,val artwork:PresentationArtworkResolver)
+    private var stabilityInputs:StabilityInputs?=null
+    internal fun installStabilityInputs(inputs:StabilityInputs) {
+        check(context.packageName=="dev.zane.pretttv.stability") { "Content fixtures require the isolated stability package" }
+        check(!active && generation==0 && stabilityInputs==null) { "Install fixtures before the first start" }
+        stabilityInputs=inputs
+        artworkResolver=inputs.artwork
+    }
     private val thread = HandlerThread("pretttv-content").apply { start() }
     private val worker = Handler(thread.looper)
     private val ui = Handler(Looper.getMainLooper())
     private val dir = File(context.cacheDir, "catalog").apply { mkdirs() }
     @Volatile private var generation = 0
     @Volatile private var active = false
+    private var settingsGeneration=SettingsBackupGuard.generation
     private val refreshState=ContentRefreshState()
     private var statusTask:Runnable?=null
     // Only the UI thread owns the delivered snapshot; status changes never rebuild its rows.
@@ -35,7 +48,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private var balancedArtworkEnabled = false
     // Only start() arms an artwork pass. Existing refresh timers/observers never poll artwork.
     @Volatile private var artworkPassPending = false
-    private val artworkResolver=PresentationArtworkResolver(File(context.cacheDir,"presentation/artwork-v1.bin"))
+    private var artworkResolver=PresentationArtworkResolver(File(context.cacheDir,"presentation/artwork-v1.bin"))
     private var preferred = emptyList<String>()
     private var serviceOverride:Set<String>?=null
     private var observing = false
@@ -81,12 +94,14 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private val refreshTask = Runnable { load() }
 
     fun start(packages: Set<String>, hiddenPackages: Set<String>, catalogEnabled: Boolean,preferredPackages:List<String> = emptyList(),services:Set<String>?=null,balancedArtwork:Boolean=false) {
+        if(SettingsBackupGuard.busy || SettingsBackupGuard.recoveryRequired)return
+        settingsGeneration=SettingsBackupGuard.generation
         installed = packages.toSet(); hidden = hiddenPackages.toSet(); discovery = catalogEnabled; active = true
         balancedArtworkEnabled=balancedArtwork
         artworkPassPending=balancedArtwork && catalogEnabled
         preferred=preferredPackages
         serviceOverride=services?.toSet()
-        if (!observing) {
+        if (!observing && stabilityInputs==null) {
             for (name in listOf("watch_next_program", "preview_program", "channel")) {
                 try { context.contentResolver.registerContentObserver(Uri.parse("content://android.media.tv/$name"), true, observer) } catch (_: Exception) { }
             }
@@ -104,7 +119,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         if (observing) { try { context.contentResolver.unregisterContentObserver(observer) } catch (_: Exception) { }; observing = false }
     }
     fun close() { stop(); thread.quitSafely() }
-    fun refresh() { if (active) {
+    fun refresh() { if (active && !SettingsBackupGuard.busy && !SettingsBackupGuard.recoveryRequired && settingsGeneration==SettingsBackupGuard.generation) {
         generation++; statusTask?.let(ui::removeCallbacks); statusTask=null
         artworkResolver.cancel()
         refreshState.cancel()
@@ -113,6 +128,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     } }
 
     private fun deliverStatus(content:HomeContent=delivered) {
+        if(SettingsBackupGuard.busy || SettingsBackupGuard.recoveryRequired || settingsGeneration!=SettingsBackupGuard.generation)return
         delivered=refreshState.snapshot().applyTo(content)
         deliver(delivered)
     }
@@ -120,6 +136,8 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     private fun sourceFailed() { readingAttempt?.takeIf { active && it.generation==generation }?.failed=true }
 
     private fun load() {
+        if(SettingsBackupGuard.busy || SettingsBackupGuard.recoveryRequired)return
+        val settingsEpoch=settingsGeneration
         val g = ++generation; val available = installed; val excluded = hidden; val useCatalog = discovery
         val priority=preferred; val selectedServices=serviceOverride
         val useArtwork=balancedArtworkEnabled && useCatalog
@@ -127,7 +145,8 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         val heroHidden=if(useArtwork)context.getSharedPreferences("pretttv",Context.MODE_PRIVATE)
             .getStringSet("hiddenHeroTitles",emptySet()).orEmpty().toSet() else emptySet()
         worker.post {
-            fun current() = active && g == generation
+            fun current() = active && g == generation && settingsEpoch==SettingsBackupGuard.generation &&
+                !SettingsBackupGuard.busy && !SettingsBackupGuard.recoveryRequired
             if(!current())return@post
             val attempt=RefreshAttempt(g)
             readingAttempt=attempt
@@ -191,12 +210,12 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                 val releases=snapshot.recent(System.currentTimeMillis())
                 // Older feedback records may contain only a canonical ID. Remember the exact
                 // source title before filtering it away so discovery experiences can hide copies.
-                personal.rememberDismissedTitles(watching+previews+catalogRows+catalogBrowse+releases)
+                personal.rememberDismissedTitles(watching+previews+catalogRows+catalogBrowse+releases,settingsEpoch)
                 val cleanWatching=ContentPolicy.clean(watching,excluded)
                 val cleanReleases=ContentPolicy.clean(releases,excluded).filterNot { feedback.isDismissed(it) }
                 val rows=RecommendationPolicy.build(previews,catalogRows+catalogBrowse,catalogBrowse,cleanWatching,cleanReleases,services,priority,excluded,feedback=feedback)
                 val liveGames=if(useCatalog)SportsPolicy.upcoming(games,System.currentTimeMillis(),favoriteTeams) else emptyList()
-                val base = HomeContent(watching=playback.merge(cleanWatching),suggestions=rows.suggestions,
+                val base = HomeContent(watching=playback.merge(cleanWatching,settingsEpoch),suggestions=rows.suggestions,
                     trending=rows.trending,newReleases=cleanReleases,discover=rows.discover,
                     liveSports=ContentPolicy.clean(published.filter { it.liveSports },excluded),
                     games=liveGames,snapshotAt=maxOf(sharedAt,catalogAt),offline=online==false,
@@ -256,7 +275,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
                     availableTeams=teams
                     val callback=pendingTeamsCallback; pendingTeamsCallback=null
                     // A later content refresh does not invalidate a directory already requested by this visible picker.
-                    ui.post { if(active)callback?.invoke(teams) }
+                    ui.post { if(active && settingsEpoch==SettingsBackupGuard.generation && !SettingsBackupGuard.busy && !SettingsBackupGuard.recoveryRequired)callback?.invoke(teams) }
                 }
             }
             if(current()) {
@@ -292,15 +311,23 @@ class ContentRepository(private val context: Context, private val deliver: (Home
         }
     }
 
-    private fun networkAvailable():Boolean? = try {
-        val connectivity=context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        connectivity.getNetworkCapabilities(connectivity.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)==true
-    } catch(_:Exception) { null }
+    private fun networkAvailable():Boolean? {
+        stabilityInputs?.let { return it.network() }
+        return try {
+            val connectivity=context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            connectivity.getNetworkCapabilities(connectivity.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)==true
+        } catch(_:Exception) { null }
+    }
+
+    private fun providerCursor(table:String,projection:Array<String>?=null):Cursor? {
+        stabilityInputs?.let { return it.provider(table,projection) }
+        return context.contentResolver.query(Uri.parse("content://android.media.tv/$table"),projection,null,null,null)
+    }
 
     private fun sharedChannels():Map<Long,String>? {
         val channels=HashMap<Long,String>()
         try {
-            val cursor=context.contentResolver.query(Uri.parse("content://android.media.tv/channel"),arrayOf("_id","display_name"),null,null,null) ?: return null
+            val cursor=providerCursor("channel",arrayOf("_id","display_name")) ?: return null
             cursor.use { c ->
                 while(c.moveToNext() && channels.size<5000) {
                     channels[c.getLong(0)]=c.getString(1).orEmpty()
@@ -312,7 +339,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
 
     private fun query(table: String, available: Set<String>,channels:Map<Long,String> = emptyMap()): List<Program>? {
         try {
-            val cursor=context.contentResolver.query(Uri.parse("content://android.media.tv/$table"), null, null, null, null) ?: return null
+            val cursor=providerCursor(table) ?: return null
             return cursor.use { c ->
                 ProgramFeedParser.provider(c,table,available,channels) { pkg ->
                     try { context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(pkg,0)).toString() } catch (_: Exception) { pkg }
@@ -366,6 +393,7 @@ class ContentRepository(private val context: Context, private val deliver: (Home
     }
 
     private fun request(url: String, limit: Int): String {
+        stabilityInputs?.let { return it.request(url,limit) }
         var address=URL(url)
         repeat(4) {
         if(address.protocol!="https" || address.userInfo!=null)throw java.io.IOException("Unsupported catalog address")
