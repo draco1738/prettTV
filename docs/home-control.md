@@ -10,6 +10,8 @@ C Balanced retains the black horizontal-navigation identity, 1000-pixel hero, 40
 
 Settings → Shows & recommendations → Viewing history offers Combined (existing default) and This TV only. The latter uses supported local media-session observations and explicit recent-viewing corrections for the hero and Continue watching. It does not identify people, enable Notification access, or change streaming accounts. Unsupported/missing app metadata may need Hold OK → I watched this most recently. With no local record, the hero stays empty rather than substituting a recommendation. Switching modes retains the histories.
 
+Automatic observations retain the title's show/movie classification so they appear in the corresponding Continue watching row. Older local records missing that classification are repaired from a compatible title published by the same app, including retained provider metadata when offline. The repair preserves local watch times, progress and launch destinations; it does not import a different household member's episode. Unknown classifications remain unknown when no compatible source exists.
+
 ## Different picks
 
 The heading action deliberately selects another available batch in existing service-priority order among unseen titles. It uses the full bounded local recommendation pool, not just the six-title artwork lookup window, and creates no additional network enrichment pass. The initial batch can fill and adopt final service ranking while the ordinary catalog loads. After it settles, or an explicit rotation occurs, rebinds preserve the batch and resolve fresh metadata. Removed recommendations disappear immediately. Exhaustion says no more unseen picks rather than cycling or inventing titles.

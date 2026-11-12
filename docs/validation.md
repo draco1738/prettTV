@@ -2,6 +2,12 @@
 
 [← prettTV](../README.md) · [Documentation](README.md) · [Run the checks](stability-testing.md)
 
+## PR #6 local-history classification follow-up — 2026-11-12
+
+Review found that automatic title-only observations dropped the movie/series classification. In **This TV only**, the title could remain in the hero but disappear from both Continue watching rows. New regression checks reproduced the issue and failed before the repair: **60 scoped JVM tests, four failures**. The fix retains title-level classification and repairs older unknown snapshots from compatible same-app metadata without borrowing provider episode text, deep links, progress or recency. Known local classifications are retained; conflicting title identities and unsupported provider types do not fill unknown classifications.
+
+The repaired source passed **61 scoped host-JVM checks**, including seven new checks covering automatic shows/movies, retained records without a current provider row, persisted legacy repair, later-arriving classification, identity conflicts and known local classifications. This scoped harness compiles the changed history/repository sources and uses cached unchanged dependency classes. Its count overlaps the full unit suite and is not an additional native/device test count. Historical 0.6.4 device-install evidence below predates this follow-up: this fix has not been installed or exercised on the live TV by this review.
+
 ## prettTV 0.6.4 Home controls — 2026-11-11
 
 Preserves the black C Balanced identity, horizontal navigation and three 240×360 portraits. Browse and Different picks share the heading; the Standard stage is 502 reference pixels, app shortcuts have captions, and the first Continue row fits the normal 1920×1080 viewport. Optional This TV only history separates local observation from provider activity. Automatic title matches cannot certify provider episode/deep-link metadata; explicit corrections remain deliberate. Different picks uses the full ranked local pool with bounded nonrepeat selection and eligibility-safe Undo. Initial partial catalogs can fill before selection settles.

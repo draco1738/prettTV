@@ -13,6 +13,26 @@ class ViewingHistoryRepositoryTest {
         excluded:Set<String> = emptySet(),epoch:Long=SettingsBackupGuard.generation)=
         ContentRepository.selectViewingHistory(history,rows,local,available,excluded,epoch)
 
+    private fun automaticallyObserved(type:String):List<Program> {
+        val history=PlaybackHistory(HistoryPreferences())
+        val provider=a.copy(mediaType=type,intentUri="netflix://shared-episode",position=300_000)
+        history.merge(listOf(provider))
+        val matched=history.match(provider.packageName,listOf(provider.title))!!
+        assertEquals(type,matched.mediaType)
+        assertTrue(PlaybackObservation.record(history,matched,15_000,45_000,600_000,{ 123L }))
+        val rows=select(history,listOf(provider))
+        assertEquals(1,rows.size)
+        assertEquals("",rows.single().intentUri)
+        assertEquals(45_000L,rows.single().position)
+        return rows
+    }
+    @Test fun automaticSeriesStillAppearsInShowsRow() {
+        assertEquals(1,automaticallyObserved("series").filter { it.mediaType=="series" }.size)
+    }
+    @Test fun automaticMovieStillAppearsInMoviesRow() {
+        assertEquals(1,automaticallyObserved("movie").filter { it.mediaType=="movie" }.size)
+    }
+
     @Test fun noLocalHistoryMeansNoInferredServicesOrRecommendedHeroButDiscoveryRemains() {
         val rows=select(PlaybackHistory(HistoryPreferences()),listOf(a,b))
         assertTrue(rows.isEmpty());assertTrue(RecommendationPolicy.inferredServices(rows).isEmpty())

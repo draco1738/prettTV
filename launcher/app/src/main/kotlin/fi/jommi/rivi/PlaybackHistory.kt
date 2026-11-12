@@ -34,13 +34,20 @@ class PlaybackHistory internal constructor(private val prefs:android.content.Sha
         return p.copy(engagedAt=recency,position=position,duration=duration,
             detail=p.detail.replace(Regex(" · [0-9]+ min left$"),"")+extra)
     }
+    private fun compatibleTitle(local:Program,provider:Program)=key(local)==key(provider) &&
+        (local.imdbId.isBlank() || provider.imdbId.isBlank() || local.imdbId==provider.imdbId) &&
+        (local.releaseYear==0 || provider.releaseYear==0 || local.releaseYear==provider.releaseYear)
+    /** Repair old title-only snapshots without importing provider episode/progress evidence. */
+    private fun withKnownMediaType(local:Program,provider:Program):Program =
+        if(local.mediaType !in setOf("series","movie") && provider.mediaType in setOf("series","movie") && compatibleTitle(local,provider))
+            local.copy(mediaType=provider.mediaType) else local
     /** Legacy local positions do not establish the provider's current episode or deep link. */
     private fun localSnapshot(record:JSONObject):Program? {
         val p=program(record);val k=key(p)
         if(prefs.getLong("played:$k",0)<=0 || p.title.isBlank() || p.packageName.isBlank())return null
         val saved=record.optJSONObject("localSnapshot")?.let(::program)?.takeIf { key(it)==k }
         val base=saved ?: p.copy(detail=p.app,intentUri="")
-        return withProgress(base,prefs.getLong("position:$k",0).coerceAtLeast(0),
+        return withProgress(withKnownMediaType(base,p),prefs.getLong("position:$k",0).coerceAtLeast(0),
             prefs.getLong("duration:$k",0).coerceAtLeast(0),prefs.getLong("played:$k",0))
     }
     private fun encodeKnown(records:Collection<JSONObject>):String {
@@ -67,7 +74,7 @@ class PlaybackHistory internal constructor(private val prefs:android.content.Sha
             // Keep the latest raw sample and a stable progress anchor, so repeated subsecond
             // publications can accumulate a meaningful change instead of resetting forever.
             val record=json(p).put("providerProgressBaseline",json(if(k in changed || prior==null || prior.optBoolean("providerAbsent"))p else progressBaseline(prior)))
-            localSnapshot(prior ?: record)?.let { local -> record.put("localSnapshot",json(local)) }
+            localSnapshot(prior ?: record)?.let { local -> record.put("localSnapshot",json(withKnownMediaType(local,p))) }
             records[k]=record
             val old=if(prefs.contains("baseline:$k"))prefs.getLong("baseline:$k",0) else null
             val baseline=old ?: ProviderPlaybackPolicy.lateBaseline(p,cutoff,now,initialImport) ?: PlaybackPolicy.baseline(p.engagedAt,cutoff,null)
@@ -88,16 +95,14 @@ class PlaybackHistory internal constructor(private val prefs:android.content.Sha
             localSnapshot(record)?.let { local ->
                 val provider=program(record)
                 // Artwork may enrich a matching title; episode text and deep links stay local.
-                val compatible=(local.imdbId.isBlank() || provider.imdbId.isBlank() || local.imdbId==provider.imdbId) &&
-                    (local.releaseYear==0 || provider.releaseYear==0 || local.releaseYear==provider.releaseYear)
-                if(compatible)local.copy(art=provider.art.ifBlank { local.art },posterArt=provider.posterArt.ifBlank { local.posterArt }) else local
+                if(compatibleTitle(local,provider))local.copy(art=provider.art.ifBlank { local.art },posterArt=provider.posterArt.ifBlank { local.posterArt }) else local
             }
         }
         ContentPolicy.chronological(selected)
     } }
     /** A title association is not episode equivalence, even when session text names an episode. */
     private fun titleOnly(p:Program)=Program(id="local:${key(p)}",title=p.title,detail=p.app,
-        art=p.art,packageName=p.packageName,app=p.app,watchingSource=true,posterArt=p.posterArt)
+        art=p.art,packageName=p.packageName,app=p.app,watchingSource=true,posterArt=p.posterArt,mediaType=p.mediaType)
 
     /** Deliberate user correction: the selected row's metadata and progress are accepted explicitly. */
     fun confirm(p:Program,position:Long=p.position,duration:Long=p.duration,eventAt:Long=System.currentTimeMillis(),

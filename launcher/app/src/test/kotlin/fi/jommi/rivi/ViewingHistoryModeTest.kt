@@ -265,6 +265,61 @@ class ViewingHistoryModeTest {
         assertEquals(original.art,conflict.art);assertEquals(original.imdbId,conflict.imdbId)
         assertEquals(original.releaseYear,conflict.releaseYear)
     }
+    @Test fun automaticObservationRetainsClassificationWhenNoProviderRowRemains() {
+        for(type in listOf("series","movie")) {
+            val prefs=HistoryPreferences();val history=PlaybackHistory(prefs)
+            val provider=sharedEpisode().copy(mediaType=type)
+            assertTrue(PlaybackObservation.record(history,provider,15_000,45_000,600_000,{ 123L }))
+            val result=PlaybackHistory(prefs).merge(emptyList(),mode=local).single()
+            assertEquals(type,result.mediaType);assertEquals("",result.intentUri)
+            assertEquals("First service · 9 min left",result.detail);assertEquals(45_000L,result.position)
+        }
+    }
+    @Test fun legacyUnknownClassificationRecoversAndPersistsWithoutBorrowingEpisodeEvidence() {
+        for(type in listOf("series","movie")) {
+            val prefs=HistoryPreferences();val history=PlaybackHistory(prefs)
+            val provider=sharedEpisode().copy(mediaType=type)
+            history.merge(listOf(provider))
+            // Recreate the saved shape produced by the previous title-only observer.
+            val saved=provider.copy(id="local:${key(provider)}",detail=provider.app,intentUri="",mediaType="unknown")
+            history.confirm(saved,45_000,600_000,123)
+            val played=prefs.getLong("played:${key(provider)}",0)
+            val repaired=history.merge(emptyList(),mode=local).single()
+            assertEquals(type,repaired.mediaType)
+            assertEquals(saved.id,repaired.id);assertEquals("",repaired.intentUri)
+            assertEquals("First service · 9 min left",repaired.detail)
+            assertEquals(45_000L,repaired.position);assertEquals(600_000L,repaired.duration)
+            assertEquals(played,repaired.engagedAt);assertEquals(123L,prefs.getLong("event:${key(provider)}",0))
+            val stored=org.json.JSONArray(prefs.getString("known","[]")).getJSONObject(0).getJSONObject("localSnapshot")
+            assertEquals(type,stored.getString("type"))
+            assertEquals(repaired,PlaybackHistory(prefs).merge(emptyList(),mode=local).single())
+        }
+    }
+    @Test fun newlyAvailableProviderClassificationRepairsAnOlderUnknownSnapshot() {
+        val prefs=HistoryPreferences();val history=PlaybackHistory(prefs)
+        val unknown=a.copy(mediaType="unknown",detail=a.app,intentUri="")
+        history.merge(listOf(unknown));history.confirm(unknown,45_000,600_000,123)
+        val repaired=history.merge(listOf(a.copy(mediaType="movie",intentUri="shared://new-episode",position=500_000)),mode=local).single()
+        assertEquals("movie",repaired.mediaType);assertEquals("",repaired.intentUri);assertEquals(45_000L,repaired.position)
+        assertEquals("movie",PlaybackHistory(prefs).merge(emptyList(),mode=local).single().mediaType)
+    }
+    @Test fun classificationRepairRejectsConflictingTitleIdentityAndUnclassifiedProviders() {
+        val unknown=a.copy(mediaType="unknown",imdbId="tt1234567",releaseYear=2020)
+        val candidates=listOf(unknown.copy(mediaType="movie",imdbId="tt7654321"),
+            unknown.copy(mediaType="series",releaseYear=2026),unknown,unknown.copy(mediaType="clip"))
+        for(provider in candidates) {
+            val history=PlaybackHistory(HistoryPreferences())
+            history.merge(listOf(unknown));history.confirm(unknown,45_000,600_000,123)
+            val result=history.merge(listOf(provider),mode=local).single()
+            assertEquals("unknown",result.mediaType);assertEquals(45_000L,result.position)
+            assertEquals(unknown.imdbId,result.imdbId);assertEquals(unknown.releaseYear,result.releaseYear)
+        }
+    }
+    @Test fun knownLocalClassificationSurvivesProviderReclassification() {
+        val history=PlaybackHistory(HistoryPreferences())
+        history.merge(listOf(a));history.confirm(a,45_000,600_000,123)
+        assertEquals("series",history.merge(listOf(a.copy(mediaType="movie")),mode=local).single().mediaType)
+    }
     @Test fun noSnapshotWithoutPositiveLocalEvidenceCanCreateHistory() {
         val prefs=HistoryPreferences();val history=PlaybackHistory(prefs)
         history.confirm(a)
